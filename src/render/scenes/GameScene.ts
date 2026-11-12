@@ -16,6 +16,8 @@ export class GameScene extends Scene {
   private testApi: TestApi | undefined;
   /** Timestamp of the previous frame, in milliseconds. */
   private lastFrameTime: number | undefined;
+  /** Sum of all (capped) frame times processed so far, in milliseconds. */
+  private elapsedTotal = 0;
 
   constructor(private readonly options: GameSceneOptions) {
     super('Game');
@@ -31,6 +33,7 @@ export class GameScene extends Scene {
     if (this.options.testMode) {
       const camera = this.cameras.main;
       this.testApi = installTestApi({
+        getElapsedMs: () => this.elapsedTotal,
         getCamera: () => ({
           x: camera.scrollX,
           y: camera.scrollY,
@@ -55,6 +58,7 @@ export class GameScene extends Scene {
         ? 0
         : Math.min(time - this.lastFrameTime, CAMERA_CONFIG.maxFrameMs);
     this.lastFrameTime = time;
+    this.elapsedTotal += elapsed;
 
     this.cameraController.update(elapsed);
     // Ready once the first frame has been simulated with the scene fully built.

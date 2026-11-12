@@ -20,10 +20,17 @@ export interface TestApi {
   ready: boolean;
   /** Current camera state. */
   readonly camera: TestCameraInfo;
+  /**
+   * Total frame time, in milliseconds, the game has processed so far. Long
+   * frames are capped, so on a slow machine this runs slower than the wall
+   * clock. Tests measure speeds against this instead of real time.
+   */
+  readonly elapsedMs: number;
 }
 
 export interface TestApiSource {
   getCamera(): TestCameraInfo;
+  getElapsedMs(): number;
 }
 
 declare global {
@@ -37,6 +44,9 @@ export function installTestApi(source: TestApiSource): TestApi {
     ready: false,
     get camera() {
       return source.getCamera();
+    },
+    get elapsedMs() {
+      return source.getElapsedMs();
     },
   };
   window.__TEST__ = api;

@@ -97,6 +97,14 @@ URL-parametrar:
 | `camera.x`, `camera.y` | Världskoordinat för bildens övre vänstra hörn |
 | `camera.width`, `camera.height` | Bildens storlek i pixlar |
 | `camera.centerTile` | Rutkoordinat (decimal) för punkten mitt i bilden |
+| `elapsedMs` | Summan av all bildrutetid spelet har bearbetat (varje bildruta högst 100 ms). Går långsammare än väggklockan på en långsam maskin |
+
+Webbläsartester som mäter fart jämför mot `elapsedMs`, inte mot verklig tid
+(`measurePanSpeed` i `tests/e2e/helpers.ts`). Då beror resultatet inte på
+maskinens bildfrekvens.
+
+`E2E_CPU_THROTTLE=8 npm run e2e` bromsar webbläsaren åtta gånger, för att
+återskapa de låga bildfrekvenserna på CI-maskiner.
 
 Enhetstester ligger bredvid koden som `*.test.ts` under `src/` och körs med
 Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
@@ -106,6 +114,7 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | Fas | Beslut | Skäl |
 |---|---|---|
 | 1 | Använd verklig tid mellan bildrutor, inte Phasers `delta` | Phaser begränsar `delta` till 1/60 s under de första 120 bildrutorna och när sidan saknar fokus. Vid låg bildfrekvens gick kameran då för långsamt (300 i stället för 900 px/s vid 20 bilder/s). **Gäller även simuleringens tidssteg i fas 2.** |
+| 1 | Webbläsartester mäter fart mot spelets egen tid (`elapsedMs`) | Varje bildruta begränsas till 100 ms. På GitHub-maskinerna tar en bildruta 100–250 ms, så mätt mot väggklockan gick kameran långsammare än 900 px/s och testerna fallerade ibland. |
 | 1 | Kameran begränsas via bildens mittpunkt, inte via kartans omslutande rektangel | Kartan är en romb. Med en rektangel som gräns visade hörnen nästan bara tomrum. |
 | 1 | TypeScript 6.0 i stället för 7 | typescript-eslint kräver TypeScript < 6.1. |
 | 1 | `@playwright/test` låst till 1.63.0 | Samma version som den förinstallerade webbläsaren i Claudes molnmiljö. CI installerar matchande Chromium själv. |

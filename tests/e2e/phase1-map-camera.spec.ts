@@ -1,6 +1,13 @@
 import { expect, test } from '@playwright/test';
 import { MAP_CONFIG } from '../../src/data/map';
-import { expectCameraOnMap, getCamera, openGame, trackConsoleErrors } from './helpers';
+import { CAMERA_CONFIG } from '../../src/data/camera';
+import {
+  expectCameraOnMap,
+  getCamera,
+  measurePanSpeed,
+  openGame,
+  trackConsoleErrors,
+} from './helpers';
 
 test.describe('phase 1: scrollable isometric map', () => {
   test('starts without console errors and reports ready', async ({ page }) => {
@@ -35,28 +42,38 @@ test.describe('phase 1: scrollable isometric map', () => {
     await page.waitForTimeout(500);
     await page.keyboard.up('ArrowRight');
 
-    // 500 ms at 900 px/s is 450 px; allow for frame timing.
+    // How far depends on the machine's frame rate; the speed is tested below.
     const after = await getCamera(page);
-    expect(after.x).toBeGreaterThan(before.x + 300);
-    expect(after.x).toBeLessThan(before.x + 650);
+    expect(after.x).toBeGreaterThan(before.x + 50);
     expect(after.y).toBeCloseTo(before.y, 3);
   });
 
-  test('WASD pans the camera', async ({ page }) => {
-    await openGame(page);
-    const before = await getCamera(page);
+  // Each key is measured on its own from the middle of the map, so the camera
+  // does not reach the map edge while the speed is being measured.
+  const speed = CAMERA_CONFIG.keyPanSpeed;
+  const panKeys = [
+    { key: 'ArrowRight', x: speed, y: 0 },
+    { key: 'ArrowLeft', x: -speed, y: 0 },
+    { key: 'ArrowDown', x: 0, y: speed },
+    { key: 'ArrowUp', x: 0, y: -speed },
+    { key: 'd', x: speed, y: 0 },
+    { key: 'a', x: -speed, y: 0 },
+    { key: 's', x: 0, y: speed },
+    { key: 'w', x: 0, y: -speed },
+  ] as const;
 
-    await page.keyboard.down('a');
-    await page.keyboard.down('w');
-    await page.waitForTimeout(300);
-    await page.keyboard.up('a');
-    await page.keyboard.up('w');
+  for (const { key, x, y } of panKeys) {
+    test(`the ${key} key pans at ${speed} px/s`, async ({ page }) => {
+      await openGame(page);
 
-    const after = await getCamera(page);
-    // 300 ms at 900 px/s is 270 px.
-    expect(after.x).toBeLessThan(before.x - 150);
-    expect(after.y).toBeLessThan(before.y - 150);
-  });
+      await page.keyboard.down(key);
+      const measured = await measurePanSpeed(page);
+      await page.keyboard.up(key);
+
+      expect(measured.x).toBeCloseTo(x, 0);
+      expect(measured.y).toBeCloseTo(y, 0);
+    });
+  }
 
   // Panning in one direction ends in the map corner that lies in that direction.
   const directions = [
@@ -91,18 +108,18 @@ test.describe('phase 1: scrollable isometric map', () => {
     const before = await getCamera(page);
 
     // Resting in the middle of the screen does nothing.
-    await page.waitForTimeout(200);
-    expect((await getCamera(page)).x).toBeCloseTo(before.x, 3);
+    await page.waitForTimeout(300);
+    const resting = await getCamera(page);
+    expect(resting.x).toBeCloseTo(before.x, 3);
+    expect(resting.y).toBeCloseTo(before.y, 3);
 
-    await page.mouse.move(viewport.width - 5, viewport.height / 2);
-    await page.waitForTimeout(500);
+    // Inside the margin at the right edge the camera pans right.
+    await page.mouse.move(viewport.width - CAMERA_CONFIG.edgePanMargin / 2, viewport.height / 2);
+    const measured = await measurePanSpeed(page);
     await page.mouse.move(viewport.width / 2, viewport.height / 2);
 
-    // 500 ms at 900 px/s is 450 px; allow for frame timing.
-    const after = await getCamera(page);
-    expect(after.x).toBeGreaterThan(before.x + 300);
-    expect(after.x).toBeLessThan(before.x + 650);
-    expect(after.y).toBeCloseTo(before.y, 3);
+    expect(measured.x).toBeCloseTo(CAMERA_CONFIG.edgePanSpeed, 0);
+    expect(measured.y).toBeCloseTo(0, 0);
   });
 
   test('dragging with the middle mouse button moves the map with the pointer', async ({ page }) => {

@@ -74,7 +74,7 @@ Mall – kopiera för varje avslutad fas:
 | Vitest: ruta → skärm → ruta för alla hörn och mittpunkten | Godkänt (testar dessutom alla 4096 rutor) |
 | Vitest: skärmpunkt mitt i en romb ger rätt ruta | Godkänt |
 | Playwright: laddar utan konsolfel, `ready` blir sant | Godkänt |
-| Playwright: högerpil i 500 ms ökar kamerans x | Godkänt (300–650 px, förväntat 450) |
+| Playwright: högerpil i 500 ms ökar kamerans x | Godkänt. Farten (900 px/s) testas separat för varje tangent mot spelets egen tid |
 | Playwright: kameran lämnar inte kartan efter 10 s panorering | Godkänt, i alla fyra riktningar |
 | CI grön på pull requesten | Godkänt (lint, Vitest, bygge och Playwright på GitHub Actions) |
 | Pages-adressen visar kartan efter merge | Återstår: kräver merge och att Pages är påslaget |
@@ -105,7 +105,7 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
 
 **Testresultat**
 - Vitest: 20 av 20
-- Playwright: 12 av 12 (körda två gånger i rad utan fel)
+- Playwright: 19 av 19, även med webbläsaren nedbromsad 8 och 16 gånger
 - Lint och typkontroll: utan anmärkning
 - Konsolfel i headless-webbläsare: inga (WebGL-renderare)
 
@@ -115,6 +115,14 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   kameran därför med 300 px/s i stället för 900. Kameran räknar nu på verklig
   tid mellan bildrutor. Simuleringens tidssteg i fas 2 måste göra likadant.
 - Kartrutorna ritas med en Blitter: 4096 rutor i ett ritanrop.
+- CI gick igenom en gång och fallerade nästa, utan kodändring emellan. Två
+  tester mätte kamerans fart mot väggklockan. GitHub-maskinerna ritar
+  långsammare än 10 bilder/s, och eftersom varje bildruta räknas som högst
+  100 ms gick kameran då långsammare i verklig tid (180 och 270 px på 500 ms
+  i stället för 450). Felet återskapades lokalt med nedbromsad webbläsare.
+  Testerna mäter nu fart mot spelets egen tid (`__TEST__.elapsedMs`).
+  Tester i kommande faser ska stega simuleringen i stället för att vänta
+  på verklig tid.
 
 ## Kända problem
 
