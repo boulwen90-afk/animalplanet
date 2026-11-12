@@ -13,7 +13,7 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | Fas | Innehåll | Status | PR |
 |---|---|---|---|
 | 0 | Planeringsdokument | Godkänd 2026-11-12 | – |
-| 1 | Projektuppsättning, deploy, scrollbar karta | Klar, väntar på merge | Se fasloggen |
+| 1 | Projektuppsättning, deploy, scrollbar karta | Klar, väntar på merge | [#1](https://github.com/boulwen90-afk/animalplanet/pull/1) |
 | 2 | Simuleringskärna och terräng | Ej påbörjad | – |
 | 3 | Enheter, markering, förflyttning | Ej påbörjad | – |
 | 4 | Resurser och insamling | Ej påbörjad | – |
@@ -51,6 +51,8 @@ Mall – kopiera för varje avslutad fas:
 -->
 
 ### Fas 1 – Projektuppsättning, deploy och scrollbar karta (2026-11-12)
+
+**PR:** https://github.com/boulwen90-afk/animalplanet/pull/1
 
 **Skärmdumpar:** `docs/screenshots/fas-1.png` (kartans mitt),
 `docs/screenshots/fas-1-kartkant.png` (kameran stannad vid kartans övre hörn)
