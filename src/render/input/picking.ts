@@ -1,5 +1,5 @@
 import { BUILDING_DEFS } from '../../data/buildings';
-import { buildingCentre, isBuilding, isUnit } from '../../sim/entities';
+import { buildingCentre, hasSurrendered, isBuilding, isUnit } from '../../sim/entities';
 import type { GameMap } from '../../sim/map/grid';
 import {
   tileCenterToWorld,
@@ -81,7 +81,7 @@ function isOnBuilding(building: Building, world: Point, size: TileSize): boolean
   return false;
 }
 
-/** A player's units whose circles have their centre inside a world rectangle. */
+/** A player's units, apart from surrendered ones, whose centre is inside a world rectangle. */
 export function unitsInRect(
   entities: readonly Entity[],
   rect: WorldRect,
@@ -89,7 +89,8 @@ export function unitsInRect(
   size: TileSize,
 ): Unit[] {
   return entities.filter(isUnit).filter((unit) => {
-    if (unit.owner !== owner) return false;
+    // Units that have surrendered no longer take orders, so the box leaves them out.
+    if (unit.owner !== owner || hasSurrendered(unit)) return false;
     const centre = unitVisualCentre(unit, unit.x, unit.y, size);
     return (
       centre.x >= rect.x &&

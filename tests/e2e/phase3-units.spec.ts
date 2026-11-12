@@ -80,7 +80,7 @@ test.describe('phase 3: units, selection and movement', () => {
     expect(await page.evaluate(() => window.__TEST__!.getHud())).toEqual({
       visible: true,
       title: 'Samlare',
-      detail: `HP ${UNIT_DEFS.samlare.hp}/${UNIT_DEFS.samlare.hp}`,
+      detail: `Liv ${UNIT_DEFS.samlare.hp}/${UNIT_DEFS.samlare.hp}`,
     });
   });
 

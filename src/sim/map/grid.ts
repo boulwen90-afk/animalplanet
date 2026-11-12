@@ -1,5 +1,20 @@
 import { TERRAIN_DEFS, type Terrain } from '../../data/terrain';
+import type { UnitType } from '../../data/types';
 import type { MapSize, Point } from './iso';
+
+/** A cave where one side's defeated units take refuge. See GDD section 15. */
+export interface Cave {
+  id: number;
+  /** The side whose units flee here. */
+  owner: number;
+  /** Tile of the cave entrance. */
+  x: number;
+  y: number;
+  /** Types of the units inside, in the order they arrived. */
+  occupants: UnitType[];
+  /** Places held for units that have surrendered and are on their way here. */
+  reserved: number;
+}
 
 /** The tile map. Terrain is stored row by row: index = y * width + x. */
 export interface GameMap {
@@ -10,6 +25,8 @@ export interface GameMap {
   resourceAmount: number[];
   /** Tile where each side's main building stands. Index 0 is the player, 1 the opponent. */
   startPositions: Point[];
+  /** Every cave on the map. Each also has terrain 'cave' on its tile. */
+  caves: Cave[];
 }
 
 export function tileIndex(x: number, y: number, map: MapSize): number {

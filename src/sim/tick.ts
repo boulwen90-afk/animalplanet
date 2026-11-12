@@ -1,17 +1,23 @@
 import type { GameState } from './state';
+import { resolveCombat } from './systems/combat';
 import { constructBuildings } from './systems/construction';
 import { gatherResources } from './systems/gathering';
 import { moveUnits } from './systems/movement';
 import { produceUnits } from './systems/production';
+import { resolveSurrenders } from './systems/surrender';
 
 /**
  * Advances the game by one simulation step. The systems always run in the
- * same order; later phases add combat and so on.
+ * same order. Once a side has won, the game stands still.
  */
 export function tick(state: GameState): void {
+  if (state.winner !== null) return;
+  state.events = [];
   produceUnits(state);
   constructBuildings(state);
   gatherResources(state);
+  resolveCombat(state);
+  resolveSurrenders(state);
   moveUnits(state);
   state.tick++;
 }

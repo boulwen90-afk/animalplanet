@@ -9,6 +9,8 @@ export const TERRAIN_DEFS: Record<Terrain, { walkable: boolean; resource?: Resou
   berries: { walkable: false, resource: 'food' },
   rock: { walkable: false },
   water: { walkable: false },
+  /** The entrance of a cave where defeated units take refuge. See GDD section 15. */
+  cave: { walkable: false },
 };
 
-export type Terrain = 'grass' | 'tree' | 'berries' | 'rock' | 'water';
+export type Terrain = 'grass' | 'tree' | 'berries' | 'rock' | 'water' | 'cave';

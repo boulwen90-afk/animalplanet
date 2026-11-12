@@ -25,6 +25,7 @@ export function createUnit(
     task: { kind: 'idle' },
     carryType: null,
     carryAmount: 0,
+    attackCooldown: 0,
   };
   state.entities.push(unit);
   return unit;
@@ -118,9 +119,22 @@ export function nearestBuildingTile(building: Building, tileX: number, tileY: nu
   };
 }
 
-/** Number of units a side has. */
+/** True if a unit has surrendered and is on its way to a cave. */
+export function hasSurrendered(unit: Unit): boolean {
+  return unit.task.kind === 'flee';
+}
+
+/** Number of units a side has. Units that have surrendered no longer count. */
 export function populationOf(state: GameState, owner: PlayerId): number {
-  return state.entities.filter((entity) => isUnit(entity) && entity.owner === owner).length;
+  return state.entities.filter(
+    (entity) => isUnit(entity) && entity.owner === owner && !hasSurrendered(entity),
+  ).length;
+}
+
+/** Removes an entity from the game. */
+export function removeEntity(state: GameState, id: number): void {
+  const index = state.entities.findIndex((entity) => entity.id === id);
+  if (index >= 0) state.entities.splice(index, 1);
 }
 
 /**

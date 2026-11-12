@@ -11,9 +11,12 @@ import {
   type TileSize,
 } from '../../sim/map/iso';
 import type { GameState, PlayerId } from '../../sim/state';
+import { isAttackable } from '../../sim/systems/combat';
 import type { SelectionView } from '../views/SelectionView';
+import { ATTACK_COLOR } from '../views/visuals';
 import { pickEntity, pickResourceTile, rectFromPoints, unitsInRect } from './picking';
 import {
+  attackerUnitIds,
   builderUnitIds,
   commandableUnitIds,
   gathererUnitIds,
@@ -45,8 +48,8 @@ interface Drag {
 /**
  * Mouse and keyboard selection and orders:
  * left click selects, left drag draws a selection box, Shift adds to the
- * selection, Esc clears it, and right click orders the selected units to
- * gather from the resource under the pointer or else to move there.
+ * selection, Esc clears it, and right click gives the selected units an
+ * order that depends on what is under the pointer.
  * Touch input is not handled here yet; one finger pans the camera.
  */
 export class SelectionController {
@@ -136,8 +139,8 @@ export class SelectionController {
 
   /**
    * Gives the selected units of the player an order for what is under the
-   * pointer: help build an unfinished building, gather from a resource
-   * source, or otherwise walk to the tile.
+   * pointer: attack an enemy, help build an unfinished building, gather from
+   * a resource source, or otherwise walk to the tile.
    */
   private giveOrder(pointer: Input.Pointer): void {
     const state = this.deps.getState();
@@ -146,8 +149,21 @@ export class SelectionController {
     if (unitIds.length === 0) return;
     const world = this.worldPoint(pointer);
 
-    // An unfinished building of the player's own: help build it.
     const hit = pickEntity(state.entities, world, tileSize);
+
+    // An enemy unit or building: attack it.
+    if (hit && isAttackable(hit, player)) {
+      const attackers = attackerUnitIds(this.selected, state.entities, player);
+      if (attackers.length > 0) {
+        this.deps.issue({ type: 'attack', player, unitIds: attackers, targetId: hit.id });
+        const at = hit.kind === 'building' ? buildingCentre(hit) : { x: hit.x, y: hit.y };
+        const mark = tileToWorld(at.x, at.y, tileSize);
+        this.deps.view.addOrderMarker(mark.x, mark.y, ATTACK_COLOR);
+        return;
+      }
+    }
+
+    // An unfinished building of the player's own: help build it.
     if (hit?.kind === 'building' && hit.owner === player && !hit.complete) {
       const builders = builderUnitIds(this.selected, state.entities, player, hit.type);
       if (builders.length > 0) {

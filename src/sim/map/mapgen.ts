@@ -30,7 +30,17 @@ export interface MapGenConfig {
   berryPatches: FeatureConfig;
   rocks: FeatureConfig;
   lakes: FeatureConfig;
+  caves: CaveGenConfig;
   maxAttempts: number;
+}
+
+export interface CaveGenConfig {
+  /** Number of caves each side gets. */
+  perSide: number;
+  minStartDistance: number;
+  maxStartDistance: number;
+  minSeparation: number;
+  edgeMargin: number;
 }
 
 type TilePredicate = (x: number, y: number) => boolean;
@@ -51,15 +61,76 @@ export function generateMap(rng: RngState, size: MapSize, config: MapGenConfig):
     const map = emptyMap(size, starts);
     if (!placeStartResources(rng, map, config)) continue;
     placeRandomFeatures(rng, map, config);
-    if (isReachable(map, starts[0], starts[1])) return withResources(map);
+    if (!isReachable(map, starts[0], starts[1])) continue;
+    if (placeCaves(rng, map, config)) return withResources(map);
   }
 
-  // Every random layout cut the map in two. Fall back to start resources only,
-  // which cannot separate the start positions.
+  // Every random layout cut the map in two or left no room for the caves.
+  // Fall back to start resources only, which cannot separate the start
+  // positions and leaves open ground everywhere else.
   for (;;) {
     const map = emptyMap(size, starts);
-    if (placeStartResources(rng, map, config)) return withResources(map);
+    if (placeStartResources(rng, map, config) && placeCaves(rng, map, config)) {
+      return withResources(map);
+    }
   }
+}
+
+/**
+ * Places each side's caves: for the first side on random open tiles within
+ * the configured distances of its start position, on its own half of the
+ * map, and for the second side on the mirror images. Every cave can be walked
+ * up to from its side's start position, and no cave cuts the map in two.
+ * Returns false if there was no room.
+ */
+function placeCaves(rng: RngState, map: GameMap, config: MapGenConfig): boolean {
+  const [home, away] = map.startPositions as [Point, Point];
+  const { perSide, minStartDistance, maxStartDistance, minSeparation, edgeMargin } = config.caves;
+  const placed: Point[] = [];
+
+  for (let n = 0; n < perSide; n++) {
+    const candidates: Point[] = [];
+    for (let y = edgeMargin; y < map.height - edgeMargin; y++) {
+      for (let x = edgeMargin; x < map.width - edgeMargin; x++) {
+        if (!isGrass(map, x, y)) continue;
+        const distance = tileDistance(x, y, home.x, home.y);
+        if (distance < minStartDistance || distance > maxStartDistance) continue;
+        // On the side's own half: nearer to its start position than to the other.
+        if (distance >= tileDistance(x, y, away.x, away.y)) continue;
+        if (placed.some((p) => tileDistance(x, y, p.x, p.y) < minSeparation)) continue;
+        candidates.push({ x, y });
+      }
+    }
+
+    let chosen: Point | undefined;
+    while (!chosen && candidates.length > 0) {
+      const [tile] = candidates.splice(nextInt(rng, 0, candidates.length - 1), 1) as [Point];
+      setSymmetric(map, tile.x, tile.y, 'cave');
+      const usable =
+        isReachable(map, home, away) &&
+        EDGE_NEIGHBOURS.some((step) =>
+          isReachable(map, home, { x: tile.x + step.x, y: tile.y + step.y }),
+        );
+      if (usable) chosen = tile;
+      else setSymmetric(map, tile.x, tile.y, 'grass');
+    }
+    if (!chosen) return false;
+    placed.push(chosen);
+  }
+
+  placed.forEach((tile, i) => {
+    const mirror = mirrorTile(tile.x, tile.y, map);
+    map.caves.push({ id: 2 * i + 1, owner: 0, x: tile.x, y: tile.y, occupants: [], reserved: 0 });
+    map.caves.push({
+      id: 2 * i + 2,
+      owner: 1,
+      x: mirror.x,
+      y: mirror.y,
+      occupants: [],
+      reserved: 0,
+    });
+  });
+  return true;
 }
 
 /** Gives every tree and berry bush its starting amount. */
@@ -92,6 +163,7 @@ function emptyMap(size: MapSize, starts: [Point, Point]): GameMap {
     height: size.height,
     terrain: new Array<Terrain>(size.width * size.height).fill('grass'),
     resourceAmount: [],
+    caves: [],
     startPositions: starts.map((p) => ({ ...p })),
   };
 }

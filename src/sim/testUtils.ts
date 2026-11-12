@@ -1,6 +1,7 @@
 import { START_CONFIG } from '../data/setup';
 import type { Terrain } from '../data/terrain';
 import { emptyState } from './game';
+import type { Cave } from './map/grid';
 import { initialResourceAmounts } from './resources';
 import type { GameState } from './state';
 
@@ -32,6 +33,7 @@ export function stateFromRows(rows: string[]): GameState {
       terrain,
       resourceAmount: initialResourceAmounts(terrain),
       startPositions: [],
+      caves: [],
     },
   );
   // Two sides, as in a real game, although the test map has no start positions.
@@ -42,4 +44,13 @@ export function stateFromRows(rows: string[]): GameState {
 /** An open grass map of the given size. */
 export function openState(width: number, height: number): GameState {
   return stateFromRows(Array.from({ length: height }, () => '.'.repeat(width)));
+}
+
+/** Puts a cave for a side on a tile of a test map. */
+export function addCave(state: GameState, owner: number, x: number, y: number): Cave {
+  const cave: Cave = { id: state.map.caves.length + 1, owner, x, y, occupants: [], reserved: 0 };
+  state.map.caves.push(cave);
+  state.map.terrain[y * state.map.width + x] = 'cave';
+  state.map.resourceAmount[y * state.map.width + x] = 0;
+  return cave;
 }

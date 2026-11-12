@@ -9,7 +9,7 @@ import type { RngState } from './rng';
 export type PlayerId = 0 | 1;
 
 /** What a unit is doing besides walking. */
-export type UnitTask = IdleTask | GatherTask | BuildTask;
+export type UnitTask = IdleTask | GatherTask | BuildTask | AttackTask | FleeTask;
 
 export interface IdleTask {
   kind: 'idle';
@@ -37,6 +37,33 @@ export interface BuildTask {
   buildingId: number;
 }
 
+/** Fighting a unit or building: walking up to it and striking until it is defeated. */
+export interface AttackTask {
+  kind: 'attack';
+  targetId: number;
+  /** Simulation steps until the unit may look for a new path to a target that has moved. */
+  repathTicks: number;
+}
+
+/**
+ * The unit has surrendered and is walking to a cave. It no longer fights,
+ * cannot be attacked or given orders, and does not count as population.
+ */
+export interface FleeTask {
+  kind: 'flee';
+  /** The cave it has a place in. */
+  caveId: number;
+}
+
+/** Something that happened during the latest simulation step, for the display to react to. */
+export type SimEvent =
+  | { type: 'hit'; attackerId: number; targetId: number; damage: number }
+  | { type: 'surrender'; unitId: number }
+  | { type: 'enterCave'; unitId: number; caveId: number }
+  | { type: 'vanish'; unitId: number }
+  | { type: 'buildingCollapsed'; buildingId: number; owner: PlayerId; x: number; y: number }
+  | { type: 'buildingAttacked'; buildingId: number; owner: PlayerId };
+
 /** What a side owns apart from its units and buildings. */
 export interface PlayerState {
   /** Resources in stock. Gathered resources count once they are delivered. */
@@ -61,6 +88,8 @@ export interface Unit {
   /** Kind and amount of resource the unit carries. The kind is kept when the amount is 0. */
   carryType: ResourceType | null;
   carryAmount: number;
+  /** Simulation steps until the unit may strike again. */
+  attackCooldown: number;
 }
 
 export interface Building {
@@ -102,4 +131,8 @@ export interface GameState {
   entities: Entity[];
   /** Id the next created entity gets. Ids are never reused. */
   nextEntityId: number;
+  /** The side that has won, once a main building has collapsed. The simulation then stops. */
+  winner: PlayerId | null;
+  /** What happened during the latest simulation step. Replaced every step. */
+  events: SimEvent[];
 }

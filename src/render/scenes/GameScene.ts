@@ -1,17 +1,19 @@
 import { Scene } from 'phaser';
 import { CAMERA_CONFIG } from '../../data/camera';
 import { MAP_CONFIG } from '../../data/map';
+import { STRINGS } from '../../data/strings';
+import { UI_CONFIG } from '../../data/ui';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG, TICK_MS } from '../../data/sim';
 import { consumeSteps, createStepClock } from '../../sim/clock';
 import { BUILDING_DEFS } from '../../data/buildings';
 import { applyCommand, type CommandResult } from '../../sim/commands';
-import { populationOf } from '../../sim/entities';
+import { createUnit, populationOf } from '../../sim/entities';
 import { missingResources } from '../../sim/economy';
 import { createGame } from '../../sim/game';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
-import type { GameState, PlayerId } from '../../sim/state';
-import { advance } from '../../sim/tick';
+import type { GameState, PlayerId, SimEvent } from '../../sim/state';
+import { tick } from '../../sim/tick';
 import { installTestApi, type TestApi } from '../../testing/testHooks';
 import { CameraController } from '../input/CameraController';
 import { PlacementController } from '../input/PlacementController';
@@ -24,6 +26,7 @@ import {
 } from '../ui/commandPanel';
 import { rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout';
 import { describeSelection, type SelectionInfo } from '../ui/selectionInfo';
+import { CaveView } from '../views/CaveView';
 import { EntityView } from '../views/EntityView';
 import { MapView } from '../views/MapView';
 import { PlacementView } from '../views/PlacementView';
@@ -47,6 +50,7 @@ export class GameScene extends Scene implements HudSource {
   private selectionController!: SelectionController;
   private placementController!: PlacementController;
   private mapView!: MapView;
+  private caveView!: CaveView;
   private entityView!: EntityView;
   private selectionView!: SelectionView;
   private testApi: TestApi | undefined;
@@ -54,6 +58,11 @@ export class GameScene extends Scene implements HudSource {
   private lastFrameTime: number | undefined;
   /** Sum of all (capped) frame times processed so far, in milliseconds. */
   private elapsedTotal = 0;
+  /** Game time until which the "base under attack" warning shows, and when it was last raised. */
+  private alertUntil = 0;
+  private lastAlertAt = -Infinity;
+  /** How many times the screen has shaken because a building collapsed. */
+  private shakeCount = 0;
 
   constructor(private readonly options: GameSceneOptions) {
     super('Game');
@@ -64,6 +73,7 @@ export class GameScene extends Scene implements HudSource {
     this.state = state;
 
     this.mapView = new MapView(this, state.map, MAP_CONFIG);
+    this.caveView = new CaveView(this, state.map, MAP_CONFIG);
     this.entityView = new EntityView(this, MAP_CONFIG);
     this.selectionView = new SelectionView(this);
 
@@ -111,7 +121,10 @@ export class GameScene extends Scene implements HudSource {
     this.elapsedTotal += elapsed;
 
     // The simulation runs in fixed steps, however long the frame took.
-    advance(state, consumeSteps(this.stepClock, elapsed, TICK_MS, SIM_CONFIG.maxTicksPerFrame));
+    this.runSteps(
+      state,
+      consumeSteps(this.stepClock, elapsed, TICK_MS, SIM_CONFIG.maxTicksPerFrame),
+    );
 
     this.cameraController.update(elapsed);
     this.selectionController.update();
@@ -120,11 +133,72 @@ export class GameScene extends Scene implements HudSource {
     // Draw units part-way into the next step, so movement looks smooth.
     const alpha = Math.min(this.stepClock.accumulatorMs / TICK_MS, 1);
     this.mapView.update(state.map);
-    this.entityView.update(state, alpha, this.selectionController.selection);
+    this.caveView.update(state.map);
+    this.entityView.update(state, alpha, this.selectionController.selection, this.elapsedTotal);
     this.selectionView.update(elapsed);
 
     // Ready once the first frame has been simulated with the scene fully built.
     if (this.testApi) this.testApi.ready = true;
+  }
+
+  /** Runs simulation steps one at a time, reacting to what happens in each. */
+  private runSteps(state: GameState, steps: number): void {
+    for (let i = 0; i < steps && state.winner === null; i++) {
+      tick(state);
+      for (const event of state.events) this.onSimEvent(state, event);
+    }
+  }
+
+  private onSimEvent(state: GameState, event: SimEvent): void {
+    switch (event.type) {
+      case 'hit':
+        this.entityView.showHit(state, event.attackerId, event.targetId);
+        break;
+      case 'buildingAttacked':
+        // Warn the player, but not more often than the cooldown allows.
+        if (
+          event.owner === LOCAL_PLAYER &&
+          this.elapsedTotal >= this.lastAlertAt + UI_CONFIG.alertCooldownMs
+        ) {
+          this.lastAlertAt = this.elapsedTotal;
+          this.alertUntil = this.elapsedTotal + UI_CONFIG.alertMs;
+        }
+        break;
+      case 'buildingCollapsed':
+        this.shakeIfOnScreen(event.x, event.y);
+        break;
+      default:
+        break;
+    }
+  }
+
+  /** Shakes the screen if the tile a building stood on is in view. */
+  private shakeIfOnScreen(tileX: number, tileY: number): void {
+    const camera = this.cameras.main;
+    const world = tileToWorld(tileX, tileY, MAP_CONFIG);
+    const inView =
+      world.x >= camera.scrollX &&
+      world.x <= camera.scrollX + camera.width &&
+      world.y >= camera.scrollY &&
+      world.y <= camera.scrollY + camera.height;
+    if (!inView) return;
+    this.shakeCount++;
+    // Phaser measures the shake as a share of the screen size.
+    camera.shake(UI_CONFIG.collapseShakeMs, UI_CONFIG.collapseShakePx / camera.width);
+  }
+
+  getAlert(): string | undefined {
+    return this.elapsedTotal < this.alertUntil ? STRINGS.hud.baseUnderAttack : undefined;
+  }
+
+  getOutcome(): 'victory' | 'defeat' | undefined {
+    const winner = this.state?.winner;
+    if (winner === null || winner === undefined) return undefined;
+    return winner === LOCAL_PLAYER ? 'victory' : 'defeat';
+  }
+
+  restart(): void {
+    window.location.reload();
   }
 
   getSelectionInfo(): SelectionInfo | undefined {
@@ -200,6 +274,8 @@ export class GameScene extends Scene implements HudSource {
 
   /** True if a screen position is on the resource bar, or on a panel that is showing. */
   private isOverHud(x: number, y: number): boolean {
+    // The end-of-game screen covers everything.
+    if (this.state?.winner !== null) return true;
     const { width, height } = this.scale;
     if (rectContains(resourceBarRect(width), x, y)) return true;
     if (this.selectionController.selection.size === 0) return false;
@@ -221,7 +297,11 @@ export class GameScene extends Scene implements HudSource {
     this.testApi = installTestApi({
       getElapsedMs: () => this.elapsedTotal,
       getState: () => structuredClone(state),
-      advance: (steps) => advance(state, steps),
+      advance: (steps) => this.runSteps(state, steps),
+      spawnUnit: (type, owner, tileX, tileY) => createUnit(state, type, owner, tileX, tileY).id,
+      getAlert: () => (this.scene.get('Ui') as UiScene).getAlertDisplay(),
+      getOutcome: () => (this.scene.get('Ui') as UiScene).getOutcomeDisplay(),
+      getShakeCount: () => this.shakeCount,
       command: (command) => applyCommand(state, command),
       getSelection: () => [...this.selectionController.selection],
       getHud: () => (this.scene.get('Ui') as UiScene).getDisplay(),

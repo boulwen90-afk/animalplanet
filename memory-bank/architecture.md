@@ -4,7 +4,7 @@ Beskriver hur koden **faktiskt** är uppbyggd. Uppdateras efter varje
 avslutad fas. Planerad arkitektur står i `tech-stack.md`; det här dokumentet
 beskriver bara det som finns i repot.
 
-Senast uppdaterad: fas 6.
+Senast uppdaterad: fas 7.
 
 ## Översikt
 
@@ -17,10 +17,11 @@ Tre lager, med beroenden bara nedåt i listan:
 ESLint stoppar import av Phaser, `render/` och `testing/` i `src/sim/`, liksom
 `window`, `document`, `Math.random` och `Date.now` där.
 
-Efter fas 6 finns enheter och byggnader i simuleringen, vägsökning,
-förflyttning, resursinsamling, enhetsproduktion och byggande via kommandon,
-lager per sida, samt markering, markeringspanel, resursrad, kommandopanel
-och byggplacering i gränssnittet. Strid, krigsdimma och AI saknas ännu.
+Efter fas 7 går en hel match att spela: enheter och byggnader, vägsökning,
+förflyttning, resursinsamling, produktion, byggande, strid, kapitulation
+till grottor samt vinst och förlust. Gränssnittet har markering, paneler,
+resursrad, byggplacering, varningstext och slutskärm. Motståndaren är
+passiv; krigsdimma och AI saknas ännu.
 
 Allt som ändrar spelet går via `applyCommand`. Markeringen (vilka enheter
 som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
@@ -32,26 +33,29 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 |---|---|---|
 | `index.html` | Sida med `#game`-behållare i helskärm | 1 |
 | `src/main.ts` | Läser `?test=1` och `?seed=N`, startar Phaser med `GameScene` | 1, 2 |
-| `src/data/map.ts` | `MAP_CONFIG` (kartstorlek, rutstorlek) och `MAP_GEN_CONFIG` (kartgenerering, standardfrö) | 1, 2 |
+| `src/data/map.ts` | `MAP_CONFIG` (kartstorlek, rutstorlek), `MAP_GEN_CONFIG` (kartgenerering, standardfrö, grottornas placering) och `CAVE_CONFIG` (platser per grotta, byggförbud) | 1, 2, 7 |
 | `src/data/camera.ts` | `CAMERA_CONFIG`: panoreringsfart, kantmarginal, längsta bildrutetid | 1 |
 | `src/data/sim.ts` | `SIM_CONFIG`: steg per sekund, flest steg per bildruta. `TICK_MS` | 2 |
 | `src/data/terrain.ts` | `TERRAIN_DEFS`: terrängtyper, om de är gångbara och vilken resurs de ger. Typen `Terrain` | 2, 4 |
 | `src/data/resources.ts` | `RESOURCE_DEFS` (mängd per källa), `GATHER_CONFIG` (sökradie). Typerna `ResourceType` och `Cost` | 4, 6 |
 | `src/data/types.ts` | Namnen på enhets- och byggnadstyper (`UnitType`, `BuildingType`) | 6 |
-| `src/data/units.ts` | `UNIT_DEFS`: enhetstyper (kostnad, träningstid, HP, fart, bärförmåga, insamlingstakt, vad de kan bygga) | 3, 4, 5, 6 |
+| `src/data/units.ts` | `UNIT_DEFS`: enhetstyper (kostnad, träningstid, liv, fart, bärförmåga, insamlingstakt, vad de kan bygga, skada, rustning, slagtakt, upptäcktsradie). `COMBAT_CONFIG` | 3, 4, 5, 6, 7 |
 | `src/data/buildings.ts` | `BUILDING_DEFS`: byggnadstyper (vad de tränar, HP, storlek, avlämningsplats, kostnad, byggtid). `CONSTRUCTION_CONFIG` (start-HP, extra arbetares takt) | 3, 4, 5, 6 |
 | `src/data/production.ts` | `PRODUCTION_CONFIG`: längsta produktionskö | 5 |
 | `src/data/setup.ts` | `START_CONFIG`: startbyggnad, startenheter, startresurser, befolkningstak | 3, 4 |
-| `src/data/ui.ts` | `UI_CONFIG`: dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order | 3, 5 |
+| `src/data/ui.ts` | `UI_CONFIG`: dragtröskel, orderring, blinktid vid nekad order, träffblink, utfall, bortoning, skärmskakning, varningstid | 3, 5, 7 |
 | `src/data/strings.ts` | `STRINGS`: all speltext | 3 |
-| `src/sim/state.ts` | Typerna `GameState`, `PlayerState`, `Unit`, `UnitTask`, `Building`, `Entity`, `PlayerId` | 2, 3, 4 |
+| `src/sim/state.ts` | Typerna `GameState`, `PlayerState`, `Unit`, `UnitTask`, `Building`, `Entity`, `PlayerId`, `SimEvent` | 2, 3, 4, 7 |
 | `src/sim/game.ts` | `createGame(seed)`: skapar ett nytt speltillstånd med karta, Storide och Samlare per sida | 2, 3 |
 | `src/sim/tick.ts` | `tick(state)` och `advance(state, steps)` | 2, 3 |
 | `src/sim/entities.ts` | Skapa och slå upp enheter och byggnader, byggnaders rutor och mittpunkt | 3 |
 | `src/sim/commands.ts` | Typerna `Command` och `CommandResult`, och `applyCommand` | 3, 4, 5 |
 | `src/sim/economy.ts` | Kostnader: vad som saknas, betala, återbetala | 5 |
 | `src/sim/systems/production.ts` | `produceUnits` (träning), `queueUnit`, `cancelQueuedUnit` | 5 |
-| `src/sim/systems/construction.ts` | `constructBuildings` (byggande), `canPlaceBuilding`, `placeBuilding`, `assistConstruction` | 6 |
+| `src/sim/systems/construction.ts` | `constructBuildings` (byggande), `canPlaceBuilding`, `placeBuilding`, `assistConstruction` | 6, 7 |
+| `src/sim/systems/combat.ts` | `resolveCombat` (upptäcka, förfölja, slå), `orderAttack`, skadeformeln, raserade byggnader och vinnare | 7 |
+| `src/sim/systems/surrender.ts` | `surrender` (kapitulation och val av grotta) och `resolveSurrenders` (gå in i grottan) | 7 |
+| `src/sim/pathfinding/approach.ts` | `approachPath`: väg till en ruta intill ett mål, spridd mellan flera enheter | 7 |
 | `src/sim/resources.ts` | Resurskällor på kartan: slå upp, ta från, startmängder | 4 |
 | `src/sim/systems/gathering.ts` | `gatherResources` (insamlingsloopen) och `startGathering` | 4 |
 | `src/sim/systems/movement.ts` | `moveUnits`: flyttar enheter längs deras väg | 3 |
@@ -61,14 +65,15 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/clock.ts` | Fast tidssteg: gör om bildrutetid till ett helt antal steg | 2 |
 | `src/sim/rng.ts` | Frösatt slumpgenerator (mulberry32) och `parseSeed` | 2 |
 | `src/sim/map/iso.ts` | Isometrisk matematik: ruta ↔ världspixlar, begränsning till kartan | 1 |
-| `src/sim/map/grid.ts` | Typen `GameMap`, rutuppslag, gångbarhet, spegling, avstånd, `isReachable` | 2 |
-| `src/sim/map/mapgen.ts` | `generateMap`: kartgenerering | 2 |
+| `src/sim/map/grid.ts` | Typerna `GameMap` och `Cave`, rutuppslag, gångbarhet, spegling, avstånd, `isReachable` | 2, 7 |
+| `src/sim/map/mapgen.ts` | `generateMap`: kartgenerering, inklusive grottor | 2, 7 |
 | `src/render/scenes/GameScene.ts` | Skapar spelet, vyerna och styrningen, driver simuleringen, registrerar testgränssnittet | 1, 2, 3 |
 | `src/render/scenes/UiScene.ts` | Gränssnittet ovanpå spelet: resursraden, markeringspanelen och kommandopanelen | 3, 4, 5 |
 | `src/render/views/MapView.ts` | Ritar mark, träd, bärsnår och klippor; tar bort tömda källor | 1, 2, 4 |
-| `src/render/views/EntityView.ts` | Ritar enheter och byggnader, interpolerar rörelse, ritar markeringar | 3 |
+| `src/render/views/EntityView.ts` | Ritar enheter och byggnader, interpolerar rörelse, ritar markeringar, livstaplar, vita flaggor och stridseffekter | 3, 4, 6, 7 |
 | `src/render/views/SelectionView.ts` | Ritar dragrutan och orderringar | 3 |
 | `src/render/views/PlacementView.ts` | Ritar konturen av en byggnad som placeras | 6 |
+| `src/render/views/CaveView.ts` | Ritar grottorna och antalet djur i dem | 7 |
 | `src/render/views/visuals.ts` | Platshållargrafikens mått och färger, delade av ritning och klickträffar | 3 |
 | `src/render/input/CameraController.ts` | Kamerapanorering med tangenter, skärmkant, mittenknapp och finger | 1 |
 | `src/render/input/SelectionController.ts` | Mus och tangentbord: markering, dragruta, order (flytta, samla, hjälpa till att bygga) | 3, 4, 6 |
@@ -86,6 +91,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `tests/e2e/phase4-gathering.spec.ts` | Webbläsartester för fas 4 | 4 |
 | `tests/e2e/phase5-training.spec.ts` | Webbläsartester för fas 5 | 5 |
 | `tests/e2e/phase6-building.spec.ts` | Webbläsartester för fas 6 | 6 |
+| `tests/e2e/phase7-combat.spec.ts` | Webbläsartester för fas 7 | 7 |
 | `.github/workflows/ci.yml` | Lint, Vitest, bygge och Playwright på pull requests | 1 |
 | `.github/workflows/deploy.yml` | Lint, Vitest, bygge och publicering till GitHub Pages vid push till `main` | 1 |
 
@@ -119,15 +125,22 @@ Definieras i `src/sim/map/iso.ts`.
 | `players` | En `PlayerState` per sida: `resources` (`food`, `wood`) |
 | `entities` | Alla enheter och byggnader, i den ordning de skapades |
 | `nextEntityId` | Id för nästa entitet. Id:n återanvänds aldrig |
+| `winner` | Sidan som har vunnit, eller `null`. När den är satt står simuleringen still |
+| `events` | Vad som hände under det senaste steget (`SimEvent`). Byts ut varje steg |
+
+`map.caves` är en lista av `Cave`: `id`, `owner`, `x`, `y`, `occupants`
+(typerna på djuren i grottan) och `reserved` (platser hållna åt djur som är
+på väg dit). Varje grotta har dessutom terrängen `cave` på sin ruta.
 
 `Unit`: `id`, `kind: 'unit'`, `type`, `owner`, `x`/`y` (kontinuerliga
 rutkoordinater, rutans mitt är `+0.5`), `prevX`/`prevY` (läget före senaste
 steget, för interpolation), `hp`, `path` (rutor kvar att gå, nästa först),
 `task` (vad enheten gör utöver att gå), `carryType` och `carryAmount`
-(buren resurs).
+(buren resurs) och `attackCooldown` (steg tills nästa slag).
 
-`UnitTask` är `{ kind: 'idle' }`, en `BuildTask` (`buildingId`) eller en
-`GatherTask`: `resource`, `node`
+`UnitTask` är `{ kind: 'idle' }`, en `BuildTask` (`buildingId`), en
+`AttackTask` (`targetId`, `repathTicks`), en `FleeTask` (`caveId`; enheten
+har kapitulerat) eller en `GatherTask`: `resource`, `node`
 (källans ruta), `phase` (`toSource`, `gathering`, `toDropoff`),
 `workTicks` (steg arbetade mot nästa enhet) och `dropoffId`.
 
@@ -145,9 +158,10 @@ Terrängtyper: `grass` (gångbar), `tree`, `berries`, `rock`, `water` (blockerar
 
 ### Tidssteg
 
-- `tick(state)` kör ett steg: `produceUnits`, `constructBuildings`,
-  `gatherResources`, `moveUnits`, och sedan ökas `state.tick`. System för
-  strid m.m. läggs till här i fast ordning.
+- `tick(state)` kör ett steg: tömmer `events`, sedan `produceUnits`,
+  `constructBuildings`, `gatherResources`, `resolveCombat`,
+  `resolveSurrenders`, `moveUnits`, och till sist ökas `state.tick`. När
+  `winner` är satt gör `tick` ingenting.
 - `consumeSteps(clock, elapsedMs, stepMs, maxSteps)` samlar bildrutetid och
   ger antalet steg som ska köras. Resten sparas till nästa bildruta. Fler än
   `maxTicksPerFrame` (5) steg per bildruta körs aldrig; överskjutande tid
@@ -173,6 +187,9 @@ som fattas), `populationCap`, `queueFull`, `invalidPlacement` eller
 | `cancelTrain` | `player`, `buildingId`, `index` (plats i kön) | Tar bort enheten ur kön och återbetalar hela kostnaden |
 | `build` | `player`, `unitIds`, `building`, `x`, `y` (fotavtryckets lägsta hörn) | Placerar ett bygge, drar kostnaden och skickar enheterna att bygga |
 | `construct` | `player`, `unitIds`, `buildingId` | Skickar enheterna att hjälpa till med ett pågående bygge |
+| `attack` | `player`, `unitIds`, `targetId` | Enheterna anfaller en fientlig enhet eller byggnad tills den är besegrad |
+
+Enheter som har kapitulerat lyder inga kommandon.
 
 Så fördelas en grupp vid `move`:
 1. Målrutan begränsas till kartan. Är den ett hinder blir samlingspunkten
@@ -225,12 +242,62 @@ motsvarande längre tid.
 - Att avbryta den enhet som tränas nollställer `trainTicks`; nästa i kön
   börjar från början.
 
+### Strid
+
+- Skada per slag = anfallarens `damage` − målets `armor`, minst 1.
+  Ramkrigare: skada 10, rustning 1, ett slag var 24:e steg (1,2 s). Samlare:
+  skada 3, rustning 0, ett slag var 30:e steg.
+- Räckvidd: närstrid. Enhetens ruta ska ligga intill målets ruta (även
+  diagonalt), eller intill en byggnads fotavtryck.
+- `resolveCombat` gör för varje enhet som inte har kapitulerat: räknar ned
+  `attackCooldown`; låter en sysslolös, stillastående enhet med
+  `aggroRadius` välja närmaste fientliga **enhet** inom radien (6 rutor för
+  Ramkrigare; byggnader väljs aldrig självmant); och låter en enhet med
+  anfallsuppgift slå om målet är inom räckhåll, annars gå mot det.
+- Förföljelse: vägen räknas om var 10:e steg (0,5 s) eller när den tar slut.
+  `approachPath` väljer en ruta intill målet, helst en där ingen annan står
+  eller är på väg, så att anfallare sprider sig runt målet.
+- Målet blir ogiltigt när det är borta, har kapitulerat eller inte går att
+  nå. Enheten blir då sysslolös, och en Ramkrigare letar nästa fiende själv.
+- En byggnad vars liv når 0 rasar: den tas bort och rutorna blir fria. Är
+  det huvudbyggnaden (`START_CONFIG.building`) sätts `winner` till andra
+  sidan.
+
+### Kapitulation och grottor
+
+- En enhet vars liv når 0 kapitulerar (`surrender`): liv 0, lasten tappas,
+  uppgiften blir `flee`. Den väljer närmaste egna grotta som har en ledig
+  plats och som den kan gå fram till, och platsen reserveras direkt
+  (`cave.reserved`). Finns ingen sådan grotta tas enheten bort på en gång.
+- En kapitulerad enhet kan inte anfallas, väljs inte som mål, lyder inga
+  kommandon och räknas inte i befolkningen (`populationOf`).
+- `resolveSurrenders`: när enheten står stilla intill sin grotta tas den
+  bort, reservationen släpps och dess typ läggs i `cave.occupants`. Kom den
+  inte fram (vägen blev avskuren) försvinner den i stället.
+- Varje grotta rymmer 12 (`CAVE_CONFIG.capacity`); platser = i grottan +
+  reserverade.
+- Kartgenereringen lägger grottorna sist: 2 per sida, 7–13 rutor från
+  sidans startposition, på sidans egen halva, minst 6 rutor isär och 2
+  rutor från kartkanten, speglade mellan sidorna. En grotta godkänns bara
+  om startplatserna fortfarande är förbundna och grottan går att gå fram
+  till från sin sidas start. Terrängen i övrigt är oförändrad för ett givet
+  frö jämfört med före fas 7.
+- Ingenting får byggas på en grotta eller på rutorna intill
+  (`CAVE_CONFIG.noBuildDistance`).
+
+### Händelser
+
+`state.events` talar om för renderingen vad som hände i det senaste steget:
+`hit`, `surrender`, `enterCave`, `vanish`, `buildingCollapsed` och
+`buildingAttacked`. `GameScene` kör därför ett steg i taget och läser
+händelserna efter varje steg. Simuleringen själv använder dem inte.
+
 ### Byggande
 
 - `canPlaceBuilding(state, type, x, y)`: alla rutor i fotavtrycket ska
-  ligga på kartan, vara gångbar mark (alltså inte träd, bär, klippa eller
-  vatten) och vara fria från byggnader och enheter. Kravet på utforskad mark
-  kommer med krigsdimman i fas 8.
+  ligga på kartan, vara gångbar mark (alltså inte träd, bär, klippa, vatten
+  eller grotta), vara fria från byggnader och enheter och inte ligga intill
+  en grotta. Kravet på utforskad mark kommer med krigsdimman i fas 8.
 - `placeBuilding` nekar i den här ordningen: ingen i listan kan bygga typen
   (`invalid`), ogiltig plats (`invalidPlacement`), för lite resurser
   (`insufficientResources`). Annars dras kostnaden och ett bygge skapas med
@@ -304,14 +371,21 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   sedan förra bildrutan (högst 100 ms), kör de simuleringssteg som tiden
   räcker till, uppdaterar kameran, rensar markeringen från borttagna
   entiteter och ritar om enheter och markeringar.
+  - Stegen körs ett i taget (`runSteps`), och efter varje steg hanteras
+    simuleringens händelser: träff → blink och utfall, anfallen egen byggnad
+    → varningstext (3 s, högst en gång per 10 s speltid), raserad byggnad i
+    bild → skärmskakning (150 ms, 4 px).
+  - När någon har vunnit visas slutskärmen och alla klick på kartan
+    blockeras. "Spela igen" laddar om sidan, med samma frö.
 - **`UiScene`** ligger ovanpå `GameScene` med egen kamera, så att
   gränssnittet står still när kartan rullar. Den hämtar sitt innehåll från
   `GameScene` via gränssnittet `HudSource`.
   - Resursraden längs överkanten visar mat, trä och befolkning (`3/30`).
   - Markeringspanelen ligger nere till vänster och syns bara när något är
     markerat. För en egen enhet visas även vad den gör, t.ex.
-    `HP 40/40 · Samlar mat 7/10` eller `HP 40/40 · Bygger Visthus`. Ett
-    bygge visar `HP 130/400 · Byggs 25 %`.
+    `Liv 40/40 · Samlar mat 7/10`, `Liv 40/40 · Bygger Visthus` eller
+    `Liv 100/100 · Anfaller`. Ett bygge visar `Liv 130/400 · Byggs 25 %`,
+    och en kapitulerad enhet `Liv 0/40 · Har kapitulerat`.
   - Kommandopanelen ligger bredvid markeringspanelen, eller ovanför den på
     smala skärmar. Den har två lägen:
     - En färdig egen byggnad som kan träna enheter: en träningsknapp per
@@ -330,6 +404,9 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     `HudSource.cancelQueuedUnit`. `GameScene` gör om en träningsknapp till
     ett kommando. En byggknapp startar byggplaceringen, om spelaren har råd;
     annars blinkar resurssiffran.
+  - Varningstexten ("Din bas anfalls!") visas mitt under resursraden.
+  - Slutskärmen tonar ned spelet och visar "Seger" eller "Nederlag" och
+    knappen "Spela igen". Medan den visas reagerar bara den knappen.
   - Klick på resursraden eller en panel når inte kartan.
 - **`EntityView`** håller en bild per entitet och synkar mot
   `state.entities` varje bildruta (skapar nya, tar bort försvunna).
@@ -346,6 +423,16 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     med bygget. Visthuset har bokstaven V, Krigshallen K.
   - En enhet som bär något får en liten fyrkant uppe till höger: röd för
     mat, brun för trä.
+  - Ramkrigare är en fyrkant, större än Samlarens cirkel.
+  - Livstapel ovanför skadade enheter och färdiga byggnader: grön över
+    50 %, gul över 25 %, röd annars.
+  - Träff: målet ritas helvitt i 80 ms, och anfallaren gör ett utfall på
+    4 px mot målet i 100 ms.
+  - En kapitulerad enhet bär en vit flagga och har ingen livstapel.
+  - En enhet som lämnar kartan (går in i en grotta eller försvinner) tonas
+    bort på 300 ms där den stod. En raserad byggnad tas bort direkt.
+- **`CaveView`** ritar varje grotta som en kulle med mörk öppning och en
+  kant i sidans färg, med antalet djur ovanför, t.ex. `3/12`.
 - **`PlacementController`** styr byggplaceringen. Medan den är aktiv följer
   en kontur av fotavtrycket musen, med byggnadens mitt under pekaren: grön
   där byggnaden får stå, röd annars. Vänsterklick på giltig plats skickar
@@ -363,6 +450,8 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - vänsterknapp + dra minst 4 px ger en dragruta som markerar egna enheter
   - Shift lägger till eller tar bort egna enheter
   - Esc avmarkerar
+  - högerklick på en fientlig enhet eller byggnad ger anfallsorder, med röd
+    ring
   - högerklick på ett eget ofärdigt bygge skickar markerade Samlare att
     hjälpa till
   - högerklick på ett träd eller bärsnår ger egna markerade Samlare en
@@ -372,7 +461,8 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - Medan en byggnad placeras hör musen och Esc till placeringen.
   - Reglerna ligger som rena funktioner i `selection.ts` och `picking.ts`.
     En markering är antingen ett antal egna enheter, eller en enda annan
-    sak (byggnad eller fiendeenhet) som bara kan betraktas.
+    sak (byggnad, fiendeenhet eller kapitulerad enhet) som bara kan
+    betraktas. Kapitulerade enheter kommer inte med i en dragruta.
   - Klickträffar räknas på simuleringens läge, inte det interpolerade.
     Enheter går före byggnader, även när de står dolda bakom en byggnad.
 - **`MapView`** ritar kartan en gång, från `state.map`:
@@ -429,6 +519,10 @@ URL-parametrar:
 | `elapsedMs` | Summan av all bildrutetid spelet har bearbetat (varje bildruta högst 100 ms). Går långsammare än väggklockan på en långsam maskin |
 | `getState()` | En kopia av hela `GameState` |
 | `advance(n)` | Kör `n` simuleringssteg direkt |
+| `spawnUnit(type, owner, x, y)` | Skapar en enhet på en ruta och ger dess id. Genväg för tester; spelet gör aldrig så |
+| `getAlert()` | Varningstexten överst; tom när ingen visas |
+| `getOutcome()` | Slutskärmen: `visible`, `title`, `button` (`label`, mittpunkt `x`/`y`) |
+| `getShakeCount()` | Antal skärmskakningar hittills |
 | `command(cmd)` | Skickar ett kommando till simuleringen och ger tillbaka dess `CommandResult` |
 | `getSelection()` | Id för markerade entiteter |
 | `getHud()` | Vad markeringspanelen visar: `visible`, `title`, `detail` |
@@ -450,6 +544,11 @@ behöver utrymme att panorera anropar först `centerCameraOnMapMiddle`.
 Enheter rör sig i realtid även i testläge. Ett test som ska klicka på en
 enhet måste läsa dess läge precis innan, eller klicka innan enheten får en
 order.
+
+Sysslolösa Ramkrigare anfaller fiendeenheter inom 6 rutor på eget
+initiativ. Ett test som vill ha stillastående soldater måste ställa dem
+längre bort än så från motståndarens enheter (`quietTiles` i fas
+7-testerna).
 
 Gränssnittet ritas om en bildruta efter att tillståndet har ändrats. Tester
 som läser `getHud`, `getResourceBar` eller `getCommandPanel` efter en
@@ -510,3 +609,8 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | 6 | Ett bygge blockerar sina rutor från att det placeras | Annars kan enheter stå inuti byggnaden när den blir klar. Enheter på väg igenom får ny väg direkt. |
 | 6 | Byggarbete räknas i arbetarsteg, inte i tid | Takten 1, 1,5, 2 … per steg är exakt i flyttal, så byggtiderna blir exakta. |
 | 6 | Byggplaceringen är en egen styrklass som tar över musen | Markering och placering tolkar samma klick olika. Ett tydligt läge är enklare att resonera om än villkor utspridda i markeringslogiken. |
+| 7 | Simuleringen rapporterar händelser i `state.events`, och spelscenen kör ett steg i taget | Blink, utfall, skakning och varning hör till enstaka ögonblick som inte går att läsa ur tillståndet efteråt. Listan byts varje steg, så den växer inte i långa körningar utan rendering. |
+| 7 | Grottor är terräng plus en post i `map.caves`, inte entiteter | De kan inte anfallas, markeras eller flyttas. Som terräng blockerar de vägar och byggplatser utan särskild kod. |
+| 7 | Platsen i grottan reserveras när enheten kapitulerar | Annars kan flera enheter på väg mot samma grotta överfylla den. |
+| 7 | Soldater anfaller självmant bara enheter, inte byggnader | Annars vandrar sysslolösa soldater iväg mot närmaste fiendebyggnad. Byggnader anfalls på order. |
+| 7 | `approachPath` är en ny, delad funktion; insamlingens egen motsvarighet är orörd | Samma idé (sprid enheter runt ett mål) behövdes för strid och grottor. Att lägga om insamlingen till den vore en refaktorering utanför fasen. |

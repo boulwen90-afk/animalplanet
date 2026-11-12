@@ -11,6 +11,7 @@ const OVERLAY_DEPTH = 1_000_000;
 interface OrderMarker {
   x: number;
   y: number;
+  color: number;
   ageMs: number;
 }
 
@@ -32,8 +33,8 @@ export class SelectionView {
   }
 
   /** Starts a ring at a world position that shrinks and fades away. */
-  addOrderMarker(x: number, y: number): void {
-    this.markers.push({ x, y, ageMs: 0 });
+  addOrderMarker(x: number, y: number, color: number = SELECTION_COLOR): void {
+    this.markers.push({ x, y, color, ageMs: 0 });
   }
 
   /** Number of order rings currently visible. */
@@ -63,7 +64,7 @@ export class SelectionView {
       const radius =
         UI_CONFIG.orderMarkerStartRadius +
         (UI_CONFIG.orderMarkerEndRadius - UI_CONFIG.orderMarkerStartRadius) * t;
-      this.ground.lineStyle(2, SELECTION_COLOR, 1 - t);
+      this.ground.lineStyle(2, marker.color, 1 - t);
       // Flattened to lie on the ground in the isometric view.
       this.ground.strokeEllipse(marker.x, marker.y, radius * 2, radius);
     }

@@ -4,9 +4,9 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 6 – klar i kod, pull request öppen mot `main`
-- **Nästa steg:** beslut om designändringen "kapitulation och grottor"
-  (GDD avsnitt 15), som påverkar fas 7. Därefter fas 7 när den beställs
+- **Aktuell fas:** Fas 7 – klar i kod, pull request öppen mot `main`
+- **Nästa steg:** merge av fas 7, därefter fas 8 (krigsdimma) när den
+  beställs
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -21,8 +21,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 3 | Enheter, markering, förflyttning | Mergad | [#3](https://github.com/boulwen90-afk/animalplanet/pull/3) |
 | 4 | Resurser och insamling | Mergad | [#4](https://github.com/boulwen90-afk/animalplanet/pull/4) |
 | 5 | Träna arbetare | Mergad | [#5](https://github.com/boulwen90-afk/animalplanet/pull/5) |
-| 6 | Bygga Visthus och Krigshall | Klar, väntar på merge | [#6](https://github.com/boulwen90-afk/animalplanet/pull/6) |
-| 7 | Soldater, strid, vinst och förlust | Ej påbörjad | – |
+| 6 | Bygga Visthus och Krigshall | Mergad | [#6](https://github.com/boulwen90-afk/animalplanet/pull/6) |
+| 7 | Soldater, strid, kapitulation, vinst och förlust | Klar, väntar på merge | [#7](https://github.com/boulwen90-afk/animalplanet/pull/7) |
 | 8 | Krigsdimma | Ej påbörjad | – |
 | 9 | AI-motståndare | Ej påbörjad | – |
 | 10 | Pekstyrning, balans, MVP-avstämning | Ej påbörjad | – |
@@ -52,6 +52,101 @@ Mall – kopiera för varje avslutad fas:
 **Beslut och lärdomar**
 - …
 -->
+
+### Fas 7 – Soldater, strid, kapitulation, vinst och förlust (2026-11-12)
+
+**Skärmdumpar:** `docs/screenshots/fas-7-strid.png` (strid vid basen med
+livstaplar, träffblink, vita flaggor, grottor och varningstext),
+`docs/screenshots/fas-7-grotta.png` (efter striden: en egen soldat har gått
+in i grottan, 1/12), `docs/screenshots/fas-7-nederlag.png` (slutskärmen)
+
+**Avstämning mot planen**
+
+| Punkt i planen | Status | Kommentar |
+|---|---|---|
+| 1. Krigshallen tränar Ramkrigare | Klar | 60 mat och 25 trä, 18 s |
+| 2. `attack`-kommando mot enheter och byggnader; förföljelse; skadeformel och anfallstakt | Klar | |
+| 3. Automatiskt anfall för stillastående Ramkrigare (inom 6 rutor) | Klar | Bara mot enheter, se avvikelser |
+| 4. Grottor: 2 per sida med 12 platser, speglade, nåbara; blockerar sin ruta, kan inte anfallas, inget byggs på eller intill | Klar | |
+| 5. Kapitulation: kan inte anfallas eller ges order, räknas inte i befolkningen, går till närmaste egna grotta, platsen reserveras, försvinner om ingen grotta finns | Klar | |
+| 6. Byggnader rasar när livet når 0 och frigör sina rutor | Klar | |
+| 7. Fiendesidan är passiv tills AI:n kommer | Klar | Den har bara Samlare, som aldrig anfaller självmant |
+| 8. Vinst/förlust när en Storide rasar; slutskärm med "Spela igen" | Klar | |
+| 9. Livstaplar, träffblink, utfall, vit flagga, bortoning, skärmskakning och larmtext | Klar | |
+| 10. Gränssnittet säger "Liv" i stället för "HP" | Klar | |
+
+| Test i planen | Resultat |
+|---|---|
+| Vitest: skada = skada − rustning, minst 1 | Godkänt |
+| Vitest: slag sker med rätt intervall | Godkänt (direkt, sedan var 24:e steg) |
+| Vitest: en Ramkrigare får en Samlare att kapitulera på förväntat antal steg | Godkänt (exakt 73 steg) |
+| Vitest: anfallare följer efter ett flyende mål | Godkänt |
+| Vitest: Ramkrigare anfaller fiende inom 6 rutor men inte utanför | Godkänt |
+| Vitest: en raserad byggnad frigör sina rutor | Godkänt |
+| Vitest: en raserad Storide sätter rätt vinnare och stoppar simuleringen | Godkänt, för båda sidor |
+| Vitest: en kapitulerad enhet tar ingen mer skada och väljs inte som mål | Godkänt |
+| Vitest: den går till närmaste egna grotta, tas bort vid ankomsten, grottans antal ökar med 1 | Godkänt |
+| Vitest: befolkningen minskar redan vid kapitulationen | Godkänt |
+| Vitest: den trettonde enheten går till den andra grottan | Godkänt |
+| Vitest: när alla 24 platser är tagna försvinner nästa enhet direkt | Godkänt |
+| Vitest: en enhet går aldrig till motståndarens grotta | Godkänt |
+| Vitest: varje sida har 2 grottor, de är speglade och nåbara från startplatsen | Godkänt för 40 frön |
+| Vitest: byggplacering på eller intill en grotta nekas | Godkänt |
+| Playwright: soldater anfaller fiendens Storide, "Seger" visas | Godkänt, med dragruta och högerklick |
+| Playwright: motsvarande för "Nederlag" | Godkänt |
+| Playwright: en besegrad enhet hamnar i sin sidas grotta | Godkänt |
+| Skärmdump av strid, kapitulerad enhet på väg till grotta och slutskärm | Klar |
+
+Utöver planen testas även: Samlare som slåss på order, anfallare som sprider
+sig runt målet, ogiltiga mål, mål som inte går att nå, flyttorder som
+avbryter anfall, last som tappas, kapitulerade enheter som inte lyder order
+eller kan markeras i grupp, grottor som minns djurens typ, varningstexten,
+skärmskakningen, att simuleringen står still efter avgörandet, och att
+"Spela igen" ger ett nytt spel.
+
+**Saknas eller avviker**
+- **Soldater anfaller självmant bara enheter, inte byggnader.** GDD:t säger
+  "fiender". Byggnader anfalls på order, annars skulle sysslolösa soldater
+  vandra iväg mot närmaste fiendebyggnad.
+- **Arbetare som blir anfallna gör ingenting åt det.** De fortsätter med
+  sitt tills de kapitulerar. GDD:t säger bara att Samlare anfaller på order.
+- **Grottorna ligger på den egna halvan av kartan**, så en enhet som
+  besegras vid fiendens bas går över hela kartan med vit flagga. Det tar
+  runt en halv minut.
+- **Antalet djur i fiendens grottor syns för spelaren.** Det döljs först
+  när krigsdimman finns (fas 8).
+- **Grottor går inte att markera.** Antalet står ovanför grottan.
+- **Varningen "Din bas anfalls!" kommer bara när en byggnad träffas**,
+  inte när enheter anfalls.
+- **Byggen under uppförande har ingen livstapel**; deras liv växer av sig
+  självt och visas i markeringspanelen.
+- **"Spela igen" laddar om sidan** och ger samma karta, eftersom fröet står
+  kvar i adressen.
+- **En enhet stannar där den står när målet kommer inom räckhåll**, vilket
+  kan vara mellan två rutors mittpunkter.
+- **Flera anfallare kan dela ruta** när alla rutor runt målet är upptagna.
+- **Skärmskakningen går på Phasers egen klocka** och kan vara längre än
+  150 ms vid låg bildfrekvens.
+- **Testgränssnittet har fått `spawnUnit`**, som skapar enheter ur intet.
+  Det finns bara i testläge.
+- **Pekskärm:** anfallsorder kräver högerklick. Det hör till fas 10.
+
+**Testresultat**
+- Vitest: 329 av 329
+- Playwright: 64 av 64, även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll: utan anmärkning
+- Konsolfel i headless-webbläsare: inga
+
+**Beslut och lärdomar**
+- Simuleringen rapporterar nu händelser per steg, så att renderingen kan
+  visa blink, utfall, skakning och varning.
+- Tre webbläsartester fallerade först för att nyskapade soldater genast
+  anföll fiendens arbetare på eget initiativ och hade flyttat sig när testet
+  drog sin ruta. Spelet gjorde rätt. Testerna ställer nu soldaterna utom
+  synhåll.
+- Första versionen kunde lägga en grotta på kartans yttersta ruta, så att
+  halva grottan hängde utanför. Det syntes på skärmdumpen. Grottor håller nu
+  2 rutor från kanten.
 
 ### Fas 6 – Bygga Visthus och Krigshall (2026-11-12)
 

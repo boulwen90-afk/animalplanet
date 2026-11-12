@@ -128,7 +128,7 @@ test.describe('phase 4: resources and gathering', () => {
 
     await expect
       .poll(async () => (await page.evaluate(() => window.__TEST__!.getHud())).detail)
-      .toMatch(/^HP 40\/40 · Samlar mat \d+\/10$/);
+      .toMatch(/^Liv 40\/40 · Samlar mat \d+\/10$/);
   });
 
   test('an emptied source disappears from the map', async ({ page }) => {

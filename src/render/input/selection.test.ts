@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createBuilding, createUnit } from '../../sim/entities';
 import { openState } from '../../sim/testUtils';
 import {
+  attackerUnitIds,
   builderUnitIds,
   commandableUnitIds,
   gathererUnitIds,
@@ -143,5 +144,29 @@ describe('builderUnitIds', () => {
     // Nobody can build a Storide.
     expect(builderUnitIds(selected, entities, 0, 'storide')).toEqual([]);
     expect(builderUnitIds(new Set(), entities, 0, 'visthus')).toEqual([]);
+  });
+});
+
+describe('units that have surrendered', () => {
+  it('can be clicked to look at, but not added to a selection or given orders', () => {
+    const { entities, a, b } = setup();
+    b.task = { kind: 'flee', caveId: 1 };
+    expect(ids(selectByClick(new Set(), entities, b, false, 0))).toEqual([b.id]);
+    expect(ids(selectByClick(new Set([a.id]), entities, b, true, 0))).toEqual([a.id]);
+    const both = new Set([a.id, b.id]);
+    expect(commandableUnitIds(both, entities, 0)).toEqual([a.id]);
+    expect(gathererUnitIds(both, entities, 0)).toEqual([a.id]);
+    expect(builderUnitIds(both, entities, 0, 'visthus')).toEqual([a.id]);
+    expect(attackerUnitIds(both, entities, 0)).toEqual([a.id]);
+  });
+});
+
+describe('attackerUnitIds', () => {
+  it("returns the player's own selected units that can fight", () => {
+    const { entities, a, b, enemy, building } = setup();
+    const selected = new Set([a.id, b.id, enemy.id, building.id]);
+    expect(attackerUnitIds(selected, entities, 0)).toEqual([a.id, b.id]);
+    expect(attackerUnitIds(selected, entities, 1)).toEqual([enemy.id]);
+    expect(attackerUnitIds(new Set([building.id]), entities, 0)).toEqual([]);
   });
 });

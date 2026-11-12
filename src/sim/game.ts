@@ -32,6 +32,8 @@ export function emptyState(seed: number, rng: RngState, map: GameMap): GameState
     players: map.startPositions.map(() => ({ resources: { ...START_CONFIG.resources } })),
     entities: [],
     nextEntityId: 1,
+    winner: null,
+    events: [],
   };
 }
 

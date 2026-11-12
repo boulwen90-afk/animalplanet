@@ -1,8 +1,14 @@
-import type { CommandPanelDisplay, HudDisplay, ResourceBarDisplay } from '../render/scenes/UiScene';
+import type { UnitType } from '../data/units';
+import type {
+  CommandPanelDisplay,
+  HudDisplay,
+  OutcomeDisplay,
+  ResourceBarDisplay,
+} from '../render/scenes/UiScene';
 import type { Placement } from '../render/views/PlacementView';
 import type { Command, CommandResult } from '../sim/commands';
 import type { Point } from '../sim/map/iso';
-import type { GameState } from '../sim/state';
+import type { GameState, PlayerId } from '../sim/state';
 
 /**
  * Test interface exposed as window.__TEST__ when the game runs with ?test=1.
@@ -27,6 +33,10 @@ export interface TestApiSource {
   getElapsedMs(): number;
   getState(): GameState;
   advance(steps: number): void;
+  spawnUnit(type: UnitType, owner: PlayerId, tileX: number, tileY: number): number;
+  getAlert(): string;
+  getOutcome(): OutcomeDisplay;
+  getShakeCount(): number;
   command(command: Command): CommandResult;
   getSelection(): number[];
   getHud(): HudDisplay;
@@ -54,6 +64,17 @@ export interface TestApi {
   getState(): GameState;
   /** Runs `steps` simulation steps immediately, on top of the real-time ones. */
   advance(steps: number): void;
+  /**
+   * Puts a new unit on a tile and returns its id. A shortcut for tests that
+   * need an army without training one; the game itself never does this.
+   */
+  spawnUnit(type: UnitType, owner: PlayerId, tileX: number, tileY: number): number;
+  /** The warning shown at the top of the screen; empty when there is none. */
+  getAlert(): string;
+  /** The end-of-game screen: whether it shows, its title, and where its button is. */
+  getOutcome(): OutcomeDisplay;
+  /** How many times the screen has shaken because a building collapsed in view. */
+  getShakeCount(): number;
   /** Sends a command to the simulation, exactly as player input and the AI do, and returns its result. */
   command(command: Command): CommandResult;
   /** Ids of the selected entities. */
@@ -96,6 +117,10 @@ export function installTestApi(source: TestApiSource): TestApi {
     },
     getState: () => source.getState(),
     advance: (steps) => source.advance(steps),
+    spawnUnit: (type, owner, tileX, tileY) => source.spawnUnit(type, owner, tileX, tileY),
+    getAlert: () => source.getAlert(),
+    getOutcome: () => source.getOutcome(),
+    getShakeCount: () => source.getShakeCount(),
     command: (command) => source.command(command),
     getSelection: () => source.getSelection(),
     getHud: () => source.getHud(),
