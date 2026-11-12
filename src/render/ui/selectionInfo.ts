@@ -36,7 +36,10 @@ export function describeSelection(
     const name = entityName(first);
     // Hit points grow in fractions while a building is under construction.
     const hp = STRINGS.hud.hp(Math.round(first.hp), maxHp(first));
-    const activity = first.owner === player ? describeActivity(first, entities) : undefined;
+    // A white flag is plain for all to see; what else a unit does is its owner's business.
+    const surrendered = first.kind === 'unit' && first.task.kind === 'flee';
+    const activity =
+      first.owner === player || surrendered ? describeActivity(first, entities) : undefined;
     return {
       title: first.owner === player ? name : `${name} (${STRINGS.hud.enemy})`,
       detail: activity ? `${hp} · ${activity}` : hp,
@@ -62,6 +65,8 @@ function describeActivity(entity: Entity, entities: readonly Entity[]): string |
       : STRINGS.hud.underConstruction(Math.floor(buildFraction(entity) * 100));
   }
   const task = entity.task;
+  if (task.kind === 'flee') return STRINGS.hud.surrendered;
+  if (task.kind === 'attack') return STRINGS.hud.attacking;
   if (task.kind === 'gather') {
     return STRINGS.hud.gathering(
       STRINGS.resources[task.resource],

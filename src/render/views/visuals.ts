@@ -15,9 +15,13 @@ export const SELECTION_COLOR = 0x35e06a;
 
 export const OUTLINE_COLOR = 0x10141a;
 
-/** Units are drawn as circles of this radius, in pixels. */
-export const UNIT_VISUALS: Record<UnitType, { radius: number }> = {
-  samlare: { radius: 9 },
+/**
+ * Units are drawn as a circle or a square in the team colour. `radius` is
+ * half the width in pixels, and also how close a click must be to hit the unit.
+ */
+export const UNIT_VISUALS: Record<UnitType, { shape: 'circle' | 'square'; radius: number }> = {
+  samlare: { shape: 'circle', radius: 9 },
+  ramkrigare: { shape: 'square', radius: 11 },
 };
 
 /** Buildings are drawn as blocks with walls of this height, in pixels, and a letter on the roof. */
@@ -42,6 +46,21 @@ export const TERRAIN_OBJECT_VISUALS: Partial<Record<Terrain, { width: number; he
   berries: { width: 32, height: 26 },
   rock: { width: 64, height: 48 },
 };
+
+/** Colour of the ring shown when units are ordered to attack. */
+export const ATTACK_COLOR = 0xe8384f;
+
+/** Life bar colours: more than half left, more than a quarter left, and less. */
+export const LIFE_BAR_COLORS = { high: 0x35e06a, medium: 0xf2c53d, low: 0xe8384f } as const;
+
+/** Life bar size in pixels, for units and for buildings. */
+export const LIFE_BAR = { unitWidth: 24, buildingWidth: 64, height: 4 } as const;
+
+/** Colour of a cave's mound and of its opening. */
+export const CAVE_COLORS = { rock: 0x5b5f66, opening: 0x15171a } as const;
+
+/** Size of a cave as drawn, in pixels. */
+export const CAVE_VISUAL = { width: 58, height: 40 } as const;
 
 /** Colour of the mark on a unit that carries a resource. */
 export const RESOURCE_COLORS: Record<ResourceType, number> = {

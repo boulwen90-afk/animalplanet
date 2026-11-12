@@ -30,6 +30,8 @@ const GROUND_TEXTURE: Record<Terrain, string> = {
   berries: 'tile-grass',
   rock: 'tile-grass',
   water: 'tile-water',
+  // The cave itself is drawn by CaveView.
+  cave: 'tile-grass',
 };
 
 /** Texture of the object standing on a tile, for terrain that has one. */

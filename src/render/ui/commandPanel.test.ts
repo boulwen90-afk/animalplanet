@@ -67,11 +67,36 @@ describe('describeCommandPanel', () => {
     const state = openState(14, 14);
     const site = createBuilding(state, 'storide', 0, 1, 1);
     site.complete = false;
-    const krigshall = createBuilding(state, 'krigshall', 0, 6, 6);
     const visthus = createBuilding(state, 'visthus', 0, 10, 1);
-    for (const building of [site, krigshall, visthus]) {
+    for (const building of [site, visthus]) {
       expect(describeCommandPanel(state.entities, new Set([building.id]), 0)).toBeUndefined();
     }
+  });
+
+  it('shows a button for Ramkrigare with both prices for the selected Krigshall', () => {
+    const state = openState(14, 14);
+    const krigshall = createBuilding(state, 'krigshall', 0, 6, 6);
+    expect(describeCommandPanel(state.entities, new Set([krigshall.id]), 0)).toEqual({
+      buildingId: krigshall.id,
+      buttons: [
+        {
+          action: { kind: 'train', unit: 'ramkrigare' },
+          label: 'Träna Ramkrigare',
+          cost: '60 mat, 25 trä',
+        },
+      ],
+      queue: [],
+      progress: 0,
+    });
+  });
+
+  it('shows no build menu for units that cannot build, or that have surrendered', () => {
+    const state = openState(14, 14);
+    const soldier = createUnit(state, 'ramkrigare', 0, 1, 1);
+    const beaten = createUnit(state, 'samlare', 0, 2, 1);
+    beaten.task = { kind: 'flee', caveId: 1 };
+    expect(describeCommandPanel(state.entities, new Set([soldier.id]), 0)).toBeUndefined();
+    expect(describeCommandPanel(state.entities, new Set([beaten.id]), 0)).toBeUndefined();
   });
 
   it('shows a build menu with prices for selected Samlare', () => {

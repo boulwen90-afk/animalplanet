@@ -248,7 +248,7 @@ test.describe('phase 6: building', () => {
     expect(await page.evaluate(() => window.__TEST__!.getOrderMarkerCount())).toBe(1);
   });
 
-  test('a finished Krigshall can be selected but offers nothing to train yet', async ({ page }) => {
+  test('a finished Krigshall can be selected and trains Ramkrigare', async ({ page }) => {
     await openGame(page);
     // Gather wood first: the three workers bring home enough for a Krigshall.
     const state = await getState(page);
@@ -300,6 +300,25 @@ test.describe('phase 6: building', () => {
     await expect
       .poll(async () => (await page.evaluate(() => window.__TEST__!.getHud())).title)
       .toBe('Krigshall');
-    expect((await commandPanel(page)).visible).toBe(false);
+    await expect.poll(async () => (await commandPanel(page)).visible).toBe(true);
+    const panel = await commandPanel(page);
+    expect(panel.buttons.map((b) => [b.label, b.cost])).toEqual([
+      ['Träna Ramkrigare', '60 mat, 25 trä'],
+    ]);
+
+    // Enough is left after the building to pay for one soldier.
+    const before = (await getState(page)).players[0]!.resources;
+    expect(before.wood).toBeGreaterThanOrEqual(25);
+    expect(before.food).toBeGreaterThanOrEqual(60);
+    await page.mouse.click(panel.buttons[0]!.x, panel.buttons[0]!.y);
+    await advance(page, 18 * SIM_CONFIG.ticksPerSecond);
+
+    const after = await getState(page);
+    expect(after.players[0]!.resources).toEqual({
+      food: before.food - 60,
+      wood: before.wood - 25,
+    });
+    const soldiers = after.entities.filter((e) => e.kind === 'unit' && e.type === 'ramkrigare');
+    expect(soldiers).toMatchObject([{ owner: 0, hp: 100 }]);
   });
 });

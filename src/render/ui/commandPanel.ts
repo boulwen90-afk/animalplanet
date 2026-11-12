@@ -66,7 +66,8 @@ export function describeCommandPanel(
 
   const buildable: BuildingType[] = [];
   for (const entity of chosen) {
-    if (entity.kind !== 'unit') return undefined;
+    // Buildings mixed in, or a unit that has surrendered: nothing to order.
+    if (entity.kind !== 'unit' || entity.task.kind === 'flee') return undefined;
     for (const type of UNIT_DEFS[entity.type].builds) {
       if (!buildable.includes(type)) buildable.push(type);
     }

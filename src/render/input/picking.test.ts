@@ -123,6 +123,17 @@ describe('unitsInRect', () => {
   });
 });
 
+describe('unitsInRect and surrendered units', () => {
+  it('leaves out units that have surrendered', () => {
+    const state = openState(12, 12);
+    const fighting = createUnit(state, 'samlare', 0, 1, 1);
+    const beaten = createUnit(state, 'samlare', 0, 5, 3);
+    beaten.task = { kind: 'flee', caveId: 1 };
+    const everything = { x: -10_000, y: -10_000, width: 20_000, height: 20_000 };
+    expect(unitsInRect(state.entities, everything, 0, size)).toEqual([fighting]);
+  });
+});
+
 describe('rectFromPoints', () => {
   it('gives the same rectangle whichever corner comes first', () => {
     const expected = { x: 10, y: 20, width: 30, height: 40 };

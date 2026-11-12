@@ -1,4 +1,5 @@
 import { BUILDING_DEFS, CONSTRUCTION_CONFIG, type BuildingType } from '../../data/buildings';
+import { CAVE_CONFIG } from '../../data/map';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
 import type { CommandResult } from '../commands';
@@ -6,6 +7,7 @@ import { missingResources, pay } from '../economy';
 import {
   buildingTiles,
   createBuilding,
+  hasSurrendered,
   isBuilding,
   isUnit,
   nearestBuildingTile,
@@ -37,7 +39,7 @@ export function buildFraction(building: Building): number {
 /**
  * True if a building of this type may be placed with its footprint's
  * lowest corner on tile (x, y): every tile must be on the map, walkable
- * ground, and free of buildings, resources and units.
+ * ground, free of buildings, resources and units, and not on or next to a cave.
  */
 export function canPlaceBuilding(
   state: GameState,
@@ -53,6 +55,18 @@ export function canPlaceBuilding(
     for (let tx = x; tx < x + size; tx++) {
       // Walkable terrain excludes trees, berries, rocks and water.
       if (!inBounds(tx, ty, state.map) || !isWalkable(state.map, tx, ty)) return false;
+    }
+  }
+  // Nothing may be built on a cave or right next to one, so its entrance stays open.
+  const keepClear = CAVE_CONFIG.noBuildDistance;
+  for (const cave of state.map.caves) {
+    if (
+      cave.x >= x - keepClear &&
+      cave.y >= y - keepClear &&
+      cave.x < x + size + keepClear &&
+      cave.y < y + size + keepClear
+    ) {
+      return false;
     }
   }
   for (const entity of state.entities) {
@@ -130,6 +144,7 @@ function buildersAmong(
       (unit) =>
         unit.owner === player &&
         unitIds.includes(unit.id) &&
+        !hasSurrendered(unit) &&
         UNIT_DEFS[unit.type].builds.includes(type),
     );
 }

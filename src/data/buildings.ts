@@ -16,6 +16,8 @@ export interface BuildingDef {
   cost: Cost;
   /** Time for one worker to build it, in seconds. */
   buildTime: number;
+  /** Taken off the damage of every strike against this building. */
+  armor: number;
 }
 
 /** Building types. See GDD section 8. */
@@ -28,6 +30,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     dropoff: true,
     cost: {},
     buildTime: 0,
+    armor: 0,
   },
   /** Storehouse: a drop-off point to place near resources. */
   visthus: {
@@ -37,15 +40,17 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     dropoff: true,
     cost: { wood: 80 },
     buildTime: 20,
+    armor: 0,
   },
-  /** Barracks. Trains soldiers from phase 7. */
+  /** Barracks: trains soldiers. */
   krigshall: {
-    trains: [],
+    trains: ['ramkrigare'],
     hp: 700,
     size: 3,
     dropoff: false,
     cost: { wood: 150 },
     buildTime: 35,
+    armor: 0,
   },
 };
 

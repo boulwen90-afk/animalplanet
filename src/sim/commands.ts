@@ -1,4 +1,4 @@
-import { isUnit, unitDestination, unitTile } from './entities';
+import { hasSurrendered, isUnit, unitDestination, unitTile } from './entities';
 import { tileDistance } from './map/grid';
 import type { Point } from './map/iso';
 import { findPath, isPassable, nearestReachable } from './pathfinding/astar';
@@ -8,6 +8,7 @@ import type { ResourceType } from '../data/resources';
 import type { UnitType } from '../data/units';
 import { resourceAt } from './resources';
 import type { GameState, PlayerId, Unit } from './state';
+import { orderAttack } from './systems/combat';
 import { assistConstruction, placeBuilding } from './systems/construction';
 import { startGathering } from './systems/gathering';
 import { cancelQueuedUnit, queueUnit } from './systems/production';
@@ -72,12 +73,27 @@ export interface ConstructCommand {
   buildingId: number;
 }
 
+/** Orders the given units to attack an enemy unit or building until it is defeated. */
+export interface AttackCommand {
+  type: 'attack';
+  /** The player giving the order. Only that player's units obey. */
+  player: PlayerId;
+  unitIds: number[];
+  targetId: number;
+}
+
 /**
  * Everything a player or the AI can tell the simulation to do. Input, AI and
  * tests all change the game through commands and nothing else.
  */
 export type Command =
-  MoveCommand | GatherCommand | TrainCommand | CancelTrainCommand | BuildCommand | ConstructCommand;
+  | MoveCommand
+  | GatherCommand
+  | TrainCommand
+  | CancelTrainCommand
+  | BuildCommand
+  | ConstructCommand
+  | AttackCommand;
 
 /** Whether a command was carried out, and if not, why. */
 export type CommandResult =
@@ -110,14 +126,24 @@ export function applyCommand(state: GameState, command: Command): CommandResult 
       );
     case 'construct':
       return assistConstruction(state, command.player, command.unitIds, command.buildingId);
+    case 'attack':
+      return orderAttack(
+        state,
+        command.player,
+        orderedUnits(state, command.player, command.unitIds),
+        command.targetId,
+      );
   }
 }
 
-/** The player's own units named in a command, in id order. */
+/**
+ * The player's own units named in a command, in id order. Units that have
+ * surrendered no longer take orders.
+ */
 function orderedUnits(state: GameState, player: PlayerId, unitIds: readonly number[]): Unit[] {
   return state.entities
     .filter(isUnit)
-    .filter((unit) => unit.owner === player && unitIds.includes(unit.id));
+    .filter((unit) => unit.owner === player && unitIds.includes(unit.id) && !hasSurrendered(unit));
 }
 
 function applyGather(state: GameState, command: GatherCommand): void {

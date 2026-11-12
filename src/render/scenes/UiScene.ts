@@ -9,7 +9,7 @@ import {
   type CommandPanelInfo,
   type CommandPanelLayout,
 } from '../ui/commandPanel';
-import { resourceBarRect, selectionPanelRect } from '../ui/layout';
+import { outcomeLayout, rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout';
 import type { SelectionInfo } from '../ui/selectionInfo';
 
 /** The numbers shown in the resource bar. */
@@ -32,6 +32,19 @@ export interface HudSource {
   activateButton(index: number): CommandResult;
   /** Cancels the unit at a position in the selected building's queue. */
   cancelQueuedUnit(index: number): CommandResult;
+  /** A warning to show at the top of the screen, or undefined. */
+  getAlert(): string | undefined;
+  /** How the game ended for the player, or undefined while it is still going. */
+  getOutcome(): 'victory' | 'defeat' | undefined;
+  /** Starts a new game. */
+  restart(): void;
+}
+
+/** What the end-of-game screen shows, with the screen position of the button's centre. */
+export interface OutcomeDisplay {
+  visible: boolean;
+  title: string;
+  button: { label: string; x: number; y: number };
 }
 
 /** What the selection panel currently shows. */
@@ -67,6 +80,7 @@ const SLOT_FILLED_COLOR = 0x3b7de0;
 const PROGRESS_COLOR = 0x35e06a;
 const TEXT_COLOR = '#ffffff';
 const FLASH_COLOR = '#ff5a5a';
+const ALERT_COLOR = '#ffd166';
 const BAR_TEXT_SPACING = 130;
 
 /**
@@ -99,6 +113,14 @@ export class UiScene extends Scene {
   private slotTexts: GameObjects.Text[] = [];
   private commandInfo: CommandPanelInfo | undefined;
   private commandLayout: CommandPanelLayout | undefined;
+
+  private alert!: GameObjects.Text;
+  private alertShown = '';
+
+  private outcome!: GameObjects.Graphics;
+  private outcomeTitle!: GameObjects.Text;
+  private outcomeButton!: GameObjects.Text;
+  private outcomeShown: 'victory' | 'defeat' | undefined;
 
   constructor(private readonly source: HudSource) {
     super({ key: 'Ui', active: true });
@@ -138,6 +160,41 @@ export class UiScene extends Scene {
         .setOrigin(0.5),
     );
 
+    this.alert = this.add
+      .text(0, 0, '', {
+        fontFamily: 'sans-serif',
+        fontSize: '20px',
+        fontStyle: 'bold',
+        color: ALERT_COLOR,
+        stroke: '#10141a',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5, 0)
+      .setVisible(false);
+
+    // The end-of-game screen lies on top of everything else.
+    this.outcome = this.add.graphics().setDepth(100).setVisible(false);
+    this.outcomeTitle = this.add
+      .text(0, 0, '', {
+        fontFamily: 'sans-serif',
+        fontSize: '56px',
+        fontStyle: 'bold',
+        color: TEXT_COLOR,
+      })
+      .setOrigin(0.5)
+      .setDepth(101)
+      .setVisible(false);
+    this.outcomeButton = this.add
+      .text(0, 0, STRINGS.hud.playAgain, {
+        fontFamily: 'sans-serif',
+        fontSize: '22px',
+        fontStyle: 'bold',
+        color: TEXT_COLOR,
+      })
+      .setOrigin(0.5)
+      .setDepth(101)
+      .setVisible(false);
+
     this.layout();
     this.scale.on('resize', this.layout, this);
     this.apply({ visible: false, title: '', detail: '' });
@@ -148,6 +205,8 @@ export class UiScene extends Scene {
     this.now = time;
     this.updateResourceBar();
     this.updateCommandPanel();
+    this.updateAlert();
+    this.updateOutcome();
 
     const info = this.source.getSelectionInfo();
     const next: HudDisplay = info
@@ -202,7 +261,52 @@ export class UiScene extends Scene {
     };
   }
 
+  /** What the warning at the top of the screen says right now; empty when there is none. */
+  getAlertDisplay(): string {
+    return this.alertShown;
+  }
+
+  /** What the end-of-game screen shows right now. */
+  getOutcomeDisplay(): OutcomeDisplay {
+    const { button } = outcomeLayout(this.scale.width, this.scale.height);
+    return {
+      visible: this.outcomeShown !== undefined,
+      title: this.outcomeShown ? STRINGS.hud[this.outcomeShown] : '',
+      button: {
+        label: STRINGS.hud.playAgain,
+        x: button.x + button.width / 2,
+        y: button.y + button.height / 2,
+      },
+    };
+  }
+
+  private updateAlert(): void {
+    const next = this.source.getAlert() ?? '';
+    if (next === this.alertShown) return;
+    this.alertShown = next;
+    this.alert.setText(next).setVisible(next !== '');
+  }
+
+  private updateOutcome(): void {
+    const next = this.source.getOutcome();
+    if (next === this.outcomeShown) return;
+    this.outcomeShown = next;
+    const visible = next !== undefined;
+    this.outcome.setVisible(visible);
+    this.outcomeTitle.setVisible(visible).setText(next ? STRINGS.hud[next] : '');
+    this.outcomeButton.setVisible(visible);
+    this.layout();
+  }
+
   private onPointerDown(pointer: Input.Pointer): void {
+    // Once the game is over only the "play again" button responds.
+    if (this.outcomeShown !== undefined) {
+      const { button } = outcomeLayout(this.scale.width, this.scale.height);
+      const pressed = pointer.wasTouch || pointer.leftButtonDown();
+      if (pressed && rectContains(button, pointer.x, pointer.y)) this.source.restart();
+      return;
+    }
+
     const info = this.commandInfo;
     const layout = this.commandLayout;
     if (!info || !layout) return;
@@ -376,5 +480,33 @@ export class UiScene extends Scene {
     this.panel.strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 6);
     this.title.setPosition(rect.x + 12, rect.y + 10);
     this.detail.setPosition(rect.x + 12, rect.y + 36);
+
+    this.alert.setPosition(this.scale.width / 2, bar.height + 10);
+
+    const end = outcomeLayout(this.scale.width, this.scale.height);
+    this.outcome.clear();
+    this.outcome.fillStyle(PANEL_COLOR, 0.7);
+    this.outcome.fillRect(0, 0, this.scale.width, this.scale.height);
+    this.outcome.fillStyle(BUTTON_COLOR, 1);
+    this.outcome.fillRoundedRect(
+      end.button.x,
+      end.button.y,
+      end.button.width,
+      end.button.height,
+      6,
+    );
+    this.outcome.lineStyle(2, PANEL_EDGE, 1);
+    this.outcome.strokeRoundedRect(
+      end.button.x,
+      end.button.y,
+      end.button.width,
+      end.button.height,
+      6,
+    );
+    this.outcomeTitle.setPosition(end.title.x, end.title.y);
+    this.outcomeButton.setPosition(
+      end.button.x + end.button.width / 2,
+      end.button.y + end.button.height / 2,
+    );
   }
 }

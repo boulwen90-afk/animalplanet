@@ -3,7 +3,7 @@ import { createBuilding, createUnit } from '../../sim/entities';
 import { openState, stateFromRows } from '../../sim/testUtils';
 import { applyCommand } from '../../sim/commands';
 import { advance } from '../../sim/tick';
-import { rectContains, resourceBarRect, selectionPanelRect } from './layout';
+import { outcomeLayout, rectContains, resourceBarRect, selectionPanelRect } from './layout';
 import { describeSelection } from './selectionInfo';
 
 describe('describeSelection', () => {
@@ -19,7 +19,7 @@ describe('describeSelection', () => {
     const unit = createUnit(state, 'samlare', 0, 1, 1);
     expect(describeSelection(state.entities, new Set([unit.id]), 0)).toEqual({
       title: 'Samlare',
-      detail: 'HP 40/40',
+      detail: 'Liv 40/40',
     });
   });
 
@@ -27,7 +27,7 @@ describe('describeSelection', () => {
     const state = openState(8, 8);
     const unit = createUnit(state, 'samlare', 0, 1, 1);
     unit.hp = 17;
-    expect(describeSelection(state.entities, new Set([unit.id]), 0)?.detail).toBe('HP 17/40');
+    expect(describeSelection(state.entities, new Set([unit.id]), 0)?.detail).toBe('Liv 17/40');
   });
 
   it('shows the name and hit points of a building', () => {
@@ -35,7 +35,7 @@ describe('describeSelection', () => {
     const building = createBuilding(state, 'storide', 0, 2, 2);
     expect(describeSelection(state.entities, new Set([building.id]), 0)).toEqual({
       title: 'Storide',
-      detail: 'HP 1500/1500',
+      detail: 'Liv 1500/1500',
     });
   });
 
@@ -71,7 +71,7 @@ describe('describeSelection for a working unit', () => {
     advance(state, 60);
     expect(describeSelection(state.entities, new Set([worker.id]), 0)).toEqual({
       title: 'Samlare',
-      detail: 'HP 40/40 · Samlar mat 3/10',
+      detail: 'Liv 40/40 · Samlar mat 3/10',
     });
   });
 
@@ -80,7 +80,7 @@ describe('describeSelection for a working unit', () => {
     advance(state, 60);
     applyCommand(state, { type: 'move', player: 0, unitIds: [worker.id], x: 6, y: 4 });
     expect(describeSelection(state.entities, new Set([worker.id]), 0)?.detail).toBe(
-      'HP 40/40 · Bär 3 mat',
+      'Liv 40/40 · Bär 3 mat',
     );
   });
 
@@ -89,7 +89,7 @@ describe('describeSelection for a working unit', () => {
     advance(state, 60);
     expect(describeSelection(state.entities, new Set([worker.id]), 1)).toEqual({
       title: 'Samlare (Fiende)',
-      detail: 'HP 40/40',
+      detail: 'Liv 40/40',
     });
   });
 });
@@ -114,12 +114,12 @@ describe('describeSelection during construction', () => {
     const { state, building } = site();
     expect(describeSelection(state.entities, new Set([building.id]), 0)).toEqual({
       title: 'Visthus',
-      detail: 'HP 40/400 · Byggs 0 %',
+      detail: 'Liv 40/400 · Byggs 0 %',
     });
     advance(state, 100);
     // A quarter built: 10 % of the hit points plus a quarter of the other 90 %.
     expect(describeSelection(state.entities, new Set([building.id]), 0)?.detail).toBe(
-      'HP 130/400 · Byggs 25 %',
+      'Liv 130/400 · Byggs 25 %',
     );
   });
 
@@ -128,17 +128,58 @@ describe('describeSelection during construction', () => {
     advance(state, 400);
     expect(describeSelection(state.entities, new Set([building.id]), 0)).toEqual({
       title: 'Visthus',
-      detail: 'HP 400/400',
+      detail: 'Liv 400/400',
     });
   });
 
   it('shows what a builder is building', () => {
     const { state, worker } = site();
     expect(describeSelection(state.entities, new Set([worker.id]), 0)?.detail).toBe(
-      'HP 40/40 · Bygger Visthus',
+      'Liv 40/40 · Bygger Visthus',
     );
     advance(state, 400);
-    expect(describeSelection(state.entities, new Set([worker.id]), 0)?.detail).toBe('HP 40/40');
+    expect(describeSelection(state.entities, new Set([worker.id]), 0)?.detail).toBe('Liv 40/40');
+  });
+});
+
+describe('describeSelection in combat', () => {
+  it('shows that a unit is attacking', () => {
+    const state = openState(10, 10);
+    const soldier = createUnit(state, 'ramkrigare', 0, 2, 2);
+    const enemy = createUnit(state, 'samlare', 1, 7, 2);
+    applyCommand(state, { type: 'attack', player: 0, unitIds: [soldier.id], targetId: enemy.id });
+    expect(describeSelection(state.entities, new Set([soldier.id]), 0)).toEqual({
+      title: 'Ramkrigare',
+      detail: 'Liv 100/100 · Anfaller',
+    });
+  });
+
+  it('shows that a unit has surrendered, whoever it belongs to', () => {
+    const state = openState(10, 10);
+    const mine = createUnit(state, 'samlare', 0, 2, 2);
+    const theirs = createUnit(state, 'samlare', 1, 7, 2);
+    for (const unit of [mine, theirs]) {
+      unit.hp = 0;
+      unit.task = { kind: 'flee', caveId: 1 };
+    }
+    expect(describeSelection(state.entities, new Set([mine.id]), 0)?.detail).toBe(
+      'Liv 0/40 · Har kapitulerat',
+    );
+    expect(describeSelection(state.entities, new Set([theirs.id]), 0)).toEqual({
+      title: 'Samlare (Fiende)',
+      detail: 'Liv 0/40 · Har kapitulerat',
+    });
+  });
+});
+
+describe('outcomeLayout', () => {
+  it('centres the title and puts a button large enough to tap below it', () => {
+    const { title, button } = outcomeLayout(1280, 720);
+    expect(title.x).toBe(640);
+    expect(button.x + button.width / 2).toBe(640);
+    expect(button.y).toBeGreaterThan(title.y);
+    expect(button.height).toBeGreaterThanOrEqual(44);
+    expect(button.y + button.height).toBeLessThan(720);
   });
 });
 

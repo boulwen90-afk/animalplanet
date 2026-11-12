@@ -40,6 +40,27 @@ export const MAP_GEN_CONFIG = {
   berryPatches: { count: 4, minSize: 3, maxSize: 6 },
   rocks: { count: 5, minSize: 3, maxSize: 8 },
   lakes: { count: 2, minSize: 8, maxSize: 20 },
+  /**
+   * Caves where a side's defeated units take refuge. See GDD section 15.
+   * Each side gets `perSide` caves on its own half of the map.
+   */
+  caves: {
+    perSide: 2,
+    /** Caves lie between these distances from their side's start position. */
+    minStartDistance: 7,
+    maxStartDistance: 13,
+    /** Two caves of the same side are at least this far apart. */
+    minSeparation: 6,
+    /** Caves keep this many tiles from the edge of the map. */
+    edgeMargin: 2,
+  },
   /** How many random layouts to try before falling back to a map with only start resources. */
   maxAttempts: 20,
+} as const;
+
+export const CAVE_CONFIG = {
+  /** Most units one cave holds. */
+  capacity: 12,
+  /** Nothing may be built on a cave or within this many tiles of it. */
+  noBuildDistance: 1,
 } as const;

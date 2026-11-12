@@ -7,8 +7,14 @@ import type { Entity, PlayerId } from '../../sim/state';
  * units, or one single other thing (a building or an enemy unit) to look at.
  */
 
+/** True for a unit the player can give orders to: its own, and not one that has surrendered. */
 function isOwnUnit(entity: Entity | undefined, player: PlayerId): boolean {
-  return entity !== undefined && entity.kind === 'unit' && entity.owner === player;
+  return (
+    entity !== undefined &&
+    entity.kind === 'unit' &&
+    entity.owner === player &&
+    entity.task.kind !== 'flee'
+  );
 }
 
 /**
@@ -116,6 +122,23 @@ export function builderUnitIds(
         isOwnUnit(entity, player) &&
         entity.kind === 'unit' &&
         UNIT_DEFS[entity.type].builds.includes(type),
+    )
+    .map((entity) => entity.id);
+}
+
+/** Ids of the selected units that the player can order to attack. */
+export function attackerUnitIds(
+  current: ReadonlySet<number>,
+  entities: readonly Entity[],
+  player: PlayerId,
+): number[] {
+  return entities
+    .filter(
+      (entity) =>
+        current.has(entity.id) &&
+        isOwnUnit(entity, player) &&
+        entity.kind === 'unit' &&
+        UNIT_DEFS[entity.type].damage > 0,
     )
     .map((entity) => entity.id);
 }
