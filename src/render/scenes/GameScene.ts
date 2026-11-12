@@ -4,7 +4,8 @@ import { MAP_CONFIG } from '../../data/map';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG, TICK_MS } from '../../data/sim';
 import { consumeSteps, createStepClock } from '../../sim/clock';
-import { applyCommand } from '../../sim/commands';
+import type { UnitType } from '../../data/units';
+import { applyCommand, type CommandResult } from '../../sim/commands';
 import { populationOf } from '../../sim/entities';
 import { createGame } from '../../sim/game';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
@@ -13,6 +14,11 @@ import { advance } from '../../sim/tick';
 import { installTestApi, type TestApi } from '../../testing/testHooks';
 import { CameraController } from '../input/CameraController';
 import { SelectionController } from '../input/SelectionController';
+import {
+  commandPanelLayout,
+  describeCommandPanel,
+  type CommandPanelInfo,
+} from '../ui/commandPanel';
 import { rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout';
 import { describeSelection, type SelectionInfo } from '../ui/selectionInfo';
 import { EntityView } from '../views/EntityView';
@@ -117,6 +123,37 @@ export class GameScene extends Scene implements HudSource {
     };
   }
 
+  getCommandPanelInfo(): CommandPanelInfo | undefined {
+    if (!this.state) return undefined;
+    return describeCommandPanel(
+      this.state.entities,
+      this.selectionController.selection,
+      LOCAL_PLAYER,
+    );
+  }
+
+  trainUnit(unit: UnitType): CommandResult {
+    const info = this.getCommandPanelInfo();
+    if (!this.state || !info) return { ok: false, reason: 'invalid' };
+    return applyCommand(this.state, {
+      type: 'train',
+      player: LOCAL_PLAYER,
+      buildingId: info.buildingId,
+      unit,
+    });
+  }
+
+  cancelQueuedUnit(index: number): CommandResult {
+    const info = this.getCommandPanelInfo();
+    if (!this.state || !info) return { ok: false, reason: 'invalid' };
+    return applyCommand(this.state, {
+      type: 'cancelTrain',
+      player: LOCAL_PLAYER,
+      buildingId: info.buildingId,
+      index,
+    });
+  }
+
   /** Centre of the tile the player's main building is centred on. */
   private playerStartTile(state: GameState): [number, number] {
     const start = state.map.startPositions[LOCAL_PLAYER];
@@ -129,11 +166,17 @@ export class GameScene extends Scene implements HudSource {
     this.cameraController.centerOn(world.x, world.y);
   }
 
-  /** True if a screen position is on the resource bar, or on the selection panel while it shows. */
+  /** True if a screen position is on the resource bar, or on a panel that is showing. */
   private isOverHud(x: number, y: number): boolean {
-    if (rectContains(resourceBarRect(this.scale.width), x, y)) return true;
+    const { width, height } = this.scale;
+    if (rectContains(resourceBarRect(width), x, y)) return true;
     if (this.selectionController.selection.size === 0) return false;
-    return rectContains(selectionPanelRect(this.scale.width, this.scale.height), x, y);
+    if (rectContains(selectionPanelRect(width, height), x, y)) return true;
+    const command = this.getCommandPanelInfo();
+    return (
+      command !== undefined &&
+      rectContains(commandPanelLayout(width, height, command.buttons.length).panel, x, y)
+    );
   }
 
   private installTestApi(state: GameState): void {
@@ -146,6 +189,8 @@ export class GameScene extends Scene implements HudSource {
       getSelection: () => [...this.selectionController.selection],
       getHud: () => (this.scene.get('Ui') as UiScene).getDisplay(),
       getResourceBar: () => (this.scene.get('Ui') as UiScene).getResourceBarDisplay(),
+      getFlashing: () => (this.scene.get('Ui') as UiScene).getFlashing(),
+      getCommandPanel: () => (this.scene.get('Ui') as UiScene).getCommandPanelDisplay(),
       getOrderMarkerCount: () => this.selectionView.orderMarkerCount,
       tileToScreen: (tileX, tileY) => {
         const world = tileToWorld(tileX, tileY, MAP_CONFIG);

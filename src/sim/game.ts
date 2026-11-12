@@ -1,7 +1,7 @@
 import { BUILDING_DEFS } from '../data/buildings';
 import { MAP_CONFIG, MAP_GEN_CONFIG } from '../data/map';
 import { START_CONFIG } from '../data/setup';
-import { createBuilding, createUnit } from './entities';
+import { buildingFrontTile, createBuilding, createUnit } from './entities';
 import { generateMap, type MapGenConfig } from './map/mapgen';
 import type { MapSize } from './map/iso';
 import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
@@ -54,10 +54,8 @@ function placeStartingEntities(state: GameState): void {
       start.y - offset,
     );
 
-    // The tile diagonally in front of the building, at the bottom of it on
-    // screen. Units placed behind a building would be hidden by it.
-    const front = { x: building.x + size, y: building.y + size };
-    const tiles = nearestFreeTiles(buildPathGrid(state), [front], unitCount);
+    // Units placed behind a building would be hidden by it, so they start in front.
+    const tiles = nearestFreeTiles(buildPathGrid(state), [buildingFrontTile(building)], unitCount);
 
     let next = 0;
     for (const entry of START_CONFIG.units) {

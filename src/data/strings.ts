@@ -15,6 +15,8 @@ export const STRINGS = {
     wood: 'Trä',
   } satisfies Record<ResourceType, string>,
   hud: {
+    train: (name: string) => `Träna ${name}`,
+    costPart: (amount: number, resource: string) => `${amount} ${resource.toLowerCase()}`,
     population: 'Befolkning',
     populationCount: (current: number, cap: number) => `${current}/${cap}`,
     gathering: (resource: string, carried: number, capacity: number) =>

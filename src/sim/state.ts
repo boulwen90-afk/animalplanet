@@ -66,6 +66,10 @@ export interface Building {
   x: number;
   y: number;
   hp: number;
+  /** Units waiting to be trained here; the first one is in training. Already paid for. */
+  queue: UnitType[];
+  /** Simulation steps spent training the first unit in the queue. */
+  trainTicks: number;
 }
 
 export type Entity = Unit | Building;

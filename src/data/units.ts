@@ -1,6 +1,15 @@
-/** Unit types. See GDD section 7. Later phases add costs and combat values. */
+import type { ResourceType } from './resources';
+
+/** What something costs, per resource. Resources left out cost nothing. */
+export type Cost = Partial<Record<ResourceType, number>>;
+
+/** Unit types. See GDD section 7. Later phases add combat values. */
 export const UNIT_DEFS = {
   samlare: {
+    /** Price of training one. */
+    cost: { food: 50 } as Cost,
+    /** Time to train one, in seconds. */
+    trainTime: 12,
     /** Hit points. */
     hp: 40,
     /** Movement speed in tiles per second. */

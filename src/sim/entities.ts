@@ -46,6 +46,8 @@ export function createBuilding(
     x: tileX,
     y: tileY,
     hp: BUILDING_DEFS[type].hp,
+    queue: [],
+    trainTicks: 0,
   };
   state.entities.push(building);
   return building;
@@ -117,4 +119,22 @@ export function nearestBuildingTile(building: Building, tileX: number, tileY: nu
 /** Number of units a side has. */
 export function populationOf(state: GameState, owner: PlayerId): number {
   return state.entities.filter((entity) => isUnit(entity) && entity.owner === owner).length;
+}
+
+/**
+ * Population a side has used up: its units plus the units waiting in its
+ * production queues, which will need room when they are done.
+ */
+export function reservedPopulation(state: GameState, owner: PlayerId): number {
+  let queued = 0;
+  for (const entity of state.entities) {
+    if (isBuilding(entity) && entity.owner === owner) queued += entity.queue.length;
+  }
+  return populationOf(state, owner) + queued;
+}
+
+/** The tile diagonally in front of a building, at the bottom of it on screen. */
+export function buildingFrontTile(building: Building): Point {
+  const size = BUILDING_DEFS[building.type].size;
+  return { x: building.x + size, y: building.y + size };
 }
