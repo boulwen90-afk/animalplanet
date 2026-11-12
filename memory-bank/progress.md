@@ -4,13 +4,12 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 2 – klar i kod, pull request öppen mot `main`
-- **Nästa steg:** merge av fas 2, därefter fas 3 (enheter, markering,
-  förflyttning) när den beställs
-- **Publicering:** fas 1 är publicerad på
-  https://boulwen90-afk.github.io/animalplanet/. Deploy-jobbet gick igenom;
-  att sidan visar kartan är inte kontrollerat från Claudes session, som inte
-  når github.io
+- **Aktuell fas:** Fas 3 – klar i kod, pull request öppen mot `main`
+- **Nästa steg:** merge av fas 3, därefter fas 4 (resurser och insamling)
+  när den beställs
+- **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
+  vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
+  från Claudes session, som inte når github.io
 
 ## Fasstatus
 
@@ -18,8 +17,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 |---|---|---|---|
 | 0 | Planeringsdokument | Godkänd 2026-11-12 | – |
 | 1 | Projektuppsättning, deploy, scrollbar karta | Mergad och publicerad | [#1](https://github.com/boulwen90-afk/animalplanet/pull/1) |
-| 2 | Simuleringskärna och terräng | Klar, väntar på merge | [#2](https://github.com/boulwen90-afk/animalplanet/pull/2) |
-| 3 | Enheter, markering, förflyttning | Ej påbörjad | – |
+| 2 | Simuleringskärna och terräng | Mergad | [#2](https://github.com/boulwen90-afk/animalplanet/pull/2) |
+| 3 | Enheter, markering, förflyttning | Klar, väntar på merge | [#3](https://github.com/boulwen90-afk/animalplanet/pull/3) |
 | 4 | Resurser och insamling | Ej påbörjad | – |
 | 5 | Träna arbetare | Ej påbörjad | – |
 | 6 | Bygga Visthus och Krigshall | Ej påbörjad | – |
@@ -53,6 +52,84 @@ Mall – kopiera för varje avslutad fas:
 **Beslut och lärdomar**
 - …
 -->
+
+### Fas 3 – Enheter, markering och förflyttning (2026-11-12)
+
+**Skärmdumpar:** `docs/screenshots/fas-3-markerade.png` (tre markerade
+Samlare och markeringspanelen), `docs/screenshots/fas-3-dragruta.png`
+(dragrutan), `docs/screenshots/fas-3-flyttorder.png` (enheter på väg)
+
+**Avstämning mot planen**
+
+| Punkt i planen | Status | Kommentar |
+|---|---|---|
+| 1. Entiteter i simuleringen; Storide och 3 Samlare per sida vid start | Klar | Storiden är ett hinder med HP |
+| 2. A* i 8 riktningar, inga genvägar över hörn, närmaste nåbara ruta vid blockerat mål | Klar | |
+| 3. Kommandosystem med `move`; flera enheter sprids runt målet | Klar | |
+| 4. Markering: klick, dragruta, Shift-klick, Esc; markeringsellips och orderring | Klar | |
+| 5. Mjuk rörelse genom interpolation | Klar | Ingår nu, stod som saknad i fas 2 |
+| 6. Markeringspanel i HUD:en (namn och HP) | Klar | |
+| 7. `__TEST__.command()` och `__TEST__.tileToScreen()` | Klar | Dessutom `getSelection`, `getHud`, `getOrderMarkerCount`, `centerCameraOnTile` |
+
+| Test i planen | Resultat |
+|---|---|
+| Vitest: A* hittar kortaste vägen på öppen mark | Godkänt |
+| Vitest: A* går runt en mur | Godkänt |
+| Vitest: A* skär inte hörn | Godkänt |
+| Vitest: närmaste nåbara ruta för blockerat mål | Godkänt |
+| Vitest: tom väg när målet är helt avskuret | Godkänt |
+| Vitest: enhet med `move`-order står på målrutan efter förväntat antal steg | Godkänt (10 rutor = exakt 80 steg) |
+| Playwright: klick på en Samlare markerar den | Godkänt |
+| Playwright: dragruta över alla tre markerar tre | Godkänt |
+| Playwright: högerklick får dem att stå intill rutan efter framstegning | Godkänt |
+| Skärmdump med markerade enheter | Klar |
+
+Utöver planen testas även: markeringsreglerna (Shift, byggnader,
+fiendeenheter), klickträffar på enheter och byggnader, texten i
+markeringspanelen, att enheter går runt byggnader och aldrig hamnar på
+samma ruta, att motståndarens enheter inte lyder spelarens order, att
+orderringen försvinner efter 400 ms, och att enheter rör sig i realtid.
+
+**Saknas eller avviker**
+- **Pekskärm:** markering och order fungerar inte med finger än. På mobil
+  går det bara att panorera. Det står i planen för fas 10.
+- **Kameran startar nu vid spelarens bas** i stället för kartans mitt. Det
+  stod inte i planen för fas 3, men utan det syns inte de egna enheterna
+  vid start.
+- **Startenheterna är inte spegelvända mellan sidorna.** Båda sidors
+  Samlare står framför sin Storide. Skillnaden är högst ett par rutor.
+- **Markeringen ändras när musknappen släpps**, inte när den trycks ned.
+  GDD:t säger "samma bildruta som klicket".
+- **Fiendens enheter och byggnader går att markera** för att se namn och
+  HP. GDD:t säger inget om det. De går inte att ge order.
+- **Enheter bakom en byggnad döljs av den** men går fortfarande att klicka
+  på och dra en ruta runt.
+- **En orderring visas även när enheterna inte kan nå målet** och därför
+  står kvar.
+- **Enheter kan passera genom varandra** under förflyttning. Det är en
+  uttalad förenkling i GDD:t. De stannar aldrig på samma ruta.
+- **Vägar räknas inte om när kartan ändras.** Inget ändrar kartan än; det
+  behövs i fas 4 och 6.
+- **Skärmdumpen av flyttordern visar inte orderringen.** Den hinner tonas
+  bort innan bilden tas. Ringen kontrolleras av ett webbläsartest.
+
+**Testresultat**
+- Vitest: 159 av 159
+- Playwright: 37 av 37, även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll: utan anmärkning
+- Konsolfel i headless-webbläsare: inga
+
+**Beslut och lärdomar**
+- Första versionen placerade Samlarna bakom Storiden, där de inte syntes.
+  Alla tester gick igenom ändå, eftersom testerna klickar på uträknade
+  koordinater. Det upptäcktes först på skärmdumpen. Skärmdumpar ska
+  granskas, inte bara sparas.
+- Två webbläsartester antog att en ruta 4,1 rutor från startpositionen var
+  fri. Kartgenereringen garanterar bara 4 rutor. Testerna använder nu en
+  ruta som garanterat är fri.
+- När målet är ett hinder valdes först den närmaste rutan med lägst index,
+  så en enhet kunde gå runt till trädets baksida. Nu väljs den ruta som
+  ligger närmast enheten.
 
 ### Fas 2 – Simuleringskärna och terräng (2026-11-12)
 
