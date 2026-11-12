@@ -1,11 +1,14 @@
 import { AUTO, Game, Scale } from 'phaser';
 import { MAP_GEN_CONFIG } from './data/map';
 import { GameScene } from './render/scenes/GameScene';
+import { UiScene } from './render/scenes/UiScene';
 import { parseSeed } from './sim/rng';
 
 const params = new URLSearchParams(window.location.search);
 const testMode = params.get('test') === '1';
 const seed = parseSeed(params.get('seed'), MAP_GEN_CONFIG.defaultSeed);
+
+const gameScene = new GameScene({ testMode, seed });
 
 new Game({
   type: AUTO,
@@ -18,5 +21,5 @@ new Game({
   },
   banner: false,
   audio: { noAudio: true },
-  scene: [new GameScene({ testMode, seed })],
+  scene: [gameScene, new UiScene(gameScene)],
 });

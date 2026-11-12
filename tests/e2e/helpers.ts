@@ -46,6 +46,31 @@ export async function getState(page: Page): Promise<GameState> {
   return page.evaluate(() => window.__TEST__!.getState());
 }
 
+/**
+ * Moves the camera to the middle of the map, where there is room to pan in
+ * every direction. The game itself starts at the player's base, near a corner.
+ */
+export async function centerCameraOnMapMiddle(page: Page): Promise<void> {
+  await page.evaluate(([x, y]) => window.__TEST__!.centerCameraOnTile(x, y), [
+    MAP_CONFIG.width / 2,
+    MAP_CONFIG.height / 2,
+  ] as const);
+}
+
+/** Screen position of a point in tile coordinates (see TestApi.tileToScreen). */
+export async function tileToScreen(
+  page: Page,
+  tileX: number,
+  tileY: number,
+): Promise<{ x: number; y: number }> {
+  return page.evaluate(([x, y]) => window.__TEST__!.tileToScreen(x, y), [tileX, tileY] as const);
+}
+
+export async function getSelection(page: Page): Promise<number[]> {
+  const ids = await page.evaluate(() => window.__TEST__!.getSelection());
+  return ids.sort((a, b) => a - b);
+}
+
 export function expectCameraOnMap(camera: TestCameraInfo): void {
   const { centerTile } = camera;
   // A little slack for floating point rounding.

@@ -1,3 +1,6 @@
+import type { HudDisplay } from '../render/scenes/UiScene';
+import type { Command } from '../sim/commands';
+import type { Point } from '../sim/map/iso';
 import type { GameState } from '../sim/state';
 
 /**
@@ -17,6 +20,20 @@ export interface TestCameraInfo {
   centerTile: { x: number; y: number };
 }
 
+/** What the game scene provides to the test interface. */
+export interface TestApiSource {
+  getCamera(): TestCameraInfo;
+  getElapsedMs(): number;
+  getState(): GameState;
+  advance(steps: number): void;
+  command(command: Command): void;
+  getSelection(): number[];
+  getHud(): HudDisplay;
+  getOrderMarkerCount(): number;
+  tileToScreen(tileX: number, tileY: number): Point;
+  centerCameraOnTile(tileX: number, tileY: number): void;
+}
+
 export interface TestApi {
   /** True once the game scene has been created and is rendering. */
   ready: boolean;
@@ -32,13 +49,21 @@ export interface TestApi {
   getState(): GameState;
   /** Runs `steps` simulation steps immediately, on top of the real-time ones. */
   advance(steps: number): void;
-}
-
-export interface TestApiSource {
-  getCamera(): TestCameraInfo;
-  getElapsedMs(): number;
-  getState(): GameState;
-  advance(steps: number): void;
+  /** Sends a command to the simulation, exactly as player input and the AI do. */
+  command(command: Command): void;
+  /** Ids of the selected entities. */
+  getSelection(): number[];
+  /** What the selection panel shows right now. */
+  getHud(): HudDisplay;
+  /** Number of order rings currently visible. */
+  getOrderMarkerCount(): number;
+  /**
+   * Screen position of a point in tile coordinates. Whole numbers are tile
+   * corners; add 0.5 for the centre of a tile. Unit positions can be passed as they are.
+   */
+  tileToScreen(tileX: number, tileY: number): Point;
+  /** Centres the camera on a point in tile coordinates. */
+  centerCameraOnTile(tileX: number, tileY: number): void;
 }
 
 declare global {
@@ -58,6 +83,12 @@ export function installTestApi(source: TestApiSource): TestApi {
     },
     getState: () => source.getState(),
     advance: (steps) => source.advance(steps),
+    command: (command) => source.command(command),
+    getSelection: () => source.getSelection(),
+    getHud: () => source.getHud(),
+    getOrderMarkerCount: () => source.getOrderMarkerCount(),
+    tileToScreen: (tileX, tileY) => source.tileToScreen(tileX, tileY),
+    centerCameraOnTile: (tileX, tileY) => source.centerCameraOnTile(tileX, tileY),
   };
   window.__TEST__ = api;
   return api;

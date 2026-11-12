@@ -1,7 +1,8 @@
 import { expect, test } from '@playwright/test';
-import { MAP_CONFIG } from '../../src/data/map';
+import { MAP_CONFIG, MAP_GEN_CONFIG } from '../../src/data/map';
 import { CAMERA_CONFIG } from '../../src/data/camera';
 import {
+  centerCameraOnMapMiddle,
   expectCameraOnMap,
   getCamera,
   measurePanSpeed,
@@ -19,9 +20,10 @@ test.describe('phase 1: scrollable isometric map', () => {
     expect(camera.width).toBeGreaterThan(0);
     expect(camera.height).toBeGreaterThan(0);
     expectCameraOnMap(camera);
-    // The game starts centred on the middle of the map.
-    expect(camera.centerTile.x).toBeCloseTo(MAP_CONFIG.width / 2, 1);
-    expect(camera.centerTile.y).toBeCloseTo(MAP_CONFIG.height / 2, 1);
+    // The game starts centred on the player's main building.
+    const start = MAP_GEN_CONFIG.startPositions[0];
+    expect(camera.centerTile.x).toBeCloseTo(start.x + 0.5, 1);
+    expect(camera.centerTile.y).toBeCloseTo(start.y + 0.5, 1);
     expect(errors).toEqual([]);
   });
 
@@ -36,6 +38,7 @@ test.describe('phase 1: scrollable isometric map', () => {
 
   test('holding the right arrow for 500 ms moves the camera right', async ({ page }) => {
     await openGame(page);
+    await centerCameraOnMapMiddle(page);
     const before = await getCamera(page);
 
     await page.keyboard.down('ArrowRight');
@@ -65,6 +68,7 @@ test.describe('phase 1: scrollable isometric map', () => {
   for (const { key, x, y } of panKeys) {
     test(`the ${key} key pans at ${speed} px/s`, async ({ page }) => {
       await openGame(page);
+      await centerCameraOnMapMiddle(page);
 
       await page.keyboard.down(key);
       const measured = await measurePanSpeed(page);
@@ -87,6 +91,7 @@ test.describe('phase 1: scrollable isometric map', () => {
     test(`panning ${name} for 10 s stops at the map edge`, async ({ page }) => {
       test.setTimeout(30_000);
       await openGame(page);
+      await centerCameraOnMapMiddle(page);
 
       await page.keyboard.down(key);
       await page.waitForTimeout(10_000);
@@ -102,6 +107,7 @@ test.describe('phase 1: scrollable isometric map', () => {
 
   test('the mouse at the screen edge pans the camera', async ({ page }) => {
     await openGame(page);
+    await centerCameraOnMapMiddle(page);
     const viewport = page.viewportSize()!;
     await page.mouse.move(viewport.width / 2, viewport.height / 2);
     await page.waitForTimeout(200);
@@ -124,6 +130,7 @@ test.describe('phase 1: scrollable isometric map', () => {
 
   test('dragging with the middle mouse button moves the map with the pointer', async ({ page }) => {
     await openGame(page);
+    await centerCameraOnMapMiddle(page);
     const before = await getCamera(page);
 
     await page.mouse.move(400, 300);
@@ -140,6 +147,7 @@ test.describe('phase 1: scrollable isometric map', () => {
 
   test('dragging with the left mouse button does not move the camera', async ({ page }) => {
     await openGame(page);
+    await centerCameraOnMapMiddle(page);
     const before = await getCamera(page);
 
     await page.mouse.move(400, 300);
@@ -159,6 +167,7 @@ test.describe('phase 1: touch', () => {
   test('dragging with one finger moves the map with the finger', async ({ page }) => {
     const errors = trackConsoleErrors(page);
     await openGame(page);
+    await centerCameraOnMapMiddle(page);
     const before = await getCamera(page);
 
     const cdp = await page.context().newCDPSession(page);
