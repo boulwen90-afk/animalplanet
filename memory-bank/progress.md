@@ -16,7 +16,7 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 |---|---|---|---|
 | 0 | Planeringsdokument | Godkänd 2026-11-12 | – |
 | 1 | Projektuppsättning, deploy, scrollbar karta | Mergad. Publiceringen ej verifierad | [#1](https://github.com/boulwen90-afk/animalplanet/pull/1) |
-| 2 | Simuleringskärna och terräng | Klar, väntar på merge | Se fasloggen |
+| 2 | Simuleringskärna och terräng | Klar, väntar på merge | [#2](https://github.com/boulwen90-afk/animalplanet/pull/2) |
 | 3 | Enheter, markering, förflyttning | Ej påbörjad | – |
 | 4 | Resurser och insamling | Ej påbörjad | – |
 | 5 | Träna arbetare | Ej påbörjad | – |
