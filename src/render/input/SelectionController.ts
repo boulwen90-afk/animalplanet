@@ -10,8 +10,14 @@ import {
 } from '../../sim/map/iso';
 import type { GameState, PlayerId } from '../../sim/state';
 import type { SelectionView } from '../views/SelectionView';
-import { pickEntity, rectFromPoints, unitsInRect } from './picking';
-import { commandableUnitIds, pruneSelection, selectByBox, selectByClick } from './selection';
+import { pickEntity, pickResourceTile, rectFromPoints, unitsInRect } from './picking';
+import {
+  commandableUnitIds,
+  gathererUnitIds,
+  pruneSelection,
+  selectByBox,
+  selectByClick,
+} from './selection';
 
 export interface SelectionControllerDeps {
   getState(): GameState;
@@ -34,7 +40,8 @@ interface Drag {
 /**
  * Mouse and keyboard selection and orders:
  * left click selects, left drag draws a selection box, Shift adds to the
- * selection, Esc clears it, and right click orders the selected units to move.
+ * selection, Esc clears it, and right click orders the selected units to
+ * gather from the resource under the pointer or else to move there.
  * Touch input is not handled here yet; one finger pans the camera.
  */
 export class SelectionController {
@@ -76,7 +83,7 @@ export class SelectionController {
   private onPointerDown(pointer: Input.Pointer): void {
     if (pointer.wasTouch || this.deps.isOverHud(pointer.x, pointer.y)) return;
     if (pointer.rightButtonDown()) {
-      this.orderMove(pointer);
+      this.giveOrder(pointer);
     } else if (pointer.leftButtonDown() && !this.drag) {
       this.drag = {
         startScreen: { x: pointer.x, y: pointer.y },
@@ -118,17 +125,33 @@ export class SelectionController {
     }
   }
 
-  /** Orders the selected units of the player to walk to the tile under the pointer. */
-  private orderMove(pointer: Input.Pointer): void {
+  /**
+   * Gives the selected units of the player an order for what is under the
+   * pointer: gather from a resource source, otherwise walk to the tile.
+   */
+  private giveOrder(pointer: Input.Pointer): void {
     const state = this.deps.getState();
-    const unitIds = commandableUnitIds(this.selected, state.entities, this.deps.player);
+    const { player, tileSize } = this.deps;
+    const unitIds = commandableUnitIds(this.selected, state.entities, player);
     if (unitIds.length === 0) return;
-
     const world = this.worldPoint(pointer);
-    const tile = worldToTile(world.x, world.y, this.deps.tileSize);
-    if (!isInsideMap(tile.x, tile.y, state.map)) return;
 
-    this.deps.issue({ type: 'move', player: this.deps.player, unitIds, x: tile.x, y: tile.y });
+    const source = pickResourceTile(state.map, world, tileSize);
+    const gatherers = gathererUnitIds(this.selected, state.entities, player);
+    if (source && gatherers.length > 0) {
+      this.deps.issue({ type: 'gather', player, unitIds: gatherers, x: source.x, y: source.y });
+      this.markOrder(source);
+      return;
+    }
+
+    const tile = worldToTile(world.x, world.y, tileSize);
+    if (!isInsideMap(tile.x, tile.y, state.map)) return;
+    this.deps.issue({ type: 'move', player, unitIds, x: tile.x, y: tile.y });
+    this.markOrder(tile);
+  }
+
+  /** Shows an order ring on a tile. */
+  private markOrder(tile: Point): void {
     const centre = tileCenterToWorld(tile.x, tile.y, this.deps.tileSize);
     this.deps.view.addOrderMarker(centre.x, centre.y);
   }

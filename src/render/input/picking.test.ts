@@ -1,10 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { MAP_CONFIG } from '../../data/map';
 import { createBuilding, createUnit } from '../../sim/entities';
-import { tileToWorld } from '../../sim/map/iso';
-import { openState } from '../../sim/testUtils';
-import { BUILDING_VISUALS, UNIT_VISUALS, unitVisualCentre } from '../views/visuals';
-import { pickEntity, rectFromPoints, unitsInRect } from './picking';
+import { tileCenterToWorld, tileToWorld } from '../../sim/map/iso';
+import { openState, stateFromRows } from '../../sim/testUtils';
+import {
+  BUILDING_VISUALS,
+  TERRAIN_OBJECT_VISUALS,
+  UNIT_VISUALS,
+  unitVisualCentre,
+} from '../views/visuals';
+import { pickEntity, pickResourceTile, rectFromPoints, unitsInRect } from './picking';
 
 const size = MAP_CONFIG;
 
@@ -124,5 +129,56 @@ describe('rectFromPoints', () => {
     expect(rectFromPoints({ x: 10, y: 20 }, { x: 40, y: 60 })).toEqual(expected);
     expect(rectFromPoints({ x: 40, y: 60 }, { x: 10, y: 20 })).toEqual(expected);
     expect(rectFromPoints({ x: 40, y: 20 }, { x: 10, y: 60 })).toEqual(expected);
+  });
+});
+
+describe('pickResourceTile', () => {
+  const rows = ['......', '..T...', '......', '....B.', '......', '......'];
+
+  it('picks a tree by its trunk and by the top of its crown', () => {
+    const { map } = stateFromRows(rows);
+    const centre = tileCenterToWorld(2, 1, size);
+    const base = centre.y + size.tileHeight / 4;
+    const height = TERRAIN_OBJECT_VISUALS.tree!.height;
+    expect(pickResourceTile(map, { x: centre.x, y: base - 2 }, size)).toEqual({ x: 2, y: 1 });
+    // The crown reaches well above the tree's own tile.
+    expect(pickResourceTile(map, { x: centre.x, y: base - height + 3 }, size)).toEqual({
+      x: 2,
+      y: 1,
+    });
+  });
+
+  it('picks a berry bush', () => {
+    const { map } = stateFromRows(rows);
+    const centre = tileCenterToWorld(4, 3, size);
+    expect(pickResourceTile(map, centre, size)).toEqual({ x: 4, y: 3 });
+  });
+
+  it('returns nothing on open ground, beside or above a source', () => {
+    const { map } = stateFromRows(rows);
+    const centre = tileCenterToWorld(2, 1, size);
+    const base = centre.y + size.tileHeight / 4;
+    const { width, height } = TERRAIN_OBJECT_VISUALS.tree!;
+    expect(pickResourceTile(map, tileCenterToWorld(0, 4, size), size)).toBeUndefined();
+    expect(
+      pickResourceTile(map, { x: centre.x + width / 2 + 20, y: base - height / 2 }, size),
+    ).toBeUndefined();
+    expect(pickResourceTile(map, { x: centre.x, y: base - height - 10 }, size)).toBeUndefined();
+  });
+
+  it('picks the tree in front where two trees overlap', () => {
+    // Two trees in a column down the screen; the front one's crown covers the back one's trunk.
+    const { map } = stateFromRows(['....', '.T..', '..T.', '....']);
+    const back = tileCenterToWorld(1, 1, size);
+    const point = { x: back.x, y: back.y + size.tileHeight / 4 - 2 };
+    expect(pickResourceTile(map, point, size)).toEqual({ x: 2, y: 2 });
+  });
+
+  it('does not pick rocks, water or emptied sources', () => {
+    const state = stateFromRows(['...', '.R.', '.W.', '.T.', '...']);
+    state.map.resourceAmount[3 * 3 + 1] = 0;
+    for (const y of [1, 2, 3]) {
+      expect(pickResourceTile(state.map, tileCenterToWorld(1, y, size), size)).toBeUndefined();
+    }
   });
 });

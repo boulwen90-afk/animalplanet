@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createBuilding, createUnit } from '../../sim/entities';
-import { openState } from '../../sim/testUtils';
-import { rectContains, selectionPanelRect } from './layout';
+import { openState, stateFromRows } from '../../sim/testUtils';
+import { applyCommand } from '../../sim/commands';
+import { advance } from '../../sim/tick';
+import { rectContains, resourceBarRect, selectionPanelRect } from './layout';
 import { describeSelection } from './selectionInfo';
 
 describe('describeSelection', () => {
@@ -52,6 +54,52 @@ describe('describeSelection', () => {
       title: '3 enheter markerade',
       detail: 'Samlare ×3',
     });
+  });
+});
+
+describe('describeSelection for a working unit', () => {
+  function gatheringWorker() {
+    const state = stateFromRows(['.......', '.......', '.....B.', '.......', '.......']);
+    createBuilding(state, 'storide', 0, 1, 1);
+    const worker = createUnit(state, 'samlare', 0, 4, 2);
+    applyCommand(state, { type: 'gather', player: 0, unitIds: [worker.id], x: 5, y: 2 });
+    return { state, worker };
+  }
+
+  it('shows what is being gathered and how much is carried', () => {
+    const { state, worker } = gatheringWorker();
+    advance(state, 60);
+    expect(describeSelection(state.entities, new Set([worker.id]), 0)).toEqual({
+      title: 'Samlare',
+      detail: 'HP 40/40 · Samlar mat 3/10',
+    });
+  });
+
+  it('shows the load of a unit that has stopped gathering', () => {
+    const { state, worker } = gatheringWorker();
+    advance(state, 60);
+    applyCommand(state, { type: 'move', player: 0, unitIds: [worker.id], x: 6, y: 4 });
+    expect(describeSelection(state.entities, new Set([worker.id]), 0)?.detail).toBe(
+      'HP 40/40 · Bär 3 mat',
+    );
+  });
+
+  it('does not reveal what an enemy unit is doing', () => {
+    const { state, worker } = gatheringWorker();
+    advance(state, 60);
+    expect(describeSelection(state.entities, new Set([worker.id]), 1)).toEqual({
+      title: 'Samlare (Fiende)',
+      detail: 'HP 40/40',
+    });
+  });
+});
+
+describe('resourceBarRect', () => {
+  it('runs along the whole top edge', () => {
+    const rect = resourceBarRect(1280);
+    expect(rect).toMatchObject({ x: 0, y: 0, width: 1280 });
+    expect(rectContains(rect, 640, 10)).toBe(true);
+    expect(rectContains(rect, 640, rect.height + 5)).toBe(false);
   });
 });
 

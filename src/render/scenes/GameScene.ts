@@ -1,9 +1,11 @@
 import { Scene } from 'phaser';
 import { CAMERA_CONFIG } from '../../data/camera';
 import { MAP_CONFIG } from '../../data/map';
+import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG, TICK_MS } from '../../data/sim';
 import { consumeSteps, createStepClock } from '../../sim/clock';
 import { applyCommand } from '../../sim/commands';
+import { populationOf } from '../../sim/entities';
 import { createGame } from '../../sim/game';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
 import type { GameState, PlayerId } from '../../sim/state';
@@ -11,12 +13,12 @@ import { advance } from '../../sim/tick';
 import { installTestApi, type TestApi } from '../../testing/testHooks';
 import { CameraController } from '../input/CameraController';
 import { SelectionController } from '../input/SelectionController';
-import { rectContains, selectionPanelRect } from '../ui/layout';
+import { rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout';
 import { describeSelection, type SelectionInfo } from '../ui/selectionInfo';
 import { EntityView } from '../views/EntityView';
 import { MapView } from '../views/MapView';
 import { SelectionView } from '../views/SelectionView';
-import type { HudSource, UiScene } from './UiScene';
+import type { HudSource, ResourceBarInfo, UiScene } from './UiScene';
 
 export interface GameSceneOptions {
   /** Expose window.__TEST__ (enabled with ?test=1). */
@@ -33,6 +35,7 @@ export class GameScene extends Scene implements HudSource {
   private readonly stepClock = createStepClock();
   private cameraController!: CameraController;
   private selectionController!: SelectionController;
+  private mapView!: MapView;
   private entityView!: EntityView;
   private selectionView!: SelectionView;
   private testApi: TestApi | undefined;
@@ -49,7 +52,7 @@ export class GameScene extends Scene implements HudSource {
     const state = createGame(this.options.seed);
     this.state = state;
 
-    new MapView(this, state.map, MAP_CONFIG);
+    this.mapView = new MapView(this, state.map, MAP_CONFIG);
     this.entityView = new EntityView(this, MAP_CONFIG);
     this.selectionView = new SelectionView(this);
 
@@ -90,6 +93,7 @@ export class GameScene extends Scene implements HudSource {
 
     // Draw units part-way into the next step, so movement looks smooth.
     const alpha = Math.min(this.stepClock.accumulatorMs / TICK_MS, 1);
+    this.mapView.update(state.map);
     this.entityView.update(state, alpha, this.selectionController.selection);
     this.selectionView.update(elapsed);
 
@@ -100,6 +104,17 @@ export class GameScene extends Scene implements HudSource {
   getSelectionInfo(): SelectionInfo | undefined {
     if (!this.state) return undefined;
     return describeSelection(this.state.entities, this.selectionController.selection, LOCAL_PLAYER);
+  }
+
+  getResourceBarInfo(): ResourceBarInfo | undefined {
+    const stock = this.state?.players[LOCAL_PLAYER];
+    if (!this.state || !stock) return undefined;
+    return {
+      food: stock.resources.food,
+      wood: stock.resources.wood,
+      population: populationOf(this.state, LOCAL_PLAYER),
+      populationCap: START_CONFIG.populationCap,
+    };
   }
 
   /** Centre of the tile the player's main building is centred on. */
@@ -114,8 +129,9 @@ export class GameScene extends Scene implements HudSource {
     this.cameraController.centerOn(world.x, world.y);
   }
 
-  /** True if a screen position is on the selection panel while it is showing. */
+  /** True if a screen position is on the resource bar, or on the selection panel while it shows. */
   private isOverHud(x: number, y: number): boolean {
+    if (rectContains(resourceBarRect(this.scale.width), x, y)) return true;
     if (this.selectionController.selection.size === 0) return false;
     return rectContains(selectionPanelRect(this.scale.width, this.scale.height), x, y);
   }
@@ -129,6 +145,7 @@ export class GameScene extends Scene implements HudSource {
       command: (command) => applyCommand(state, command),
       getSelection: () => [...this.selectionController.selection],
       getHud: () => (this.scene.get('Ui') as UiScene).getDisplay(),
+      getResourceBar: () => (this.scene.get('Ui') as UiScene).getResourceBarDisplay(),
       getOrderMarkerCount: () => this.selectionView.orderMarkerCount,
       tileToScreen: (tileX, tileY) => {
         const world = tileToWorld(tileX, tileY, MAP_CONFIG);

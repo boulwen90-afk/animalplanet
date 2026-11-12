@@ -7,6 +7,7 @@ import {
   BUILDING_VISUALS,
   OUTLINE_COLOR,
   PLAYER_COLORS,
+  RESOURCE_COLORS,
   SELECTION_COLOR,
   UNIT_VISUALS,
   unitVisualCentre,
@@ -14,6 +15,10 @@ import {
 
 /** Depth of marks drawn on the ground: above the ground tiles, below everything standing on them. */
 const GROUND_MARK_DEPTH = -0.5;
+/** Depth of marks drawn on top of units: in front of everything in the world. */
+const OVERLAY_DEPTH = 900_000;
+/** Side of the square shown on a unit that carries a resource, in pixels. */
+const CARRY_MARK_SIZE = 7;
 
 interface EntitySprite {
   image: GameObjects.Image;
@@ -28,12 +33,14 @@ interface EntitySprite {
 export class EntityView {
   private readonly sprites = new Map<number, EntitySprite>();
   private readonly marks: GameObjects.Graphics;
+  private readonly carryMarks: GameObjects.Graphics;
 
   constructor(
     private readonly scene: Scene,
     private readonly size: TileSize,
   ) {
     this.marks = scene.add.graphics().setDepth(GROUND_MARK_DEPTH);
+    this.carryMarks = scene.add.graphics().setDepth(OVERLAY_DEPTH);
   }
 
   /**
@@ -42,6 +49,7 @@ export class EntityView {
   update(state: GameState, alpha: number, selected: ReadonlySet<number>): void {
     this.marks.clear();
     this.marks.lineStyle(2, SELECTION_COLOR, 1);
+    this.carryMarks.clear();
 
     const seen = new Set<number>();
     for (const entity of state.entities) {
@@ -70,9 +78,19 @@ export class EntityView {
     const centre = unitVisualCentre(unit, tileX, tileY, this.size);
     sprite.image.setPosition(centre.x, centre.y).setDepth(ground.y);
 
+    const radius = UNIT_VISUALS[unit.type].radius;
     if (selected) {
-      const radius = UNIT_VISUALS[unit.type].radius;
       this.marks.strokeEllipse(ground.x, ground.y, radius * 2 + 12, radius + 6);
+    }
+
+    // A small square in the resource's colour shows that the unit carries something.
+    if (unit.carryAmount > 0 && unit.carryType) {
+      const x = centre.x + radius - CARRY_MARK_SIZE / 2;
+      const y = centre.y - radius - CARRY_MARK_SIZE / 2;
+      this.carryMarks.fillStyle(RESOURCE_COLORS[unit.carryType], 1);
+      this.carryMarks.fillRect(x, y, CARRY_MARK_SIZE, CARRY_MARK_SIZE);
+      this.carryMarks.lineStyle(1, OUTLINE_COLOR, 1);
+      this.carryMarks.strokeRect(x, y, CARRY_MARK_SIZE, CARRY_MARK_SIZE);
     }
   }
 

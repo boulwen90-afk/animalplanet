@@ -1,4 +1,5 @@
 import type { Terrain } from '../../data/terrain';
+import { initialResourceAmounts } from '../resources';
 import { nextInt, pick, type RngState } from '../rng';
 import {
   EDGE_NEIGHBOURS,
@@ -50,15 +51,21 @@ export function generateMap(rng: RngState, size: MapSize, config: MapGenConfig):
     const map = emptyMap(size, starts);
     if (!placeStartResources(rng, map, config)) continue;
     placeRandomFeatures(rng, map, config);
-    if (isReachable(map, starts[0], starts[1])) return map;
+    if (isReachable(map, starts[0], starts[1])) return withResources(map);
   }
 
   // Every random layout cut the map in two. Fall back to start resources only,
   // which cannot separate the start positions.
   for (;;) {
     const map = emptyMap(size, starts);
-    if (placeStartResources(rng, map, config)) return map;
+    if (placeStartResources(rng, map, config)) return withResources(map);
   }
+}
+
+/** Gives every tree and berry bush its starting amount. */
+function withResources(map: GameMap): GameMap {
+  map.resourceAmount = initialResourceAmounts(map.terrain);
+  return map;
 }
 
 function validateStartPositions(size: MapSize, config: MapGenConfig): [Point, Point] {
@@ -84,6 +91,7 @@ function emptyMap(size: MapSize, starts: [Point, Point]): GameMap {
     width: size.width,
     height: size.height,
     terrain: new Array<Terrain>(size.width * size.height).fill('grass'),
+    resourceAmount: [],
     startPositions: starts.map((p) => ({ ...p })),
   };
 }

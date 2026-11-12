@@ -33,9 +33,11 @@ export function describeSelection(
 
   if (chosen.length === 1) {
     const name = entityName(first);
+    const hp = STRINGS.hud.hp(first.hp, maxHp(first));
+    const activity = first.owner === player ? describeActivity(first) : undefined;
     return {
       title: first.owner === player ? name : `${name} (${STRINGS.hud.enemy})`,
-      detail: STRINGS.hud.hp(first.hp, maxHp(first)),
+      detail: activity ? `${hp} · ${activity}` : hp,
     };
   }
 
@@ -48,4 +50,20 @@ export function describeSelection(
     title: STRINGS.hud.unitsSelected(chosen.length),
     detail: [...counts].map(([name, count]) => STRINGS.hud.countOfType(name, count)).join(', '),
   };
+}
+
+/** What a unit is doing, or undefined if it is doing nothing worth mentioning. */
+function describeActivity(entity: Entity): string | undefined {
+  if (entity.kind !== 'unit') return undefined;
+  if (entity.task.kind === 'gather') {
+    return STRINGS.hud.gathering(
+      STRINGS.resources[entity.task.resource],
+      entity.carryAmount,
+      UNIT_DEFS[entity.type].carryCapacity,
+    );
+  }
+  if (entity.carryAmount > 0 && entity.carryType) {
+    return STRINGS.hud.carrying(STRINGS.resources[entity.carryType], entity.carryAmount);
+  }
+  return undefined;
 }

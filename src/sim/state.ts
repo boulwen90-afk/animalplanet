@@ -1,4 +1,5 @@
 import type { BuildingType } from '../data/buildings';
+import type { ResourceType } from '../data/resources';
 import type { UnitType } from '../data/units';
 import type { GameMap } from './map/grid';
 import type { Point } from './map/iso';
@@ -6,6 +7,35 @@ import type { RngState } from './rng';
 
 /** 0 is the human player, 1 the opponent. */
 export type PlayerId = 0 | 1;
+
+/** What a unit is doing besides walking. */
+export type UnitTask = IdleTask | GatherTask;
+
+export interface IdleTask {
+  kind: 'idle';
+}
+
+/**
+ * Gathering a resource in a loop: walk to the source, fill up, walk to a
+ * drop-off building, deliver, and back again.
+ */
+export interface GatherTask {
+  kind: 'gather';
+  resource: ResourceType;
+  /** Tile of the source being worked. */
+  node: Point;
+  phase: 'toSource' | 'gathering' | 'toDropoff';
+  /** Simulation steps worked towards the next unit of resource. */
+  workTicks: number;
+  /** Building the load is being carried to, while in the toDropoff phase. */
+  dropoffId: number | null;
+}
+
+/** What a side owns apart from its units and buildings. */
+export interface PlayerState {
+  /** Resources in stock. Gathered resources count once they are delivered. */
+  resources: Record<ResourceType, number>;
+}
 
 export interface Unit {
   id: number;
@@ -21,6 +51,10 @@ export interface Unit {
   hp: number;
   /** Tiles still to walk through, next one first. Empty when standing still. */
   path: Point[];
+  task: UnitTask;
+  /** Kind and amount of resource the unit carries. The kind is kept when the amount is 0. */
+  carryType: ResourceType | null;
+  carryAmount: number;
 }
 
 export interface Building {
@@ -48,6 +82,8 @@ export interface GameState {
   /** Random generator; all randomness in the simulation draws from it. */
   rng: RngState;
   map: GameMap;
+  /** One entry per side, indexed by PlayerId. */
+  players: PlayerState[];
   /** All units and buildings, in order of creation. */
   entities: Entity[];
   /** Id the next created entity gets. Ids are never reused. */

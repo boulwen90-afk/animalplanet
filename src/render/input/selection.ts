@@ -1,3 +1,4 @@
+import { UNIT_DEFS } from '../../data/units';
 import type { Entity, PlayerId } from '../../sim/state';
 
 /**
@@ -78,4 +79,21 @@ export function commandableUnitIds(
   return entities
     .filter((entity) => current.has(entity.id) && isOwnUnit(entity, player))
     .map((e) => e.id);
+}
+
+/** Ids of the selected units that the player can order to gather resources. */
+export function gathererUnitIds(
+  current: ReadonlySet<number>,
+  entities: readonly Entity[],
+  player: PlayerId,
+): number[] {
+  return entities
+    .filter(
+      (entity) =>
+        current.has(entity.id) &&
+        isOwnUnit(entity, player) &&
+        entity.kind === 'unit' &&
+        UNIT_DEFS[entity.type].carryCapacity > 0,
+    )
+    .map((entity) => entity.id);
 }

@@ -6,6 +6,8 @@ export interface GameMap {
   width: number;
   height: number;
   terrain: Terrain[];
+  /** Resource units left in each tile's source; 0 where there is none. Same indexing as terrain. */
+  resourceAmount: number[];
   /** Tile where each side's main building stands. Index 0 is the player, 1 the opponent. */
   startPositions: Point[];
 }

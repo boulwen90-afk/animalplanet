@@ -2,6 +2,7 @@ import type { GameObjects, Scene } from 'phaser';
 import type { Terrain } from '../../data/terrain';
 import type { GameMap } from '../../sim/map/grid';
 import { tileCenterToWorld, tileToWorld, type TileSize } from '../../sim/map/iso';
+import { TERRAIN_OBJECT_VISUALS } from './visuals';
 
 /** Depth of the flat ground layer. Everything standing on the map is drawn above it. */
 const GROUND_DEPTH = -1;
@@ -44,6 +45,9 @@ const OBJECT_TEXTURE: Partial<Record<Terrain, string>> = {
  * the ones behind them.
  */
 export class MapView {
+  /** The object drawn on each tile that has one, by tile index. */
+  private readonly objects = new Map<number, { image: GameObjects.Image; terrain: Terrain }>();
+
   constructor(scene: Scene, map: GameMap, size: TileSize) {
     createTextures(scene, size);
 
@@ -51,7 +55,8 @@ export class MapView {
     const blitters = new Map<string, GameObjects.Blitter>();
     for (let ty = 0; ty < map.height; ty++) {
       for (let tx = 0; tx < map.width; tx++) {
-        const terrain = map.terrain[ty * map.width + tx] as Terrain;
+        const index = ty * map.width + tx;
+        const terrain = map.terrain[index] as Terrain;
 
         const key = GROUND_TEXTURE[terrain];
         let blitter = blitters.get(key);
@@ -67,14 +72,33 @@ export class MapView {
           // Objects stand on the lower part of their tile and are sorted by
           // the screen height of their tile's centre.
           const centre = tileCenterToWorld(tx, ty, size);
-          scene.add
+          const image = scene.add
             .image(centre.x, centre.y + size.tileHeight / 4, objectKey)
             .setOrigin(0.5, 1)
             .setDepth(centre.y);
+          this.objects.set(index, { image, terrain });
         }
       }
     }
   }
+
+  /**
+   * Removes the objects of tiles whose terrain has changed, such as trees and
+   * berry bushes that have been emptied. The ground under them is already grass.
+   */
+  update(map: GameMap): void {
+    for (const [index, object] of this.objects) {
+      if (map.terrain[index] === object.terrain) continue;
+      object.image.destroy();
+      this.objects.delete(index);
+    }
+  }
+}
+
+function objectSize(terrain: Terrain): { width: number; height: number } {
+  const size = TERRAIN_OBJECT_VISUALS[terrain];
+  if (!size) throw new Error(`No object is drawn for terrain '${terrain}'`);
+  return size;
 }
 
 function createTextures(scene: Scene, size: TileSize): void {
@@ -101,8 +125,7 @@ function createTextures(scene: Scene, size: TileSize): void {
   ground('tile-water', COLORS.waterFill, COLORS.waterEdge);
 
   // Tree: a green triangle on a short trunk, taller than a tile.
-  const treeW = Math.round(w * 0.6);
-  const treeH = Math.round(h * 1.9);
+  const { width: treeW, height: treeH } = objectSize('tree');
   const trunkH = Math.round(h * 0.3);
   g.clear();
   g.fillStyle(COLORS.treeTrunk, 1);
@@ -119,8 +142,7 @@ function createTextures(scene: Scene, size: TileSize): void {
   g.generateTexture('obj-tree', treeW, treeH);
 
   // Berry bush: a red circle on a low green bush.
-  const bushW = Math.round(w * 0.5);
-  const bushH = Math.round(h * 0.8);
+  const { width: bushW, height: bushH } = objectSize('berries');
   g.clear();
   g.fillStyle(COLORS.bushLeaves, 1);
   g.fillEllipse(bushW / 2, bushH - bushH * 0.3, bushW - 2, bushH * 0.6 - 1);

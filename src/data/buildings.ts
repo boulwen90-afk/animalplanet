@@ -5,6 +5,8 @@ export const BUILDING_DEFS = {
     hp: 1500,
     /** Side of the square footprint, in tiles. */
     size: 3,
+    /** Workers can deliver gathered resources here. */
+    dropoff: true,
   },
 } as const;
 

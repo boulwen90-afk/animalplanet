@@ -1,4 +1,7 @@
+import { START_CONFIG } from '../data/setup';
 import type { Terrain } from '../data/terrain';
+import { emptyState } from './game';
+import { initialResourceAmounts } from './resources';
 import type { GameState } from './state';
 
 /**
@@ -13,26 +16,27 @@ export function stateFromRows(rows: string[]): GameState {
     R: 'rock',
     W: 'water',
   };
-  const width = (rows[0] as string).length;
-  return {
-    seed: 0,
-    tick: 0,
-    rng: { s: 0 },
-    map: {
-      width,
+  const terrain = rows.flatMap((row) =>
+    [...row].map((c) => {
+      const tile = legend[c];
+      if (!tile) throw new Error(`Unknown map character '${c}'`);
+      return tile;
+    }),
+  );
+  const state = emptyState(
+    0,
+    { s: 0 },
+    {
+      width: (rows[0] as string).length,
       height: rows.length,
-      terrain: rows.flatMap((row) =>
-        [...row].map((c) => {
-          const terrain = legend[c];
-          if (!terrain) throw new Error(`Unknown map character '${c}'`);
-          return terrain;
-        }),
-      ),
+      terrain,
+      resourceAmount: initialResourceAmounts(terrain),
       startPositions: [],
     },
-    entities: [],
-    nextEntityId: 1,
-  };
+  );
+  // Two sides, as in a real game, although the test map has no start positions.
+  state.players = [0, 1].map(() => ({ resources: { ...START_CONFIG.resources } }));
+  return state;
 }
 
 /** An open grass map of the given size. */
