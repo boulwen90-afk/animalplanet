@@ -7,15 +7,17 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 - **Aktuell fas:** Fas 2 – klar i kod, pull request öppen mot `main`
 - **Nästa steg:** merge av fas 2, därefter fas 3 (enheter, markering,
   förflyttning) när den beställs
-- **Öppet sedan fas 1:** publiceringen till GitHub Pages har ännu inte gått
-  igenom, se "Kända problem"
+- **Publicering:** fas 1 är publicerad på
+  https://boulwen90-afk.github.io/animalplanet/. Deploy-jobbet gick igenom;
+  att sidan visar kartan är inte kontrollerat från Claudes session, som inte
+  når github.io
 
 ## Fasstatus
 
 | Fas | Innehåll | Status | PR |
 |---|---|---|---|
 | 0 | Planeringsdokument | Godkänd 2026-11-12 | – |
-| 1 | Projektuppsättning, deploy, scrollbar karta | Mergad. Publiceringen ej verifierad | [#1](https://github.com/boulwen90-afk/animalplanet/pull/1) |
+| 1 | Projektuppsättning, deploy, scrollbar karta | Mergad och publicerad | [#1](https://github.com/boulwen90-afk/animalplanet/pull/1) |
 | 2 | Simuleringskärna och terräng | Klar, väntar på merge | [#2](https://github.com/boulwen90-afk/animalplanet/pull/2) |
 | 3 | Enheter, markering, förflyttning | Ej påbörjad | – |
 | 4 | Resurser och insamling | Ej påbörjad | – |
@@ -139,7 +141,7 @@ felaktiga startplatser, tidsstegets takt vid olika bildfrekvenser, att
 | Playwright: högerpil i 500 ms ökar kamerans x | Godkänt. Farten (900 px/s) testas separat för varje tangent mot spelets egen tid |
 | Playwright: kameran lämnar inte kartan efter 10 s panorering | Godkänt, i alla fyra riktningar |
 | CI grön på pull requesten | Godkänt (lint, Vitest, bygge och Playwright på GitHub Actions) |
-| Pages-adressen visar kartan efter merge | **Ej godkänt än.** Bygget på `main` gick igenom, men publiceringssteget avvisades två gånger, se "Kända problem" |
+| Pages-adressen visar kartan efter merge | Deploy-jobbet godkänt efter att Pages-miljön tillåtit `main`. Själva sidan kontrolleras av användaren; Claudes session når inte github.io |
 | Skärmdump av kartan | Klar |
 
 Utöver planen testas även: WASD, kantpanorering, drag med mittenknapp, att
@@ -188,13 +190,15 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
 
 ## Kända problem
 
-- **Publiceringen till GitHub Pages avvisas (öppet sedan fas 1).**
-  Deploy-jobbet på `main` stoppas inom två sekunder, innan någon maskin
-  tilldelats och utan loggar. Det mönstret uppstår när miljön `github-pages`
-  inte tillåter branchen. Repots första push gjorde sessionsbranchen till
-  standardbranch, och Pages-miljön tillåter som standard bara den branch som
-  var standard när Pages slogs på. Standardbranchen är nu `main`, men
-  miljöns regel måste ändras för hand: Settings → Environments →
-  `github-pages` → Deployment branches and tags → lägg till `main`.
-  Orsaken är en slutsats av symptomen; miljöns inställningar går inte att
-  läsa från Claudes session.
+_Inga öppna._
+
+### Lösta
+
+- **Publiceringen till GitHub Pages avvisades (fas 1, löst 2026-11-12).**
+  Deploy-jobbet på `main` stoppades inom två sekunder, innan någon maskin
+  tilldelats och utan loggar. Repots första push gjorde sessionsbranchen
+  till standardbranch, och miljön `github-pages` tillåter som standard bara
+  den branch som var standard när Pages slogs på. Regeln följer inte med
+  när standardbranchen byts. Lösning: `main` lades till under Settings →
+  Environments → `github-pages` → Deployment branches and tags. Därefter
+  gick publiceringen igenom.
