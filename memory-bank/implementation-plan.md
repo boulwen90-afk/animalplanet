@@ -172,6 +172,11 @@ Innehåll:
 
 ## Fas 7 – Soldater, strid, vinst och förlust
 
+> **Designändring väntar på beslut (2026-11-12):** enheter ska inte dö utan
+> kapitulera och fly till grottor, se GDD avsnitt 15. Punkterna nedan om död
+> och förstörelse skrivs om när frågorna där är avgjorda. Fasen påbörjas
+> inte innan dess.
+
 **Mål:** en komplett match går att vinna och förlora (mot en passiv fiende).
 
 Innehåll:

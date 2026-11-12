@@ -2,6 +2,7 @@ import { BUILDING_DEFS } from '../../data/buildings';
 import { STRINGS } from '../../data/strings';
 import { UNIT_DEFS } from '../../data/units';
 import type { Entity, PlayerId } from '../../sim/state';
+import { buildFraction } from '../../sim/systems/construction';
 
 /** The two lines of text shown in the selection panel. */
 export interface SelectionInfo {
@@ -33,8 +34,9 @@ export function describeSelection(
 
   if (chosen.length === 1) {
     const name = entityName(first);
-    const hp = STRINGS.hud.hp(first.hp, maxHp(first));
-    const activity = first.owner === player ? describeActivity(first) : undefined;
+    // Hit points grow in fractions while a building is under construction.
+    const hp = STRINGS.hud.hp(Math.round(first.hp), maxHp(first));
+    const activity = first.owner === player ? describeActivity(first, entities) : undefined;
     return {
       title: first.owner === player ? name : `${name} (${STRINGS.hud.enemy})`,
       detail: activity ? `${hp} · ${activity}` : hp,
@@ -52,15 +54,24 @@ export function describeSelection(
   };
 }
 
-/** What a unit is doing, or undefined if it is doing nothing worth mentioning. */
-function describeActivity(entity: Entity): string | undefined {
-  if (entity.kind !== 'unit') return undefined;
-  if (entity.task.kind === 'gather') {
+/** What a unit or building is doing, or undefined if it is nothing worth mentioning. */
+function describeActivity(entity: Entity, entities: readonly Entity[]): string | undefined {
+  if (entity.kind === 'building') {
+    return entity.complete
+      ? undefined
+      : STRINGS.hud.underConstruction(Math.floor(buildFraction(entity) * 100));
+  }
+  const task = entity.task;
+  if (task.kind === 'gather') {
     return STRINGS.hud.gathering(
-      STRINGS.resources[entity.task.resource],
+      STRINGS.resources[task.resource],
       entity.carryAmount,
       UNIT_DEFS[entity.type].carryCapacity,
     );
+  }
+  if (task.kind === 'build') {
+    const site = entities.find((other) => other.id === task.buildingId);
+    if (site?.kind === 'building') return STRINGS.hud.building(STRINGS.buildings[site.type]);
   }
   if (entity.carryAmount > 0 && entity.carryType) {
     return STRINGS.hud.carrying(STRINGS.resources[entity.carryType], entity.carryAmount);

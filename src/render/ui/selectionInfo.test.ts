@@ -94,6 +94,54 @@ describe('describeSelection for a working unit', () => {
   });
 });
 
+describe('describeSelection during construction', () => {
+  function site() {
+    const state = openState(10, 10);
+    const worker = createUnit(state, 'samlare', 0, 3, 4);
+    applyCommand(state, {
+      type: 'build',
+      player: 0,
+      unitIds: [worker.id],
+      building: 'visthus',
+      x: 4,
+      y: 4,
+    });
+    const building = state.entities.find((e) => e.kind === 'building')!;
+    return { state, worker, building };
+  }
+
+  it('shows how far a building under construction has come', () => {
+    const { state, building } = site();
+    expect(describeSelection(state.entities, new Set([building.id]), 0)).toEqual({
+      title: 'Visthus',
+      detail: 'HP 40/400 · Byggs 0 %',
+    });
+    advance(state, 100);
+    // A quarter built: 10 % of the hit points plus a quarter of the other 90 %.
+    expect(describeSelection(state.entities, new Set([building.id]), 0)?.detail).toBe(
+      'HP 130/400 · Byggs 25 %',
+    );
+  });
+
+  it('shows only hit points once the building is finished', () => {
+    const { state, building } = site();
+    advance(state, 400);
+    expect(describeSelection(state.entities, new Set([building.id]), 0)).toEqual({
+      title: 'Visthus',
+      detail: 'HP 400/400',
+    });
+  });
+
+  it('shows what a builder is building', () => {
+    const { state, worker } = site();
+    expect(describeSelection(state.entities, new Set([worker.id]), 0)?.detail).toBe(
+      'HP 40/40 · Bygger Visthus',
+    );
+    advance(state, 400);
+    expect(describeSelection(state.entities, new Set([worker.id]), 0)?.detail).toBe('HP 40/40');
+  });
+});
+
 describe('resourceBarRect', () => {
   it('runs along the whole top edge', () => {
     const rect = resourceBarRect(1280);

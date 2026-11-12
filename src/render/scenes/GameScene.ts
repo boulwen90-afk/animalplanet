@@ -4,15 +4,18 @@ import { MAP_CONFIG } from '../../data/map';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG, TICK_MS } from '../../data/sim';
 import { consumeSteps, createStepClock } from '../../sim/clock';
-import type { UnitType } from '../../data/units';
+import { BUILDING_DEFS } from '../../data/buildings';
 import { applyCommand, type CommandResult } from '../../sim/commands';
 import { populationOf } from '../../sim/entities';
+import { missingResources } from '../../sim/economy';
 import { createGame } from '../../sim/game';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
 import type { GameState, PlayerId } from '../../sim/state';
 import { advance } from '../../sim/tick';
 import { installTestApi, type TestApi } from '../../testing/testHooks';
 import { CameraController } from '../input/CameraController';
+import { PlacementController } from '../input/PlacementController';
+import { builderUnitIds } from '../input/selection';
 import { SelectionController } from '../input/SelectionController';
 import {
   commandPanelLayout,
@@ -23,6 +26,7 @@ import { rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout'
 import { describeSelection, type SelectionInfo } from '../ui/selectionInfo';
 import { EntityView } from '../views/EntityView';
 import { MapView } from '../views/MapView';
+import { PlacementView } from '../views/PlacementView';
 import { SelectionView } from '../views/SelectionView';
 import type { HudSource, ResourceBarInfo, UiScene } from './UiScene';
 
@@ -41,6 +45,7 @@ export class GameScene extends Scene implements HudSource {
   private readonly stepClock = createStepClock();
   private cameraController!: CameraController;
   private selectionController!: SelectionController;
+  private placementController!: PlacementController;
   private mapView!: MapView;
   private entityView!: EntityView;
   private selectionView!: SelectionView;
@@ -69,9 +74,23 @@ export class GameScene extends Scene implements HudSource {
       getState: () => state,
       issue: (command) => applyCommand(state, command),
       isOverHud: (x, y) => this.isOverHud(x, y),
+      isPlacing: () => this.placementController.active,
       player: LOCAL_PLAYER,
       tileSize: MAP_CONFIG,
       view: this.selectionView,
+    });
+
+    // Created after the selection controller: see PlacementController.
+    this.placementController = new PlacementController(this, {
+      getState: () => state,
+      issue: (command) => applyCommand(state, command),
+      onRefused: (result) => (this.scene.get('Ui') as UiScene).showRefusal(result),
+      isOverHud: (x, y) => this.isOverHud(x, y),
+      getBuilderIds: (type) =>
+        builderUnitIds(this.selectionController.selection, state.entities, LOCAL_PLAYER, type),
+      player: LOCAL_PLAYER,
+      tileSize: MAP_CONFIG,
+      view: new PlacementView(this, MAP_CONFIG),
     });
 
     if (this.options.testMode) this.installTestApi(state);
@@ -96,6 +115,7 @@ export class GameScene extends Scene implements HudSource {
 
     this.cameraController.update(elapsed);
     this.selectionController.update();
+    this.placementController.update();
 
     // Draw units part-way into the next step, so movement looks smooth.
     const alpha = Math.min(this.stepClock.accumulatorMs / TICK_MS, 1);
@@ -132,20 +152,32 @@ export class GameScene extends Scene implements HudSource {
     );
   }
 
-  trainUnit(unit: UnitType): CommandResult {
+  activateButton(index: number): CommandResult {
     const info = this.getCommandPanelInfo();
-    if (!this.state || !info) return { ok: false, reason: 'invalid' };
-    return applyCommand(this.state, {
-      type: 'train',
-      player: LOCAL_PLAYER,
-      buildingId: info.buildingId,
-      unit,
-    });
+    const action = info?.buttons[index]?.action;
+    const stock = this.state?.players[LOCAL_PLAYER];
+    if (!this.state || !info || !action || !stock) return { ok: false, reason: 'invalid' };
+
+    if (action.kind === 'train') {
+      if (info.buildingId === undefined) return { ok: false, reason: 'invalid' };
+      return applyCommand(this.state, {
+        type: 'train',
+        player: LOCAL_PLAYER,
+        buildingId: info.buildingId,
+        unit: action.unit,
+      });
+    }
+
+    // Building: say so at once if it cannot be afforded, otherwise let the player pick a place.
+    const missing = missingResources(stock, BUILDING_DEFS[action.building].cost);
+    if (missing.length > 0) return { ok: false, reason: 'insufficientResources', missing };
+    this.placementController.start(action.building);
+    return { ok: true };
   }
 
   cancelQueuedUnit(index: number): CommandResult {
     const info = this.getCommandPanelInfo();
-    if (!this.state || !info) return { ok: false, reason: 'invalid' };
+    if (!this.state || info?.buildingId === undefined) return { ok: false, reason: 'invalid' };
     return applyCommand(this.state, {
       type: 'cancelTrain',
       player: LOCAL_PLAYER,
@@ -175,7 +207,12 @@ export class GameScene extends Scene implements HudSource {
     const command = this.getCommandPanelInfo();
     return (
       command !== undefined &&
-      rectContains(commandPanelLayout(width, height, command.buttons.length).panel, x, y)
+      rectContains(
+        commandPanelLayout(width, height, command.buttons.length, command.queue !== undefined)
+          .panel,
+        x,
+        y,
+      )
     );
   }
 
@@ -191,6 +228,10 @@ export class GameScene extends Scene implements HudSource {
       getResourceBar: () => (this.scene.get('Ui') as UiScene).getResourceBarDisplay(),
       getFlashing: () => (this.scene.get('Ui') as UiScene).getFlashing(),
       getCommandPanel: () => (this.scene.get('Ui') as UiScene).getCommandPanelDisplay(),
+      getPlacement: () => {
+        const placement = this.placementController.current;
+        return placement ? { ...placement } : null;
+      },
       getOrderMarkerCount: () => this.selectionView.orderMarkerCount,
       tileToScreen: (tileX, tileY) => {
         const world = tileToWorld(tileX, tileY, MAP_CONFIG);

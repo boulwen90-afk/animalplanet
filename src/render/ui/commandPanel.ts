@@ -1,19 +1,27 @@
-import { BUILDING_DEFS } from '../../data/buildings';
+import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
 import { PRODUCTION_CONFIG } from '../../data/production';
-import { RESOURCE_TYPES } from '../../data/resources';
+import { RESOURCE_TYPES, type Cost } from '../../data/resources';
 import { STRINGS } from '../../data/strings';
-import { UNIT_DEFS, type Cost, type UnitType } from '../../data/units';
+import { UNIT_DEFS, type UnitType } from '../../data/units';
 import type { Entity, PlayerId } from '../../sim/state';
 import { trainTicksFor } from '../../sim/systems/production';
 import { rectContains, selectionPanelRect, type ScreenRect } from './layout';
 
-/** What the command panel shows for the selected building. */
+/** What pressing a button in the command panel does. */
+export type CommandAction =
+  { kind: 'train'; unit: UnitType } | { kind: 'build'; building: BuildingType };
+
+/** What the command panel shows for the current selection. */
 export interface CommandPanelInfo {
-  buildingId: number;
-  /** One button per unit type the building can train. */
-  buttons: { unit: UnitType; label: string; cost: string }[];
-  /** The production queue; the first unit is the one in training. */
-  queue: { unit: UnitType; label: string }[];
+  /** The building whose production queue is shown, when a building is selected. */
+  buildingId?: number;
+  /** One button per thing the selection can train or build. */
+  buttons: { action: CommandAction; label: string; cost: string }[];
+  /**
+   * The production queue; the first unit is the one in training. Undefined
+   * for panels without a queue, such as the build menu.
+   */
+  queue?: { unit: UnitType; label: string }[];
   /** How far the unit in training has come, from 0 to 1. */
   progress: number;
 }
@@ -27,39 +35,59 @@ export function formatCost(cost: Cost): string {
 
 /**
  * The command panel for the current selection, or undefined if it should not
- * show. It shows when exactly one of the player's own buildings is selected
- * and that building can train units.
+ * show. One finished building of the player's that can train units gives
+ * train buttons and its queue. A selection of the player's own units gives a
+ * build menu with everything any of them can build.
  */
 export function describeCommandPanel(
   entities: readonly Entity[],
   selected: ReadonlySet<number>,
   player: PlayerId,
 ): CommandPanelInfo | undefined {
-  if (selected.size !== 1) return undefined;
-  const building = entities.find((entity) => selected.has(entity.id));
-  if (!building || building.kind !== 'building' || building.owner !== player) return undefined;
-  const trains = BUILDING_DEFS[building.type].trains;
-  if (trains.length === 0) return undefined;
+  const chosen = entities.filter((entity) => selected.has(entity.id));
+  const [first] = chosen;
+  if (!first || chosen.some((entity) => entity.owner !== player)) return undefined;
 
-  const first = building.queue[0];
+  if (chosen.length === 1 && first.kind === 'building') {
+    const trains = BUILDING_DEFS[first.type].trains;
+    if (!first.complete || trains.length === 0) return undefined;
+    const inTraining = first.queue[0];
+    return {
+      buildingId: first.id,
+      buttons: trains.map((unit) => ({
+        action: { kind: 'train', unit },
+        label: STRINGS.hud.train(STRINGS.units[unit]),
+        cost: formatCost(UNIT_DEFS[unit].cost),
+      })),
+      queue: first.queue.map((unit) => ({ unit, label: STRINGS.units[unit].charAt(0) })),
+      progress: inTraining ? Math.min(first.trainTicks / trainTicksFor(inTraining), 1) : 0,
+    };
+  }
+
+  const buildable: BuildingType[] = [];
+  for (const entity of chosen) {
+    if (entity.kind !== 'unit') return undefined;
+    for (const type of UNIT_DEFS[entity.type].builds) {
+      if (!buildable.includes(type)) buildable.push(type);
+    }
+  }
+  if (buildable.length === 0) return undefined;
   return {
-    buildingId: building.id,
-    buttons: trains.map((unit) => ({
-      unit,
-      label: STRINGS.hud.train(STRINGS.units[unit]),
-      cost: formatCost(UNIT_DEFS[unit].cost),
+    buttons: buildable.map((building) => ({
+      action: { kind: 'build', building },
+      label: STRINGS.hud.build(STRINGS.buildings[building]),
+      cost: formatCost(BUILDING_DEFS[building].cost),
     })),
-    queue: building.queue.map((unit) => ({ unit, label: STRINGS.units[unit].charAt(0) })),
-    progress: first ? Math.min(building.trainTicks / trainTicksFor(first), 1) : 0,
+    progress: 0,
   };
 }
 
 /** Where the parts of the command panel sit on the screen. */
 export interface CommandPanelLayout {
   panel: ScreenRect;
-  /** One rectangle per train button. */
+  /** One rectangle per button. */
   buttons: ScreenRect[];
-  /** One rectangle per place in the production queue. */
+  /** One rectangle per place in the production queue; empty for panels without a queue. */
   slots: ScreenRect[];
   /** The whole progress bar; the filled part grows from its left edge. */
   progressBar: ScreenRect;
@@ -75,6 +103,7 @@ export function commandPanelLayout(
   viewWidth: number,
   viewHeight: number,
   buttonCount: number,
+  withQueue = true,
 ): CommandPanelLayout {
   const selection = selectionPanelRect(viewWidth, viewHeight);
   const beside = selection.x + selection.width + MARGIN;
@@ -99,7 +128,7 @@ export function commandPanelLayout(
 
   const slotsX = panel.x + 8 + buttonCount * (BUTTON.width + BUTTON.gap) + 4;
   const slots: ScreenRect[] = [];
-  for (let i = 0; i < PRODUCTION_CONFIG.maxQueue; i++) {
+  for (let i = 0; withQueue && i < PRODUCTION_CONFIG.maxQueue; i++) {
     slots.push({
       x: slotsX + i * (SLOT.size + SLOT.gap),
       y: panel.y + 6,
@@ -115,14 +144,14 @@ export function commandPanelLayout(
     progressBar: {
       x: slotsX,
       y: panel.y + 6 + SLOT.size + 3,
-      width: PRODUCTION_CONFIG.maxQueue * (SLOT.size + SLOT.gap) - SLOT.gap,
-      height: 6,
+      width: withQueue ? PRODUCTION_CONFIG.maxQueue * (SLOT.size + SLOT.gap) - SLOT.gap : 0,
+      height: withQueue ? 6 : 0,
     },
   };
 }
 
 /** What a click on the command panel means. */
-export type CommandPanelHit = { kind: 'train'; index: number } | { kind: 'queue'; index: number };
+export type CommandPanelHit = { kind: 'button'; index: number } | { kind: 'queue'; index: number };
 
 /** The button or queue place at a screen position, if any. */
 export function commandPanelHit(
@@ -131,7 +160,7 @@ export function commandPanelHit(
   y: number,
 ): CommandPanelHit | undefined {
   const button = layout.buttons.findIndex((rect) => rectContains(rect, x, y));
-  if (button >= 0) return { kind: 'train', index: button };
+  if (button >= 0) return { kind: 'button', index: button };
   const slot = layout.slots.findIndex((rect) => rectContains(rect, x, y));
   if (slot >= 0) return { kind: 'queue', index: slot };
   return undefined;

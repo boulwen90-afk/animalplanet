@@ -1,4 +1,5 @@
 import type { CommandPanelDisplay, HudDisplay, ResourceBarDisplay } from '../render/scenes/UiScene';
+import type { Placement } from '../render/views/PlacementView';
 import type { Command, CommandResult } from '../sim/commands';
 import type { Point } from '../sim/map/iso';
 import type { GameState } from '../sim/state';
@@ -32,6 +33,7 @@ export interface TestApiSource {
   getResourceBar(): ResourceBarDisplay;
   getFlashing(): string[];
   getCommandPanel(): CommandPanelDisplay;
+  getPlacement(): Placement | null;
   getOrderMarkerCount(): number;
   tileToScreen(tileX: number, tileY: number): Point;
   centerCameraOnTile(tileX: number, tileY: number): void;
@@ -64,6 +66,8 @@ export interface TestApi {
   getFlashing(): string[];
   /** What the command panel shows right now, with the screen position of each button's centre. */
   getCommandPanel(): CommandPanelDisplay;
+  /** The building being placed and where its outline is, or null when no building is being placed. */
+  getPlacement(): Placement | null;
   /** Number of order rings currently visible. */
   getOrderMarkerCount(): number;
   /**
@@ -98,6 +102,7 @@ export function installTestApi(source: TestApiSource): TestApi {
     getResourceBar: () => source.getResourceBar(),
     getFlashing: () => source.getFlashing(),
     getCommandPanel: () => source.getCommandPanel(),
+    getPlacement: () => source.getPlacement(),
     getOrderMarkerCount: () => source.getOrderMarkerCount(),
     tileToScreen: (tileX, tileY) => source.tileToScreen(tileX, tileY),
     centerCameraOnTile: (tileX, tileY) => source.centerCameraOnTile(tileX, tileY),

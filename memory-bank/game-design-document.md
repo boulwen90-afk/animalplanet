@@ -249,3 +249,57 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
    som höjer taket, med ett maxtak på omkring 250. Taket ligger i en datafil
    så att det kan ändras utan kodändring.
 5. **Kartan.** Genererad från frö med ett fast standardfrö.
+
+## 15. Kapitulation och grottor (designändring 2026-11-12)
+
+Status: **beslutad inriktning, detaljer och fasindelning väntar på
+godkännande.** Avsnitt 3, 7, 10 och 11 ovan beskriver fortfarande den gamla
+regeln ("enheten dör") och skrivs om när frågorna nedan är avgjorda. Ingen
+stridskod skrivs innan dess.
+
+### Beslutat av användaren
+
+- Spelet ska vara barnvänligt: **inga djur dör i strid.**
+- När en enhets liv tar slut **kapitulerar** den och flyr in i en grotta.
+- Grottor ligger utspridda på banan och är **unika för varje ras**. Varje
+  ras flyr till sina egna grottor.
+- En grotta rymmer **högst 10–15 djur**. Antalet grottor är begränsat.
+- Är alla grottor fulla **försvinner** resten av djuren och kan sedan inte
+  rekryteras.
+- Den som har kommit långt i spelet och räknas som en **stor/mäktig ledare**
+  kan **rekrytera tillbaka** djur ur grottorna, bara av sin egen ras.
+- Rekrytering kan ge **högst 50 extra i befolkning**. De räknas separat
+  från den vanliga befolkningen.
+
+### Förslag till fasindelning (väntar på godkännande)
+
+- **Fas 7 (MVP):** kapitulation ersätter död. En enhet med 0 liv slutar
+  slåss, kan inte längre anfallas, går till närmaste egna grotta med ledig
+  plats och försvinner in i den. Finns ingen ledig plats försvinner den
+  direkt. Kartgenereringen placerar grottorna.
+- **Efter MVP:** rekrytering ur grottorna och de 50 extra
+  befolkningsplatserna. Rekryteringen kräver en ledarrang, och MVP:n har
+  varken tidsåldrar eller någon annan mätare för hur långt man har kommit.
+
+### Öppna frågor
+
+1. **Sida eller ras?** I MVP:n spelar båda sidor björnar. Om grottorna
+   tillhör rasen delar spelaren och motståndaren grottor, och rekrytering
+   skulle ge tillbaka även fiendens kapitulerade björnar. Förslag: varje
+   **sida** har egna grottor i MVP:n; med fler raser blir det i praktiken
+   detsamma som per ras.
+2. **Hur många grottor och hur stora?** Förslag för 64×64-kartan: 2 grottor
+   per sida med 12 platser var, alltså 24 platser per sida.
+3. **Går eller försvinner?** Förslag: den kapitulerade enheten går synligt
+   till grottan i vanlig fart, med en vit flagga, och kan inte anfallas på
+   vägen.
+4. **Byggnader.** Förslag: byggnader förstörs som förut (de rasar), och
+   vinstvillkoret "förstör fiendens Storide" står kvar.
+5. **Vad är en stor/mäktig ledare?** Behöver en mätbar definition, t.ex.
+   en viss tidsålder eller ett visst antal byggnader. Förslag: bestäms när
+   tidsåldrarna designas, efter MVP:n.
+6. **Rekrytering.** Kostar den något, tar den tid, och var dyker djuret
+   upp? Får ett återrekryterat djur som kapitulerar igen gå tillbaka till
+   en grotta?
+7. **Kan fienden påverka grottorna?** Förslag: nej, grottor kan varken
+   anfallas, blockeras eller byggas på.

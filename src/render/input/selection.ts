@@ -1,3 +1,4 @@
+import type { BuildingType } from '../../data/buildings';
 import { UNIT_DEFS } from '../../data/units';
 import type { Entity, PlayerId } from '../../sim/state';
 
@@ -94,6 +95,27 @@ export function gathererUnitIds(
         isOwnUnit(entity, player) &&
         entity.kind === 'unit' &&
         UNIT_DEFS[entity.type].carryCapacity > 0,
+    )
+    .map((entity) => entity.id);
+}
+
+/**
+ * Ids of the selected units that the player can order to construct a
+ * building of the given type.
+ */
+export function builderUnitIds(
+  current: ReadonlySet<number>,
+  entities: readonly Entity[],
+  player: PlayerId,
+  type: BuildingType,
+): number[] {
+  return entities
+    .filter(
+      (entity) =>
+        current.has(entity.id) &&
+        isOwnUnit(entity, player) &&
+        entity.kind === 'unit' &&
+        UNIT_DEFS[entity.type].builds.includes(type),
     )
     .map((entity) => entity.id);
 }

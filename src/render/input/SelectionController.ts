@@ -1,9 +1,11 @@
 import type { Input, Scene } from 'phaser';
 import { UI_CONFIG } from '../../data/ui';
 import type { Command } from '../../sim/commands';
+import { buildingCentre } from '../../sim/entities';
 import {
   isInsideMap,
   tileCenterToWorld,
+  tileToWorld,
   worldToTile,
   type Point,
   type TileSize,
@@ -12,6 +14,7 @@ import type { GameState, PlayerId } from '../../sim/state';
 import type { SelectionView } from '../views/SelectionView';
 import { pickEntity, pickResourceTile, rectFromPoints, unitsInRect } from './picking';
 import {
+  builderUnitIds,
   commandableUnitIds,
   gathererUnitIds,
   pruneSelection,
@@ -25,6 +28,8 @@ export interface SelectionControllerDeps {
   issue(command: Command): void;
   /** True if a screen position is covered by the interface rather than the map. */
   isOverHud(screenX: number, screenY: number): boolean;
+  /** True while the player is choosing where to put a building; the mouse then belongs to that. */
+  isPlacing(): boolean;
   player: PlayerId;
   tileSize: TileSize;
   view: SelectionView;
@@ -58,7 +63,10 @@ export class SelectionController {
     scene.input.on('pointermove', this.onPointerMove, this);
     scene.input.on('pointerup', this.onPointerUp, this);
     scene.input.on('pointerupoutside', this.onPointerUp, this);
-    scene.input.keyboard?.on('keydown-ESC', () => this.clear());
+    scene.input.keyboard?.on('keydown-ESC', () => {
+      // While placing a building, Esc cancels the placement instead.
+      if (!this.deps.isPlacing()) this.clear();
+    });
   }
 
   /** Ids of the selected entities. */
@@ -82,6 +90,7 @@ export class SelectionController {
 
   private onPointerDown(pointer: Input.Pointer): void {
     if (pointer.wasTouch || this.deps.isOverHud(pointer.x, pointer.y)) return;
+    if (this.deps.isPlacing()) return;
     if (pointer.rightButtonDown()) {
       this.giveOrder(pointer);
     } else if (pointer.leftButtonDown() && !this.drag) {
@@ -127,7 +136,8 @@ export class SelectionController {
 
   /**
    * Gives the selected units of the player an order for what is under the
-   * pointer: gather from a resource source, otherwise walk to the tile.
+   * pointer: help build an unfinished building, gather from a resource
+   * source, or otherwise walk to the tile.
    */
   private giveOrder(pointer: Input.Pointer): void {
     const state = this.deps.getState();
@@ -135,6 +145,19 @@ export class SelectionController {
     const unitIds = commandableUnitIds(this.selected, state.entities, player);
     if (unitIds.length === 0) return;
     const world = this.worldPoint(pointer);
+
+    // An unfinished building of the player's own: help build it.
+    const hit = pickEntity(state.entities, world, tileSize);
+    if (hit?.kind === 'building' && hit.owner === player && !hit.complete) {
+      const builders = builderUnitIds(this.selected, state.entities, player, hit.type);
+      if (builders.length > 0) {
+        this.deps.issue({ type: 'construct', player, unitIds: builders, buildingId: hit.id });
+        const centre = buildingCentre(hit);
+        const world = tileToWorld(centre.x, centre.y, tileSize);
+        this.deps.view.addOrderMarker(world.x, world.y);
+        return;
+      }
+    }
 
     const source = pickResourceTile(state.map, world, tileSize);
     const gatherers = gathererUnitIds(this.selected, state.entities, player);

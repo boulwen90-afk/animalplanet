@@ -139,7 +139,7 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
       const building = state.entities.find(
         (entity): entity is Building => entity.id === task.dropoffId && isBuilding(entity),
       );
-      if (building && tileGapToBuilding(building, here.x, here.y) <= 1) {
+      if (building?.complete && tileGapToBuilding(building, here.x, here.y) <= 1) {
         const stock = state.players[unit.owner];
         if (stock) stock.resources[task.resource] += unit.carryAmount;
         unit.carryAmount = 0;
@@ -264,7 +264,8 @@ function headToDropoff(state: GameState, grid: PathGrid, unit: Unit, task: Gathe
   let nearestGap = Infinity;
   for (const entity of state.entities) {
     if (!isBuilding(entity) || entity.owner !== unit.owner) continue;
-    if (!BUILDING_DEFS[entity.type].dropoff) continue;
+    // A building under construction does not take deliveries.
+    if (!BUILDING_DEFS[entity.type].dropoff || !entity.complete) continue;
     const gap = tileGapToBuilding(entity, here.x, here.y);
     if (gap < nearestGap) {
       nearest = entity;

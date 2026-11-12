@@ -3,10 +3,12 @@ import { tileDistance } from './map/grid';
 import type { Point } from './map/iso';
 import { findPath, isPassable, nearestReachable } from './pathfinding/astar';
 import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
+import type { BuildingType } from '../data/buildings';
 import type { ResourceType } from '../data/resources';
 import type { UnitType } from '../data/units';
 import { resourceAt } from './resources';
 import type { GameState, PlayerId, Unit } from './state';
+import { assistConstruction, placeBuilding } from './systems/construction';
 import { startGathering } from './systems/gathering';
 import { cancelQueuedUnit, queueUnit } from './systems/production';
 
@@ -50,17 +52,38 @@ export interface CancelTrainCommand {
   index: number;
 }
 
+/** Places a new building and sends the given units to build it. Its price is taken at once. */
+export interface BuildCommand {
+  type: 'build';
+  /** The player giving the order. Only that player's units obey. */
+  player: PlayerId;
+  unitIds: number[];
+  building: BuildingType;
+  /** Tile of the footprint corner with the lowest x and y. */
+  x: number;
+  y: number;
+}
+
+/** Sends the given units to help finish a building that is under construction. */
+export interface ConstructCommand {
+  type: 'construct';
+  player: PlayerId;
+  unitIds: number[];
+  buildingId: number;
+}
+
 /**
  * Everything a player or the AI can tell the simulation to do. Input, AI and
  * tests all change the game through commands and nothing else.
  */
-export type Command = MoveCommand | GatherCommand | TrainCommand | CancelTrainCommand;
+export type Command =
+  MoveCommand | GatherCommand | TrainCommand | CancelTrainCommand | BuildCommand | ConstructCommand;
 
 /** Whether a command was carried out, and if not, why. */
 export type CommandResult =
   | { ok: true }
   | { ok: false; reason: 'insufficientResources'; missing: ResourceType[] }
-  | { ok: false; reason: 'populationCap' | 'queueFull' | 'invalid' };
+  | { ok: false; reason: 'populationCap' | 'queueFull' | 'invalidPlacement' | 'invalid' };
 
 const OK: CommandResult = { ok: true };
 
@@ -76,6 +99,17 @@ export function applyCommand(state: GameState, command: Command): CommandResult 
       return queueUnit(state, command.player, command.buildingId, command.unit);
     case 'cancelTrain':
       return cancelQueuedUnit(state, command.player, command.buildingId, command.index);
+    case 'build':
+      return placeBuilding(
+        state,
+        command.player,
+        command.unitIds,
+        command.building,
+        command.x,
+        command.y,
+      );
+    case 'construct':
+      return assistConstruction(state, command.player, command.unitIds, command.buildingId);
   }
 }
 
