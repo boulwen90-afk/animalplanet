@@ -18,7 +18,7 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 0 | Planeringsdokument | Godkänd 2026-11-12 | – |
 | 1 | Projektuppsättning, deploy, scrollbar karta | Mergad och publicerad | [#1](https://github.com/boulwen90-afk/animalplanet/pull/1) |
 | 2 | Simuleringskärna och terräng | Mergad | [#2](https://github.com/boulwen90-afk/animalplanet/pull/2) |
-| 3 | Enheter, markering, förflyttning | Klar, väntar på merge | Se fasloggen |
+| 3 | Enheter, markering, förflyttning | Klar, väntar på merge | [#3](https://github.com/boulwen90-afk/animalplanet/pull/3) |
 | 4 | Resurser och insamling | Ej påbörjad | – |
 | 5 | Träna arbetare | Ej påbörjad | – |
 | 6 | Bygga Visthus och Krigshall | Ej påbörjad | – |
