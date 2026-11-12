@@ -95,9 +95,10 @@ felaktiga startplatser, tidsstegets takt vid olika bildfrekvenser, att
   Storiden finns.
 - **Simuleringen går i realtid även i testläge.** `advance(n)` läggs
   ovanpå. Planen säger bara att `advance` stegar direkt.
-- **Kartans mitt blir ofta en stor skog**, eftersom fläckar nära mitten
-  växer ihop med sin egen spegelbild. Det är tillåtet enligt GDD:t men kan
-  behöva justeras i balansfasen.
+- **Standardkartan (frö 1) har en stor skog mitt på kartan**, där två
+  skogsfläckar har vuxit ihop med sina spegelbilder. Vägen mellan baserna
+  går runt den. Frö 2 har ingen sådan skog. Vilket frö som ska vara
+  standard kan avgöras i balansfasen.
 
 **Testresultat**
 - Vitest: 66 av 66
