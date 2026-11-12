@@ -30,11 +30,13 @@ En match ska ta ungefär 10–20 minuter.
 
 ## 3. Vinst och förlust
 
-- **Vinst:** fiendens huvudbyggnad (Storide) har 0 HP.
-- **Förlust:** din egen Storide har 0 HP.
+- **Vinst:** fiendens huvudbyggnad (Storide) har 0 liv.
+- **Förlust:** din egen Storide har 0 liv.
 - När matchen avgörs fryser simuleringen och en slutskärm visas
   ("Seger" / "Nederlag") med knappen "Spela igen".
 - Storiden kan inte byggas om i MVP:n.
+- Inga djur dör. En enhet vars liv tar slut kapitulerar och flyr till en
+  grotta, se avsnitt 15. Byggnader rasar när deras liv tar slut.
 
 ## 4. Kontroller
 
@@ -65,7 +67,7 @@ En match ska ta ungefär 10–20 minuter.
 
 ### HUD
 - **Överkant:** mat, trä, befolkning (t.ex. `12/30`).
-- **Nederkant:** markeringspanel (namn, HP, vad enheten gör) och
+- **Nederkant:** markeringspanel (namn, liv, vad enheten gör) och
   kommandopanel (bygg-/träningsknappar med kostnad, produktionskö).
 - Ingen minikarta i MVP:n.
 
@@ -76,7 +78,7 @@ En match ska ta ungefär 10–20 minuter.
 - **Ledare:** Hövding Halvard Stenrygg.
 - **Karaktär:** tunga, tåliga och långsamma. Tjock rustning, stora sköldar,
   byggnader av timmer och sten.
-- **Spelidentitet (blir relevant först när fler raser finns):** högst HP,
+- **Spelidentitet (blir relevant först när fler raser finns):** mest liv,
   lägst fart, dyrare enheter, starkast byggnader.
 
 I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
@@ -111,7 +113,7 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 | Tränas i | Storide | Krigshall |
 | Kostnad | 50 mat | 60 mat, 25 trä |
 | Träningstid | 12 s | 18 s |
-| HP | 40 | 100 |
+| Liv | 40 | 100 |
 | Skada / träff | 3 | 10 |
 | Rustning | 0 | 1 |
 | Tid mellan slag | 1,5 s | 1,2 s |
@@ -124,8 +126,10 @@ Stridsregler:
 - Skada = anfallarens skada − målets rustning, minst 1.
 - Ramkrigare som står stilla anfaller automatiskt fiender inom 6 rutor.
   Samlare anfaller bara på order.
-- En enhet som fått attackorder följer efter målet tills det dör eller
-  försvinner in i krigsdimman.
+- En enhet som fått attackorder följer efter målet tills det kapitulerar
+  eller försvinner in i krigsdimman.
+- En enhet vars liv når 0 kapitulerar (avsnitt 15). Den slåss inte längre
+  och kan inte anfallas.
 - Enheter blockerar inte varandra (se avsnitt 10, förenklingar).
 
 ## 8. Byggnader (MVP)
@@ -135,7 +139,7 @@ Stridsregler:
 | Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare |
 | Kostnad | – (finns från start) | 80 trä | 150 trä |
 | Byggtid (1 arbetare) | – | 20 s | 35 s |
-| HP | 1500 | 400 | 700 |
+| Liv | 1500 | 400 | 700 |
 | Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor |
 | Synfält | 9 rutor | 5 rutor | 6 rutor |
 
@@ -143,7 +147,7 @@ Byggregler:
 - Spelaren väljer byggnad i kommandopanelen och placerar en "spökbild" på
   kartan: grön om platsen är giltig, röd annars. Giltigt = alla rutor
   gångbara, utforskade och fria från enheter/byggnader/resurser.
-- Kostnaden dras när bygget placeras. Bygget börjar på 10 % HP och växer
+- Kostnaden dras när bygget placeras. Bygget börjar på 10 % av sitt liv och växer
   medan arbetare bygger. Fler arbetare bygger snabbare (varje extra arbetare
   ger +50 % av en arbetares takt).
 - En ofärdig byggnad har ingen funktion.
@@ -162,6 +166,7 @@ Byggregler:
   fast standardfrö i MVP:n, så alla spelar samma karta.
 - Spelaren börjar i ena hörnet, AI:n i det motsatta. Varje startplats har
   1 Storide, 3 Samlare, bärsnår och skog inom 8 rutor.
+- Varje sida har 2 grottor på sin halva av kartan (avsnitt 15).
 - **Krigsdimma, tre lägen per ruta:**
   - *Outforskad:* helt svart.
   - *Utforskad:* terrängen syns nedtonad (50 % mörkare). Fiendens enheter
@@ -199,8 +204,9 @@ krigsdimman. En svårighetsgrad.
 | Dragruta | Grön kontur 1 px med 20 % fyllning, följer pekaren utan fördröjning |
 | Flytt-/attackorder | Ring vid målet (grön = flytta, röd = attack) som krymper och tonas bort på 400 ms |
 | Träff | Målet blinkar vitt i 80 ms; anfallaren gör ett utfall på 4 px mot målet under 100 ms |
-| Skadad enhet/byggnad | HP-stapel visas ovanför (grön > 50 %, gul > 25 %, röd annars) |
-| Enhet dör | Tonas bort på 300 ms |
+| Skadad enhet/byggnad | Livstapel visas ovanför (grön > 50 %, gul > 25 %, röd annars) |
+| Enhet kapitulerar | En vit flagga visas på enheten medan den går till grottan |
+| Enhet går in i en grotta, eller försvinner för att grottorna är fulla | Tonas bort på 300 ms |
 | Byggnad förstörs | Skärmen skakar 150 ms med 4 px amplitud om byggnaden är i bild |
 | Egen bas anfalls | Texten "Din bas anfalls!" i överkant i 3 s, högst en gång per 10 s |
 | Ogiltig byggplats | Spökbilden är röd; klick gör ingenting |
@@ -232,6 +238,8 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 - Riktig grafik, animationer, ljud och musik
 - Minikarta, kontrollgrupper (Ctrl+1 …), patrull/håll position, formationer
 - Kollision mellan enheter
+- Rekrytering ur grottor, ledarrang och de 50 extra befolkningsplatserna
+  (avsnitt 15)
 - Flerspelarläge, spara/ladda, kampanj, flera kartor, kartredigerare
 - Svårighetsgrader, AI som spanar eller påverkas av krigsdimma
 - Zoom, inställningsmeny, översättningar
@@ -250,56 +258,52 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
    så att det kan ändras utan kodändring.
 5. **Kartan.** Genererad från frö med ett fast standardfrö.
 
-## 15. Kapitulation och grottor (designändring 2026-11-12)
+## 15. Kapitulation och grottor
 
-Status: **beslutad inriktning, detaljer och fasindelning väntar på
-godkännande.** Avsnitt 3, 7, 10 och 11 ovan beskriver fortfarande den gamla
-regeln ("enheten dör") och skrivs om när frågorna nedan är avgjorda. Ingen
-stridskod skrivs innan dess.
+Beslutat 2026-11-12. Spelet ska vara barnvänligt: **inga djur dör i strid.**
 
-### Beslutat av användaren
+### I MVP:n (fas 7)
 
-- Spelet ska vara barnvänligt: **inga djur dör i strid.**
-- När en enhets liv tar slut **kapitulerar** den och flyr in i en grotta.
-- Grottor ligger utspridda på banan och är **unika för varje ras**. Varje
-  ras flyr till sina egna grottor.
-- En grotta rymmer **högst 10–15 djur**. Antalet grottor är begränsat.
-- Är alla grottor fulla **försvinner** resten av djuren och kan sedan inte
-  rekryteras.
+**Kapitulation**
+- När en enhets liv når 0 kapitulerar den. Den slutar med det den gjorde,
+  får en vit flagga och går i sin vanliga fart till närmaste egna grotta
+  som har en ledig plats. Framme vid grottan går den in och är borta från
+  kartan.
+- En kapitulerad enhet kan inte anfallas, inte ges order och inte markeras
+  med dragruta. Fiender bryr sig inte om den.
+- Den räknas inte längre i befolkningen, så en ersättare kan tränas direkt.
+- Platsen i grottan reserveras i samma stund som enheten kapitulerar, så
+  att flera som kapitulerar samtidigt inte kan överfylla en grotta.
+- Har ingen av sidans grottor en ledig plats, eller går ingen av dem att
+  nå, försvinner enheten direkt. Den kan då aldrig rekryteras.
+
+**Grottor**
+- Varje **sida** har egna grottor. I MVP:n är båda sidor björnar, och med
+  delade grottor skulle rekrytering ge tillbaka även fiendens djur. När fler
+  raser finns blir det i praktiken en uppsättning grottor per ras.
+- 2 grottor per sida, 12 platser i varje, alltså 24 platser per sida.
+- Kartgenereringen placerar grottorna på sidans halva av kartan, speglade
+  mellan sidorna och nåbara från startplatsen.
+- En grotta upptar en ruta och går inte att gå igenom. Den kan inte
+  anfallas, och ingenting får byggas på den eller på rutorna runt den.
+- Grottan minns vilka slags djur som finns i den, inför rekryteringen.
+
+**Byggnader** rasar som förut när deras liv tar slut, och vinstvillkoret är
+oförändrat: förstör fiendens Storide.
+
+**Ordval:** gränssnittet säger "Liv", inte "HP".
+
+### Efter MVP:n
+
 - Den som har kommit långt i spelet och räknas som en **stor/mäktig ledare**
-  kan **rekrytera tillbaka** djur ur grottorna, bara av sin egen ras.
-- Rekrytering kan ge **högst 50 extra i befolkning**. De räknas separat
-  från den vanliga befolkningen.
+  kan rekrytera tillbaka djur ur sina egna grottor.
+- Rekrytering ger högst **50 extra i befolkning**, räknat separat från den
+  vanliga befolkningen.
 
-### Förslag till fasindelning (väntar på godkännande)
-
-- **Fas 7 (MVP):** kapitulation ersätter död. En enhet med 0 liv slutar
-  slåss, kan inte längre anfallas, går till närmaste egna grotta med ledig
-  plats och försvinner in i den. Finns ingen ledig plats försvinner den
-  direkt. Kartgenereringen placerar grottorna.
-- **Efter MVP:** rekrytering ur grottorna och de 50 extra
-  befolkningsplatserna. Rekryteringen kräver en ledarrang, och MVP:n har
-  varken tidsåldrar eller någon annan mätare för hur långt man har kommit.
-
-### Öppna frågor
-
-1. **Sida eller ras?** I MVP:n spelar båda sidor björnar. Om grottorna
-   tillhör rasen delar spelaren och motståndaren grottor, och rekrytering
-   skulle ge tillbaka även fiendens kapitulerade björnar. Förslag: varje
-   **sida** har egna grottor i MVP:n; med fler raser blir det i praktiken
-   detsamma som per ras.
-2. **Hur många grottor och hur stora?** Förslag för 64×64-kartan: 2 grottor
-   per sida med 12 platser var, alltså 24 platser per sida.
-3. **Går eller försvinner?** Förslag: den kapitulerade enheten går synligt
-   till grottan i vanlig fart, med en vit flagga, och kan inte anfallas på
-   vägen.
-4. **Byggnader.** Förslag: byggnader förstörs som förut (de rasar), och
-   vinstvillkoret "förstör fiendens Storide" står kvar.
-5. **Vad är en stor/mäktig ledare?** Behöver en mätbar definition, t.ex.
-   en viss tidsålder eller ett visst antal byggnader. Förslag: bestäms när
-   tidsåldrarna designas, efter MVP:n.
-6. **Rekrytering.** Kostar den något, tar den tid, och var dyker djuret
-   upp? Får ett återrekryterat djur som kapitulerar igen gå tillbaka till
-   en grotta?
-7. **Kan fienden påverka grottorna?** Förslag: nej, grottor kan varken
-   anfallas, blockeras eller byggas på.
+Öppet tills rekryteringen ska byggas:
+1. Vad som räknas som en stor/mäktig ledare. Det behöver en mätbar
+   definition, t.ex. en viss tidsålder. MVP:n har ingen sådan mätare.
+2. Om rekrytering kostar något, hur lång tid den tar och var djuret dyker
+   upp.
+3. Om ett återrekryterat djur som kapitulerar igen får gå tillbaka till en
+   grotta.

@@ -4,9 +4,10 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 6 – klar i kod, pull request öppen mot `main`
-- **Nästa steg:** beslut om designändringen "kapitulation och grottor"
-  (GDD avsnitt 15), som påverkar fas 7. Därefter fas 7 när den beställs
+- **Aktuell fas:** Fas 6 är mergad. Fas 7 är omplanerad efter beslutet om
+  kapitulation och grottor (GDD avsnitt 15) och väntar på klartecken
+- **Nästa steg:** fas 7 (soldater, strid, kapitulation, vinst och förlust)
+  när den beställs
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -21,8 +22,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 3 | Enheter, markering, förflyttning | Mergad | [#3](https://github.com/boulwen90-afk/animalplanet/pull/3) |
 | 4 | Resurser och insamling | Mergad | [#4](https://github.com/boulwen90-afk/animalplanet/pull/4) |
 | 5 | Träna arbetare | Mergad | [#5](https://github.com/boulwen90-afk/animalplanet/pull/5) |
-| 6 | Bygga Visthus och Krigshall | Klar, väntar på merge | [#6](https://github.com/boulwen90-afk/animalplanet/pull/6) |
-| 7 | Soldater, strid, vinst och förlust | Ej påbörjad | – |
+| 6 | Bygga Visthus och Krigshall | Mergad | [#6](https://github.com/boulwen90-afk/animalplanet/pull/6) |
+| 7 | Soldater, strid, kapitulation, vinst och förlust | Omplanerad, ej påbörjad | – |
 | 8 | Krigsdimma | Ej påbörjad | – |
 | 9 | AI-motståndare | Ej påbörjad | – |
 | 10 | Pekstyrning, balans, MVP-avstämning | Ej påbörjad | – |

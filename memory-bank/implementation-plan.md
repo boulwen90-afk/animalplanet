@@ -172,35 +172,54 @@ Innehåll:
 
 ## Fas 7 – Soldater, strid, vinst och förlust
 
-> **Designändring väntar på beslut (2026-11-12):** enheter ska inte dö utan
-> kapitulera och fly till grottor, se GDD avsnitt 15. Punkterna nedan om död
-> och förstörelse skrivs om när frågorna där är avgjorda. Fasen påbörjas
-> inte innan dess.
+Omarbetad 2026-11-12 efter beslutet att inga djur dör (GDD avsnitt 15).
 
-**Mål:** en komplett match går att vinna och förlora (mot en passiv fiende).
+**Mål:** en komplett match går att vinna och förlora (mot en passiv fiende),
+och besegrade enheter kapitulerar och flyr till sin sidas grottor.
 
 Innehåll:
 1. Krigshallen tränar Ramkrigare.
 2. `attack`-kommando mot enheter och byggnader; förföljelse; skadeformel
    och anfallstakt enligt GDD.
 3. Automatiskt anfall för stillastående Ramkrigare (inom 6 rutor).
-4. Död och förstörelse: enheter tas bort, förstörda byggnader frigör rutorna.
-5. Fiendesidan finns på kartan men är passiv (försvarar sig bara genom
+4. Grottor: kartgenereringen placerar 2 grottor per sida med 12 platser var,
+   speglade mellan sidorna och nåbara från startplatsen. En grotta blockerar
+   sin ruta, kan inte anfallas, och ingenting får byggas på eller intill den.
+5. Kapitulation: en enhet vars liv når 0 kapitulerar. Den kan inte längre
+   anfallas eller ges order, räknas inte i befolkningen, och går till
+   närmaste egna grotta med ledig plats, där den försvinner in. Platsen
+   reserveras vid kapitulationen. Finns ingen ledig eller nåbar grotta
+   försvinner enheten direkt.
+6. Byggnader rasar när deras liv når 0 och frigör sina rutor.
+7. Fiendesidan finns på kartan men är passiv (försvarar sig bara genom
    automatiskt anfall) tills AI:n kommer i fas 9.
-6. Vinst/förlust när en Storide förstörs; slutskärm med "Spela igen".
-7. HP-staplar, träffblink, utfall, bortoning, skärmskakning och larmtext
-   enligt GDD avsnitt 11.
+8. Vinst/förlust när en Storide rasar; slutskärm med "Spela igen".
+9. Livstaplar, träffblink, utfall, vit flagga, bortoning, skärmskakning och
+   larmtext enligt GDD avsnitt 11.
+10. Gränssnittet säger "Liv" i stället för "HP".
 
 **Test:**
-- Vitest: skada = skada − rustning, minst 1; slag sker med rätt intervall;
-  en Ramkrigare besegrar en Samlare på förväntat antal steg; anfallare
-  följer efter ett flyende mål; stillastående Ramkrigare anfaller fiende
-  inom 6 rutor men inte utanför; förstörd byggnad frigör sina rutor;
-  förstörd Storide sätter rätt vinnare och stoppar simuleringen.
+- Vitest, strid: skada = skada − rustning, minst 1; slag sker med rätt
+  intervall; en Ramkrigare får en Samlare att kapitulera på förväntat antal
+  steg; anfallare följer efter ett flyende mål; stillastående Ramkrigare
+  anfaller fiende inom 6 rutor men inte utanför; en raserad byggnad frigör
+  sina rutor; en raserad Storide sätter rätt vinnare och stoppar
+  simuleringen.
+- Vitest, kapitulation: en kapitulerad enhet tar ingen mer skada och väljs
+  inte som mål; den går till närmaste egna grotta och tas bort vid
+  ankomsten, och grottans antal ökar med 1; befolkningen minskar redan vid
+  kapitulationen; den trettonde enheten går till den andra grottan; när
+  alla 24 platser är tagna försvinner nästa enhet direkt; en enhet går
+  aldrig till motståndarens grotta.
+- Vitest, grottor: varje sida har 2 grottor; de är speglade; varje grotta
+  går att nå från sidans startplats; byggplacering på eller intill en
+  grotta nekas.
 - Playwright: i testläge ges spelaren soldater via `__TEST__`, de beordras
   anfalla fiendens Storide, simuleringen stegas fram och skärmen "Seger"
-  visas. Motsvarande test för "Nederlag".
-- Skärmdump av strid och av slutskärmen.
+  visas. Motsvarande test för "Nederlag". Ett test där en besegrad enhet
+  hamnar i sin sidas grotta enligt `getState()`.
+- Skärmdump av strid, av en kapitulerad enhet på väg till en grotta och av
+  slutskärmen.
 
 ## Fas 8 – Krigsdimma
 
