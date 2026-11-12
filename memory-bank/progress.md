@@ -4,9 +4,9 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 4 – klar i kod, pull request öppen mot `main`
-- **Nästa steg:** merge av fas 4, därefter fas 5 (träna arbetare) när den
-  beställs
+- **Aktuell fas:** Fas 5 – klar i kod, pull request öppen mot `main`
+- **Nästa steg:** merge av fas 5, därefter fas 6 (bygga Visthus och
+  Krigshall) när den beställs
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -19,8 +19,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 1 | Projektuppsättning, deploy, scrollbar karta | Mergad och publicerad | [#1](https://github.com/boulwen90-afk/animalplanet/pull/1) |
 | 2 | Simuleringskärna och terräng | Mergad | [#2](https://github.com/boulwen90-afk/animalplanet/pull/2) |
 | 3 | Enheter, markering, förflyttning | Mergad | [#3](https://github.com/boulwen90-afk/animalplanet/pull/3) |
-| 4 | Resurser och insamling | Klar, väntar på merge | [#4](https://github.com/boulwen90-afk/animalplanet/pull/4) |
-| 5 | Träna arbetare | Ej påbörjad | – |
+| 4 | Resurser och insamling | Mergad | [#4](https://github.com/boulwen90-afk/animalplanet/pull/4) |
+| 5 | Träna arbetare | Klar, väntar på merge | [#5](https://github.com/boulwen90-afk/animalplanet/pull/5) |
 | 6 | Bygga Visthus och Krigshall | Ej påbörjad | – |
 | 7 | Soldater, strid, vinst och förlust | Ej påbörjad | – |
 | 8 | Krigsdimma | Ej påbörjad | – |
@@ -52,6 +52,75 @@ Mall – kopiera för varje avslutad fas:
 **Beslut och lärdomar**
 - …
 -->
+
+### Fas 5 – Träna arbetare (2026-11-12)
+
+**Skärmdump:** `docs/screenshots/fas-5-traning.png` (Storiden markerad,
+kommandopanelen med två Samlare i kö och förloppsstapel, en fjärde Samlare
+färdig)
+
+**Avstämning mot planen**
+
+| Punkt i planen | Status | Kommentar |
+|---|---|---|
+| 1. Produktionssystem: kö (högst 5), träningstid, kostnad dras vid köning och återbetalas vid avbrott | Klar | |
+| 2. Befolkningstak (30); köning nekas vid fullt tak eller för lite resurser | Klar | Enheter i kö räknas mot taket |
+| 3. Ny enhet dyker upp på närmaste lediga ruta intill byggnaden | Klar | Närmast byggnadens framsida, så att den syns |
+| 4. Kommandopanel: byggnad kan markeras; träningsknapp med kostnad; kö med förloppsstapel; klick på köad enhet avbryter | Klar | |
+| 5. Återkoppling vid för lite resurser enligt GDD avsnitt 11 | Klar | Siffran blinkar rött i 300 ms och inget köas |
+
+| Test i planen | Resultat |
+|---|---|
+| Vitest: träning drar 50 mat och ger en Samlare efter 12 s simulerad tid | Godkänt (exakt 240 steg, ingen efter 239) |
+| Vitest: avbrott återbetalar | Godkänt |
+| Vitest: den sjätte köningen nekas | Godkänt |
+| Vitest: köning nekas vid för lite mat, utan att resurser dras | Godkänt |
+| Vitest: köning nekas vid fullt befolkningstak, utan att resurser dras | Godkänt |
+| Playwright: markera Storiden, klicka "Träna Samlare", stega fram; 4 egna Samlare och 50 mindre mat | Godkänt |
+| Skärmdump med kommandopanel och kö | Klar |
+
+Utöver planen testas även: att nya enheter får egna rutor framför
+byggnaden, att kön tränas i ordning, avbrott av den som tränas respektive en
+som väntar, ogiltiga köplatser, andra spelarens byggnad, att köade enheter
+räknas mot taket, panelens placering och knappstorlek, klick på tom köplats,
+och den röda blinkningen.
+
+**Saknas eller avviker**
+- **Enheter i kö räknas mot befolkningstaket.** Med 28 enheter och 2 i kö
+  nekas en tredje. Planen säger bara "vid fullt befolkningstak".
+- **Vid fullt befolkningstak blinkar befolkningssiffran rött.** GDD:t
+  beskriver bara blinkning för resurser.
+- **Full kö ger ingen återkoppling alls.** Klicket gör ingenting.
+- **Träningsknappen ser likadan ut när man inte har råd.**
+- **Att avbryta den enhet som tränas kastar bort arbetet** men återbetalar
+  hela kostnaden.
+- **Nya enheter står stilla där de dyker upp.** Samlingspunkt ingår inte i
+  MVP:n.
+- **Markeringen runt en vald byggnad syns dåligt.** Den gröna konturen
+  ritas på marken och döljs till största delen av byggnadens block. Det har
+  funnits sedan fas 3 men märks först nu när byggnaden har en funktion.
+- **Smala skärmar:** kommandopanelen läggs ovanför markeringspanelen. Under
+  cirka 450 px bredd får köplatserna inte plats. Mobilanpassning ligger i
+  fas 10.
+- **Pekskärm:** knapparna reagerar på tryck, men ett finger på en knapp
+  panorerar också kameran. Det åtgärdas i fas 10.
+- **Skärmdumpen visar inte den röda blinkningen.** En skärmdump tar längre
+  tid än de 300 ms blinkningen varar. Färgen kontrollerades med ett
+  tillfälligt bygge där blinkningen var 3 s.
+
+**Testresultat**
+- Vitest: 234 av 234
+- Playwright: 51 av 51, även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll: utan anmärkning
+- Konsolfel i headless-webbläsare: inga
+
+**Beslut och lärdomar**
+- Kommandon ger nu tillbaka ett resultat som säger om ordern gick igenom
+  och annars varför inte.
+- Resursradens textfärg sattes först om varje bildruta, vilket ritar om
+  texten varje gång. Nu ändras den bara när blinkningen börjar och slutar.
+- Testet för den röda blinkningen läser ett tillstånd, inte pixlar. Att
+  texten verkligen blir röd fick kontrolleras separat.
 
 ### Fas 4 – Resurser och insamling (2026-11-12)
 

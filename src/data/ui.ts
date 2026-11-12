@@ -7,4 +7,6 @@ export const UI_CONFIG = {
   /** Radius of the order ring when it appears and when it has faded out, in pixels. */
   orderMarkerStartRadius: 22,
   orderMarkerEndRadius: 6,
+  /** How long a resource bar number stays red when an order is refused for lack of it, in milliseconds. */
+  refusalFlashMs: 300,
 } as const;

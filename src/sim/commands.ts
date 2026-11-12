@@ -3,9 +3,12 @@ import { tileDistance } from './map/grid';
 import type { Point } from './map/iso';
 import { findPath, isPassable, nearestReachable } from './pathfinding/astar';
 import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
+import type { ResourceType } from '../data/resources';
+import type { UnitType } from '../data/units';
 import { resourceAt } from './resources';
 import type { GameState, PlayerId, Unit } from './state';
 import { startGathering } from './systems/gathering';
+import { cancelQueuedUnit, queueUnit } from './systems/production';
 
 /** Orders the given units to walk to a tile. */
 export interface MoveCommand {
@@ -29,20 +32,50 @@ export interface GatherCommand {
   y: number;
 }
 
+/** Adds a unit to a building's production queue. Its price is taken at once. */
+export interface TrainCommand {
+  type: 'train';
+  /** The player giving the order. The building must be that player's. */
+  player: PlayerId;
+  buildingId: number;
+  unit: UnitType;
+}
+
+/** Removes a unit from a building's production queue and gives its price back. */
+export interface CancelTrainCommand {
+  type: 'cancelTrain';
+  player: PlayerId;
+  buildingId: number;
+  /** Position in the queue; 0 is the unit being trained. */
+  index: number;
+}
+
 /**
  * Everything a player or the AI can tell the simulation to do. Input, AI and
  * tests all change the game through commands and nothing else.
  */
-export type Command = MoveCommand | GatherCommand;
+export type Command = MoveCommand | GatherCommand | TrainCommand | CancelTrainCommand;
 
-export function applyCommand(state: GameState, command: Command): void {
+/** Whether a command was carried out, and if not, why. */
+export type CommandResult =
+  | { ok: true }
+  | { ok: false; reason: 'insufficientResources'; missing: ResourceType[] }
+  | { ok: false; reason: 'populationCap' | 'queueFull' | 'invalid' };
+
+const OK: CommandResult = { ok: true };
+
+export function applyCommand(state: GameState, command: Command): CommandResult {
   switch (command.type) {
     case 'move':
       applyMove(state, command);
-      break;
+      return OK;
     case 'gather':
       applyGather(state, command);
-      break;
+      return OK;
+    case 'train':
+      return queueUnit(state, command.player, command.buildingId, command.unit);
+    case 'cancelTrain':
+      return cancelQueuedUnit(state, command.player, command.buildingId, command.index);
   }
 }
 

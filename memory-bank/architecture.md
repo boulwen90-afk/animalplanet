@@ -4,7 +4,7 @@ Beskriver hur koden **faktiskt** är uppbyggd. Uppdateras efter varje
 avslutad fas. Planerad arkitektur står i `tech-stack.md`; det här dokumentet
 beskriver bara det som finns i repot.
 
-Senast uppdaterad: fas 4.
+Senast uppdaterad: fas 5.
 
 ## Översikt
 
@@ -17,10 +17,10 @@ Tre lager, med beroenden bara nedåt i listan:
 ESLint stoppar import av Phaser, `render/` och `testing/` i `src/sim/`, liksom
 `window`, `document`, `Math.random` och `Date.now` där.
 
-Efter fas 4 finns enheter och byggnader i simuleringen, vägsökning,
-förflyttning och resursinsamling via kommandon, lager per sida, samt
-markering, markeringspanel och resursrad i gränssnittet. Produktion,
-byggande, strid, krigsdimma och AI saknas ännu.
+Efter fas 5 finns enheter och byggnader i simuleringen, vägsökning,
+förflyttning, resursinsamling och enhetsproduktion via kommandon, lager per
+sida, samt markering, markeringspanel, resursrad och kommandopanel i
+gränssnittet. Byggande, strid, krigsdimma och AI saknas ännu.
 
 Allt som ändrar spelet går via `applyCommand`. Markeringen (vilka enheter
 som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
@@ -37,16 +37,19 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/data/sim.ts` | `SIM_CONFIG`: steg per sekund, flest steg per bildruta. `TICK_MS` | 2 |
 | `src/data/terrain.ts` | `TERRAIN_DEFS`: terrängtyper, om de är gångbara och vilken resurs de ger. Typen `Terrain` | 2, 4 |
 | `src/data/resources.ts` | `RESOURCE_DEFS` (mängd per källa), `GATHER_CONFIG` (sökradie). Typen `ResourceType` | 4 |
-| `src/data/units.ts` | `UNIT_DEFS`: enhetstyper (HP, fart, bärförmåga, insamlingstakt). Typen `UnitType` | 3, 4 |
-| `src/data/buildings.ts` | `BUILDING_DEFS`: byggnadstyper (HP, storlek, avlämningsplats). Typen `BuildingType` | 3, 4 |
+| `src/data/units.ts` | `UNIT_DEFS`: enhetstyper (kostnad, träningstid, HP, fart, bärförmåga, insamlingstakt). Typerna `UnitType` och `Cost` | 3, 4, 5 |
+| `src/data/buildings.ts` | `BUILDING_DEFS`: byggnadstyper (vad de tränar, HP, storlek, avlämningsplats). Typen `BuildingType` | 3, 4, 5 |
+| `src/data/production.ts` | `PRODUCTION_CONFIG`: längsta produktionskö | 5 |
 | `src/data/setup.ts` | `START_CONFIG`: startbyggnad, startenheter, startresurser, befolkningstak | 3, 4 |
-| `src/data/ui.ts` | `UI_CONFIG`: dragtröskel, orderringens livslängd och storlek | 3 |
+| `src/data/ui.ts` | `UI_CONFIG`: dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order | 3, 5 |
 | `src/data/strings.ts` | `STRINGS`: all speltext | 3 |
 | `src/sim/state.ts` | Typerna `GameState`, `PlayerState`, `Unit`, `UnitTask`, `Building`, `Entity`, `PlayerId` | 2, 3, 4 |
 | `src/sim/game.ts` | `createGame(seed)`: skapar ett nytt speltillstånd med karta, Storide och Samlare per sida | 2, 3 |
 | `src/sim/tick.ts` | `tick(state)` och `advance(state, steps)` | 2, 3 |
 | `src/sim/entities.ts` | Skapa och slå upp enheter och byggnader, byggnaders rutor och mittpunkt | 3 |
-| `src/sim/commands.ts` | Typen `Command` och `applyCommand` | 3, 4 |
+| `src/sim/commands.ts` | Typerna `Command` och `CommandResult`, och `applyCommand` | 3, 4, 5 |
+| `src/sim/economy.ts` | Kostnader: vad som saknas, betala, återbetala | 5 |
+| `src/sim/systems/production.ts` | `produceUnits` (träning), `queueUnit`, `cancelQueuedUnit` | 5 |
 | `src/sim/resources.ts` | Resurskällor på kartan: slå upp, ta från, startmängder | 4 |
 | `src/sim/systems/gathering.ts` | `gatherResources` (insamlingsloopen) och `startGathering` | 4 |
 | `src/sim/systems/movement.ts` | `moveUnits`: flyttar enheter längs deras väg | 3 |
@@ -59,7 +62,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/map/grid.ts` | Typen `GameMap`, rutuppslag, gångbarhet, spegling, avstånd, `isReachable` | 2 |
 | `src/sim/map/mapgen.ts` | `generateMap`: kartgenerering | 2 |
 | `src/render/scenes/GameScene.ts` | Skapar spelet, vyerna och styrningen, driver simuleringen, registrerar testgränssnittet | 1, 2, 3 |
-| `src/render/scenes/UiScene.ts` | Gränssnittet ovanpå spelet: resursraden och markeringspanelen | 3, 4 |
+| `src/render/scenes/UiScene.ts` | Gränssnittet ovanpå spelet: resursraden, markeringspanelen och kommandopanelen | 3, 4, 5 |
 | `src/render/views/MapView.ts` | Ritar mark, träd, bärsnår och klippor; tar bort tömda källor | 1, 2, 4 |
 | `src/render/views/EntityView.ts` | Ritar enheter och byggnader, interpolerar rörelse, ritar markeringar | 3 |
 | `src/render/views/SelectionView.ts` | Ritar dragrutan och orderringar | 3 |
@@ -69,13 +72,15 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/render/input/selection.ts` | Markeringsregler som rena funktioner | 3 |
 | `src/render/input/picking.ts` | Vilken enhet, byggnad eller resurskälla som ligger under en punkt eller i en ruta | 3, 4 |
 | `src/render/ui/selectionInfo.ts` | Texten i markeringspanelen | 3 |
-| `src/render/ui/layout.ts` | Var gränssnittets delar ligger på skärmen | 3 |
+| `src/render/ui/layout.ts` | Var resursraden och markeringspanelen ligger på skärmen | 3, 4 |
+| `src/render/ui/commandPanel.ts` | Kommandopanelens innehåll, placering och klickträffar | 5 |
 | `src/testing/testHooks.ts` | Typer för och installation av `window.__TEST__` | 1, 2, 3 |
 | `tests/e2e/helpers.ts` | Hjälpfunktioner för Playwright | 1, 2, 3 |
 | `tests/e2e/phase1-map-camera.spec.ts` | Webbläsartester för fas 1 | 1 |
 | `tests/e2e/phase2-terrain.spec.ts` | Webbläsartester för fas 2 | 2 |
 | `tests/e2e/phase3-units.spec.ts` | Webbläsartester för fas 3 | 3 |
 | `tests/e2e/phase4-gathering.spec.ts` | Webbläsartester för fas 4 | 4 |
+| `tests/e2e/phase5-training.spec.ts` | Webbläsartester för fas 5 | 5 |
 | `.github/workflows/ci.yml` | Lint, Vitest, bygge och Playwright på pull requests | 1 |
 | `.github/workflows/deploy.yml` | Lint, Vitest, bygge och publicering till GitHub Pages vid push till `main` | 1 |
 
@@ -121,16 +126,18 @@ steget, för interpolation), `hp`, `path` (rutor kvar att gå, nästa först),
 `workTicks` (steg arbetade mot nästa enhet) och `dropoffId`.
 
 `Building`: `id`, `kind: 'building'`, `type`, `owner`, `x`/`y` (rutan i
-fotavtryckets hörn med lägst x och y), `hp`. Storleken står i
+fotavtryckets hörn med lägst x och y), `hp`, `queue` (enhetstyper som
+väntar på träning, den första tränas just nu; alla är redan betalda) och
+`trainTicks` (steg nedlagda på den första). Storleken står i
 `BUILDING_DEFS`. Storiden är 3×3 och centrerad på sidans startposition.
 
 Terrängtyper: `grass` (gångbar), `tree`, `berries`, `rock`, `water` (blockerar).
 
 ### Tidssteg
 
-- `tick(state)` kör ett steg: `gatherResources`, `moveUnits`, och sedan
-  ökas `state.tick`. System för byggande, strid m.m. läggs till här i fast
-  ordning.
+- `tick(state)` kör ett steg: `produceUnits`, `gatherResources`,
+  `moveUnits`, och sedan ökas `state.tick`. System för byggande, strid m.m.
+  läggs till här i fast ordning.
 - `consumeSteps(clock, elapsedMs, stepMs, maxSteps)` samlar bildrutetid och
   ger antalet steg som ska köras. Resten sparas till nästa bildruta. Fler än
   `maxTicksPerFrame` (5) steg per bildruta körs aldrig; överskjutande tid
@@ -142,10 +149,17 @@ Terrängtyper: `grass` (gångbar), `tree`, `berries`, `rock`, `water` (blockerar
 `applyCommand(state, command)` är den enda vägen in i simuleringen för
 spelare, AI och tester. Kommandon utförs direkt, mellan två steg.
 
+Svaret är en `CommandResult`: `{ ok: true }`, eller `{ ok: false, reason }`
+där `reason` är `insufficientResources` (med `missing`, listan över resurser
+som fattas), `populationCap`, `queueFull` eller `invalid`. En nekad order
+ändrar ingenting i tillståndet.
+
 | Kommando | Fält | Verkan |
 |---|---|---|
 | `move` | `player`, `unitIds`, `x`, `y` (målruta) | Spelarens egna enheter i listan får en väg till målet. Avbryter pågående insamling; lasten behålls |
 | `gather` | `player`, `unitIds`, `x`, `y` (källans ruta) | Spelarens egna enheter i listan börjar samla från källan. Ingen verkan om rutan saknar resurs |
+| `train` | `player`, `buildingId`, `unit` | Lägger enheten i byggnadens kö och drar kostnaden direkt |
+| `cancelTrain` | `player`, `buildingId`, `index` (plats i kön) | Tar bort enheten ur kön och återbetalar hela kostnaden |
 
 Så fördelas en grupp vid `move`:
 1. Målrutan begränsas till kartan. Är den ett hinder blir samlingspunkten
@@ -181,6 +195,21 @@ Så fördelas en grupp vid `move`:
 nästa ruta i vägen. Sträcka som blir över när en ruta nås används mot nästa,
 så farten är jämn genom hörn. Diagonala steg är √2 rutor långa och tar
 motsvarande längre tid.
+
+### Produktion
+
+- `queueUnit` nekar i den här ordningen: fel byggnad eller enhetstyp
+  (`invalid`), full kö (`queueFull`, högst 5), fullt befolkningstak
+  (`populationCap`), för lite resurser (`insufficientResources`).
+- Befolkningstaket (30) räknar både befintliga enheter och enheter i kö
+  (`reservedPopulation`), så befolkningen kan aldrig gå över taket.
+- `produceUnits` ökar `trainTicks` med 1 per steg för den första i kön. En
+  Samlare tar 240 steg (12 s). Den färdiga enheten ställs på den lediga ruta
+  som ligger närmast byggnadens framsida (`buildingFrontTile`), där ingen
+  annan enhet står eller är på väg. Finns ingen ledig ruta väntar enheten
+  färdigtränad.
+- Att avbryta den enhet som tränas nollställer `trainTicks`; nästa i kön
+  börjar från början.
 
 ### Resurser och insamling
 
@@ -245,7 +274,21 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - Markeringspanelen ligger nere till vänster och syns bara när något är
     markerat. För en egen enhet visas även vad den gör, t.ex.
     `HP 40/40 · Samlar mat 7/10`.
-  - Klick på resursraden eller panelen når inte kartan.
+  - Kommandopanelen visas när exakt en egen byggnad som kan träna enheter
+    är markerad. Den ligger bredvid markeringspanelen, eller ovanför den på
+    smala skärmar. Den har en träningsknapp per enhetstyp (namn och
+    kostnad), fem köplatser och en förloppsstapel för den första i kön.
+    Klick på en fylld köplats avbryter den enheten.
+  - Panelens innehåll (`describeCommandPanel`), placering
+    (`commandPanelLayout`) och klickträffar (`commandPanelHit`) är rena
+    funktioner. `UiScene` lyssnar själv på klick och jämför mot placeringen;
+    den har inga interaktiva Phaser-objekt.
+  - Nekas en träningsorder blinkar den siffra i resursraden som förklarar
+    varför rött i 300 ms: resursen som saknas, eller befolkningen vid fullt
+    tak. Blinkningen räknas i verklig tid.
+  - Knapptryckningar går via `HudSource.trainUnit` och
+    `HudSource.cancelQueuedUnit`, som `GameScene` gör om till kommandon.
+  - Klick på resursraden eller en panel når inte kartan.
 - **`EntityView`** håller en bild per entitet och synkar mot
   `state.entities` varje bildruta (skapar nya, tar bort försvunna).
   - Enheter ritas mellan `prev` och aktuellt läge med
@@ -304,11 +347,12 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
 | `camera.ts` | Panoreringsfart (tangenter, kant), kantmarginal, längsta bildrutetid |
 | `sim.ts` | Simuleringssteg per sekund, flest steg per bildruta |
 | `terrain.ts` | Terrängtyper, gångbarhet och vilken resurs de ger |
-| `units.ts` | Enheters HP, fart, bärförmåga och insamlingstakt |
-| `buildings.ts` | Byggnaders HP, storlek och om de är avlämningsplats |
+| `units.ts` | Enheters kostnad, träningstid, HP, fart, bärförmåga och insamlingstakt |
+| `buildings.ts` | Vilka enheter en byggnad tränar, dess HP, storlek och om den är avlämningsplats |
 | `resources.ts` | Mängd per källa, sökradie när en källa tar slut |
 | `setup.ts` | Startbyggnad, startenheter, startresurser och befolkningstak |
-| `ui.ts` | Dragtröskel, orderringens livslängd och storlek |
+| `ui.ts` | Dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order |
+| `production.ts` | Längsta produktionskö |
 | `strings.ts` | All speltext (svenska) |
 
 ## Testgränssnitt
@@ -328,10 +372,12 @@ URL-parametrar:
 | `elapsedMs` | Summan av all bildrutetid spelet har bearbetat (varje bildruta högst 100 ms). Går långsammare än väggklockan på en långsam maskin |
 | `getState()` | En kopia av hela `GameState` |
 | `advance(n)` | Kör `n` simuleringssteg direkt |
-| `command(cmd)` | Skickar ett kommando till simuleringen |
+| `command(cmd)` | Skickar ett kommando till simuleringen och ger tillbaka dess `CommandResult` |
 | `getSelection()` | Id för markerade entiteter |
 | `getHud()` | Vad markeringspanelen visar: `visible`, `title`, `detail` |
 | `getResourceBar()` | Texterna i resursraden: `food`, `wood`, `population` |
+| `getFlashing()` | Vilka av resursradens texter som blinkar rött just nu |
+| `getCommandPanel()` | Kommandopanelen: `visible`, `buttons` (`label`, `cost`, mittpunkt `x`/`y`), `queue` (`label`, mittpunkt `x`/`y`), `progress` |
 | `getOrderMarkerCount()` | Antal synliga orderringar |
 | `tileToScreen(x, y)` | Skärmposition för en punkt i rutkoordinater. Heltal är ruthörn; lägg till 0,5 för rutans mitt. Enheters `x`/`y` kan skickas som de är |
 | `centerCameraOnTile(x, y)` | Centrerar kameran på en punkt i rutkoordinater |
@@ -346,6 +392,14 @@ behöver utrymme att panorera anropar först `centerCameraOnMapMiddle`.
 Enheter rör sig i realtid även i testläge. Ett test som ska klicka på en
 enhet måste läsa dess läge precis innan, eller klicka innan enheten får en
 order.
+
+Gränssnittet ritas om en bildruta efter att tillståndet har ändrats. Tester
+som läser `getHud`, `getResourceBar` eller `getCommandPanel` efter en
+ändring ska använda `expect.poll`.
+
+En skärmdump tar runt 400 ms att ta. Effekter som är kortare än så (300 ms
+blinkning, 400 ms orderring) går inte att fånga på bild; de kontrolleras via
+testgränssnittet.
 
 Rutor inom 4 rutor från en startposition är alltid fria från terränghinder.
 Tester som behöver en garanterat fri ruta ska välja en sådan och inte anta
@@ -387,3 +441,7 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | 4 | Insamlingen räknar hela steg (`workTicks`), inte bråkdelar | 1 enhet per sekund blir exakt 20 steg, utan avrundningsfel som kan ge en enhet för mycket eller för lite. |
 | 4 | En enhet kan byta fas flera gånger i samma steg | Annars går ett steg förlorat vid varje fasbyte, och tiderna i GDD:t stämmer inte exakt. |
 | 4 | Närmaste avlämningsplats räknas fågelvägen, inte efter vägens längd | Billigt och nästan alltid samma svar. Kan bytas om kartor med långa omvägar visar sig ge fel val. |
+| 5 | Kommandon ger tillbaka ett resultat (`CommandResult`) | Gränssnittet behöver veta varför en order nekades för att kunna blinka rätt siffra, och AI:n behöver veta om ordern gick igenom. |
+| 5 | Enheter i kö räknas mot befolkningstaket | Annars kan flera byggnader köa förbi taket, och färdiga enheter måste då vänta eller taket brytas. |
+| 5 | Kommandopanelen har inga interaktiva Phaser-objekt | Placering och klickträffar blir rena funktioner som kan enhetstestas, och testerna kan fråga var knapparna ligger. |
+| 5 | Textfärg ändras bara när blinkningen börjar eller slutar | `Text.setColor` ritar om hela texten. Första versionen satte färgen varje bildruta. |

@@ -1,5 +1,5 @@
-import type { HudDisplay, ResourceBarDisplay } from '../render/scenes/UiScene';
-import type { Command } from '../sim/commands';
+import type { CommandPanelDisplay, HudDisplay, ResourceBarDisplay } from '../render/scenes/UiScene';
+import type { Command, CommandResult } from '../sim/commands';
 import type { Point } from '../sim/map/iso';
 import type { GameState } from '../sim/state';
 
@@ -26,10 +26,12 @@ export interface TestApiSource {
   getElapsedMs(): number;
   getState(): GameState;
   advance(steps: number): void;
-  command(command: Command): void;
+  command(command: Command): CommandResult;
   getSelection(): number[];
   getHud(): HudDisplay;
   getResourceBar(): ResourceBarDisplay;
+  getFlashing(): string[];
+  getCommandPanel(): CommandPanelDisplay;
   getOrderMarkerCount(): number;
   tileToScreen(tileX: number, tileY: number): Point;
   centerCameraOnTile(tileX: number, tileY: number): void;
@@ -50,14 +52,18 @@ export interface TestApi {
   getState(): GameState;
   /** Runs `steps` simulation steps immediately, on top of the real-time ones. */
   advance(steps: number): void;
-  /** Sends a command to the simulation, exactly as player input and the AI do. */
-  command(command: Command): void;
+  /** Sends a command to the simulation, exactly as player input and the AI do, and returns its result. */
+  command(command: Command): CommandResult;
   /** Ids of the selected entities. */
   getSelection(): number[];
   /** What the selection panel shows right now. */
   getHud(): HudDisplay;
   /** The texts the resource bar shows right now. */
   getResourceBar(): ResourceBarDisplay;
+  /** The resource bar texts flashing red right now: 'food', 'wood' or 'population'. */
+  getFlashing(): string[];
+  /** What the command panel shows right now, with the screen position of each button's centre. */
+  getCommandPanel(): CommandPanelDisplay;
   /** Number of order rings currently visible. */
   getOrderMarkerCount(): number;
   /**
@@ -90,6 +96,8 @@ export function installTestApi(source: TestApiSource): TestApi {
     getSelection: () => source.getSelection(),
     getHud: () => source.getHud(),
     getResourceBar: () => source.getResourceBar(),
+    getFlashing: () => source.getFlashing(),
+    getCommandPanel: () => source.getCommandPanel(),
     getOrderMarkerCount: () => source.getOrderMarkerCount(),
     tileToScreen: (tileX, tileY) => source.tileToScreen(tileX, tileY),
     centerCameraOnTile: (tileX, tileY) => source.centerCameraOnTile(tileX, tileY),
