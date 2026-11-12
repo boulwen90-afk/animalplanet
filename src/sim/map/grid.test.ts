@@ -15,6 +15,7 @@ function mapFromRows(rows: string[]): GameMap {
     width: (rows[0] as string).length,
     height: rows.length,
     terrain: rows.flatMap((row) => [...row].map((c) => legend[c] as Terrain)),
+    resourceAmount: [],
     startPositions: [],
   };
 }

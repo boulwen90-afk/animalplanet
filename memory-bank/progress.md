@@ -4,9 +4,9 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 3 – klar i kod, pull request öppen mot `main`
-- **Nästa steg:** merge av fas 3, därefter fas 4 (resurser och insamling)
-  när den beställs
+- **Aktuell fas:** Fas 4 – klar i kod, pull request öppen mot `main`
+- **Nästa steg:** merge av fas 4, därefter fas 5 (träna arbetare) när den
+  beställs
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -18,8 +18,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 0 | Planeringsdokument | Godkänd 2026-11-12 | – |
 | 1 | Projektuppsättning, deploy, scrollbar karta | Mergad och publicerad | [#1](https://github.com/boulwen90-afk/animalplanet/pull/1) |
 | 2 | Simuleringskärna och terräng | Mergad | [#2](https://github.com/boulwen90-afk/animalplanet/pull/2) |
-| 3 | Enheter, markering, förflyttning | Klar, väntar på merge | [#3](https://github.com/boulwen90-afk/animalplanet/pull/3) |
-| 4 | Resurser och insamling | Ej påbörjad | – |
+| 3 | Enheter, markering, förflyttning | Mergad | [#3](https://github.com/boulwen90-afk/animalplanet/pull/3) |
+| 4 | Resurser och insamling | Klar, väntar på merge | [#4](https://github.com/boulwen90-afk/animalplanet/pull/4) |
 | 5 | Träna arbetare | Ej påbörjad | – |
 | 6 | Bygga Visthus och Krigshall | Ej påbörjad | – |
 | 7 | Soldater, strid, vinst och förlust | Ej påbörjad | – |
@@ -52,6 +52,70 @@ Mall – kopiera för varje avslutad fas:
 **Beslut och lärdomar**
 - …
 -->
+
+### Fas 4 – Resurser och insamling (2026-11-12)
+
+**Skärmdumpar:** `docs/screenshots/fas-4-insamling.png` (två Samlare på
+bär och en på trä, resursraden och markeringspanelen),
+`docs/screenshots/fas-4-tomd-kalla.png` (samma plats senare: tre bärsnår
+och flera träd är tömda och borta)
+
+**Avstämning mot planen**
+
+| Punkt i planen | Status | Kommentar |
+|---|---|---|
+| 1. Resurskällor med ändlig mängd; tömda källor försvinner och träd blir gångbar mark | Klar | Även tömda bärsnår blir gångbar mark |
+| 2. `gather`-kommando: källa → samla (1/s, högst 10) → avlämningsplats → upprepa; byter till närmaste källa av samma typ inom 8 rutor, annars sysslolös | Klar | Lämnar av sin sista last innan den blir sysslolös |
+| 3. Spelarens lager i simuleringen; startresurser enligt GDD | Klar | 200 mat och 100 trä, för båda sidor |
+| 4. HUD-överkant: mat, trä, befolkning | Klar | |
+| 5. Högerklick på resurs med Samlare markerade ger `gather` | Klar | |
+
+| Test i planen | Resultat |
+|---|---|
+| Vitest: en Samlare intill källa och Storide levererar exakt 10 enheter efter beräknat antal steg | Godkänt (exakt 200 steg, inget efter 199) |
+| Vitest: källan minskar lika mycket som lagret ökar | Godkänt (kontrolleras varje steg i 700 steg) |
+| Vitest: en tömd källa tas bort och arbetaren byter till nästa | Godkänt |
+| Vitest: utan källor i närheten blir arbetaren sysslolös | Godkänt |
+| Playwright: efter gather-order och framstegning visar HUD:en mer mat | Godkänt |
+| Skärmdump med arbetare som samlar och HUD | Klar |
+
+Utöver planen testas även: trä och mat hamnar i rätt lager, flera arbetare
+på samma källa ställer sig på olika rutor, två arbetare som tömmer samma
+källa skapar inga resurser ur intet, inneslutna träd, källor utanför
+sökradien, byte av resursslag, flyttorder under insamling, sida utan
+avlämningsbyggnad, klick på trädkronan, och att tömda källor försvinner
+från kartan utan fel.
+
+**Saknas eller avviker**
+- **Markeringspanelen visar vad en egen enhet gör** (t.ex. "Samlar mat
+  7/10"). Det står i GDD avsnitt 4 men inte i planen för någon fas.
+- **Enheter som bär något får en liten färgad fyrkant.** Det står varken i
+  GDD:t eller planen; utan den syns det inte att någon samlar.
+- **Hur mycket som finns kvar i en källa visas ingenstans.** GDD:t kräver
+  det inte.
+- **Orderringen är grön även för insamling.** GDD:t anger bara grön för
+  flytt och röd för attack.
+- **Byte av resursslag tappar lasten.** En Samlare med 4 trä som skickas
+  till bär börjar om på 0. GDD:t säger inget om det.
+- **Sysslolösa arbetare syns inte på något särskilt sätt** och det finns
+  ingen knapp för att hitta dem.
+- **Flera arbetare kan dela ruta** när alla rutor runt en källa är upptagna.
+- **Närmaste avlämningsplats räknas fågelvägen**, inte efter vägens längd.
+- **Motståndaren har ett lager men gör ingenting** förrän AI:n kommer i
+  fas 9.
+
+**Testresultat**
+- Vitest: 197 av 197
+- Playwright: 44 av 44, även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll: utan anmärkning
+- Konsolfel i headless-webbläsare: inga
+
+**Beslut och lärdomar**
+- Insamlingen räknar hela simuleringssteg i stället för bråkdelar, så att
+  "1 enhet per sekund" blir exakt 20 steg.
+- Ett webbläsartest klickade på en enhets gamla läge efter att den redan
+  hade börjat gå. Enheter rör sig i realtid även i testläge, så tester
+  måste markera först och ge order sedan.
 
 ### Fas 3 – Enheter, markering och förflyttning (2026-11-12)
 

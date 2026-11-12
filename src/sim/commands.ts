@@ -3,7 +3,9 @@ import { tileDistance } from './map/grid';
 import type { Point } from './map/iso';
 import { findPath, isPassable, nearestReachable } from './pathfinding/astar';
 import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
+import { resourceAt } from './resources';
 import type { GameState, PlayerId, Unit } from './state';
+import { startGathering } from './systems/gathering';
 
 /** Orders the given units to walk to a tile. */
 export interface MoveCommand {
@@ -16,24 +18,54 @@ export interface MoveCommand {
   y: number;
 }
 
+/** Orders the given units to gather from a resource source and keep delivering it. */
+export interface GatherCommand {
+  type: 'gather';
+  /** The player giving the order. Only that player's units obey. */
+  player: PlayerId;
+  unitIds: number[];
+  /** Tile of the source. */
+  x: number;
+  y: number;
+}
+
 /**
  * Everything a player or the AI can tell the simulation to do. Input, AI and
  * tests all change the game through commands and nothing else.
  */
-export type Command = MoveCommand;
+export type Command = MoveCommand | GatherCommand;
 
 export function applyCommand(state: GameState, command: Command): void {
   switch (command.type) {
     case 'move':
       applyMove(state, command);
       break;
+    case 'gather':
+      applyGather(state, command);
+      break;
+  }
+}
+
+/** The player's own units named in a command, in id order. */
+function orderedUnits(state: GameState, player: PlayerId, unitIds: readonly number[]): Unit[] {
+  return state.entities
+    .filter(isUnit)
+    .filter((unit) => unit.owner === player && unitIds.includes(unit.id));
+}
+
+function applyGather(state: GameState, command: GatherCommand): void {
+  const x = Math.floor(command.x);
+  const y = Math.floor(command.y);
+  const resource = resourceAt(state.map, x, y);
+  if (!resource) return;
+  const grid = buildPathGrid(state);
+  for (const unit of orderedUnits(state, command.player, command.unitIds)) {
+    startGathering(state, grid, unit, resource, { x, y });
   }
 }
 
 function applyMove(state: GameState, command: MoveCommand): void {
-  const ordered = state.entities
-    .filter(isUnit)
-    .filter((unit) => unit.owner === command.player && command.unitIds.includes(unit.id));
+  const ordered = orderedUnits(state, command.player, command.unitIds);
   const lead = ordered[0];
   if (!lead) return;
 
@@ -62,6 +94,8 @@ function applyMove(state: GameState, command: MoveCommand): void {
 
   for (const unit of ordered) {
     const destination = takeNearest(free, unit) ?? anchor;
+    // A move order ends whatever the unit was doing. It keeps what it carries.
+    unit.task = { kind: 'idle' };
     unit.path = findPath(grid, unitTile(unit), destination);
   }
 }

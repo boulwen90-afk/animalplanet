@@ -4,7 +4,7 @@ Beskriver hur koden **faktiskt** är uppbyggd. Uppdateras efter varje
 avslutad fas. Planerad arkitektur står i `tech-stack.md`; det här dokumentet
 beskriver bara det som finns i repot.
 
-Senast uppdaterad: fas 3.
+Senast uppdaterad: fas 4.
 
 ## Översikt
 
@@ -17,9 +17,10 @@ Tre lager, med beroenden bara nedåt i listan:
 ESLint stoppar import av Phaser, `render/` och `testing/` i `src/sim/`, liksom
 `window`, `document`, `Math.random` och `Date.now` där.
 
-Efter fas 3 finns enheter och byggnader i simuleringen, vägsökning,
-förflyttning via kommandon samt markering och en markeringspanel i
-gränssnittet. Resurser, produktion, byggande, strid och AI saknas ännu.
+Efter fas 4 finns enheter och byggnader i simuleringen, vägsökning,
+förflyttning och resursinsamling via kommandon, lager per sida, samt
+markering, markeringspanel och resursrad i gränssnittet. Produktion,
+byggande, strid, krigsdimma och AI saknas ännu.
 
 Allt som ändrar spelet går via `applyCommand`. Markeringen (vilka enheter
 som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
@@ -34,19 +35,22 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/data/map.ts` | `MAP_CONFIG` (kartstorlek, rutstorlek) och `MAP_GEN_CONFIG` (kartgenerering, standardfrö) | 1, 2 |
 | `src/data/camera.ts` | `CAMERA_CONFIG`: panoreringsfart, kantmarginal, längsta bildrutetid | 1 |
 | `src/data/sim.ts` | `SIM_CONFIG`: steg per sekund, flest steg per bildruta. `TICK_MS` | 2 |
-| `src/data/terrain.ts` | `TERRAIN_DEFS`: terrängtyper och om de är gångbara. Typen `Terrain` | 2 |
-| `src/data/units.ts` | `UNIT_DEFS`: enhetstyper (HP, fart). Typen `UnitType` | 3 |
-| `src/data/buildings.ts` | `BUILDING_DEFS`: byggnadstyper (HP, storlek). Typen `BuildingType` | 3 |
-| `src/data/setup.ts` | `START_CONFIG`: vad varje sida börjar med | 3 |
+| `src/data/terrain.ts` | `TERRAIN_DEFS`: terrängtyper, om de är gångbara och vilken resurs de ger. Typen `Terrain` | 2, 4 |
+| `src/data/resources.ts` | `RESOURCE_DEFS` (mängd per källa), `GATHER_CONFIG` (sökradie). Typen `ResourceType` | 4 |
+| `src/data/units.ts` | `UNIT_DEFS`: enhetstyper (HP, fart, bärförmåga, insamlingstakt). Typen `UnitType` | 3, 4 |
+| `src/data/buildings.ts` | `BUILDING_DEFS`: byggnadstyper (HP, storlek, avlämningsplats). Typen `BuildingType` | 3, 4 |
+| `src/data/setup.ts` | `START_CONFIG`: startbyggnad, startenheter, startresurser, befolkningstak | 3, 4 |
 | `src/data/ui.ts` | `UI_CONFIG`: dragtröskel, orderringens livslängd och storlek | 3 |
 | `src/data/strings.ts` | `STRINGS`: all speltext | 3 |
-| `src/sim/state.ts` | Typerna `GameState`, `Unit`, `Building`, `Entity`, `PlayerId` | 2, 3 |
+| `src/sim/state.ts` | Typerna `GameState`, `PlayerState`, `Unit`, `UnitTask`, `Building`, `Entity`, `PlayerId` | 2, 3, 4 |
 | `src/sim/game.ts` | `createGame(seed)`: skapar ett nytt speltillstånd med karta, Storide och Samlare per sida | 2, 3 |
 | `src/sim/tick.ts` | `tick(state)` och `advance(state, steps)` | 2, 3 |
 | `src/sim/entities.ts` | Skapa och slå upp enheter och byggnader, byggnaders rutor och mittpunkt | 3 |
-| `src/sim/commands.ts` | Typen `Command` och `applyCommand` | 3 |
+| `src/sim/commands.ts` | Typen `Command` och `applyCommand` | 3, 4 |
+| `src/sim/resources.ts` | Resurskällor på kartan: slå upp, ta från, startmängder | 4 |
+| `src/sim/systems/gathering.ts` | `gatherResources` (insamlingsloopen) och `startGathering` | 4 |
 | `src/sim/systems/movement.ts` | `moveUnits`: flyttar enheter längs deras väg | 3 |
-| `src/sim/pathfinding/astar.ts` | `findPath` (A*), `nearestReachable`, `canStep`, typen `PathGrid` | 3 |
+| `src/sim/pathfinding/astar.ts` | `findPath` (A*), `nearestReachable`, `reachableTiles`, `canStep`, typen `PathGrid` | 3, 4 |
 | `src/sim/pathfinding/passability.ts` | `buildPathGrid` (gångbara rutor just nu) och `nearestFreeTiles` | 3 |
 | `src/sim/testUtils.ts` | Små kartor från teckenrader, för enhetstester | 3 |
 | `src/sim/clock.ts` | Fast tidssteg: gör om bildrutetid till ett helt antal steg | 2 |
@@ -55,15 +59,15 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/map/grid.ts` | Typen `GameMap`, rutuppslag, gångbarhet, spegling, avstånd, `isReachable` | 2 |
 | `src/sim/map/mapgen.ts` | `generateMap`: kartgenerering | 2 |
 | `src/render/scenes/GameScene.ts` | Skapar spelet, vyerna och styrningen, driver simuleringen, registrerar testgränssnittet | 1, 2, 3 |
-| `src/render/scenes/UiScene.ts` | Gränssnittet ovanpå spelet: markeringspanelen | 3 |
-| `src/render/views/MapView.ts` | Ritar mark, träd, bärsnår och klippor | 1, 2 |
+| `src/render/scenes/UiScene.ts` | Gränssnittet ovanpå spelet: resursraden och markeringspanelen | 3, 4 |
+| `src/render/views/MapView.ts` | Ritar mark, träd, bärsnår och klippor; tar bort tömda källor | 1, 2, 4 |
 | `src/render/views/EntityView.ts` | Ritar enheter och byggnader, interpolerar rörelse, ritar markeringar | 3 |
 | `src/render/views/SelectionView.ts` | Ritar dragrutan och orderringar | 3 |
 | `src/render/views/visuals.ts` | Platshållargrafikens mått och färger, delade av ritning och klickträffar | 3 |
 | `src/render/input/CameraController.ts` | Kamerapanorering med tangenter, skärmkant, mittenknapp och finger | 1 |
 | `src/render/input/SelectionController.ts` | Mus och tangentbord: markering, dragruta, flyttorder | 3 |
 | `src/render/input/selection.ts` | Markeringsregler som rena funktioner | 3 |
-| `src/render/input/picking.ts` | Vilken enhet eller byggnad som ligger under en punkt eller i en ruta | 3 |
+| `src/render/input/picking.ts` | Vilken enhet, byggnad eller resurskälla som ligger under en punkt eller i en ruta | 3, 4 |
 | `src/render/ui/selectionInfo.ts` | Texten i markeringspanelen | 3 |
 | `src/render/ui/layout.ts` | Var gränssnittets delar ligger på skärmen | 3 |
 | `src/testing/testHooks.ts` | Typer för och installation av `window.__TEST__` | 1, 2, 3 |
@@ -71,6 +75,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `tests/e2e/phase1-map-camera.spec.ts` | Webbläsartester för fas 1 | 1 |
 | `tests/e2e/phase2-terrain.spec.ts` | Webbläsartester för fas 2 | 2 |
 | `tests/e2e/phase3-units.spec.ts` | Webbläsartester för fas 3 | 3 |
+| `tests/e2e/phase4-gathering.spec.ts` | Webbläsartester för fas 4 | 4 |
 | `.github/workflows/ci.yml` | Lint, Vitest, bygge och Playwright på pull requests | 1 |
 | `.github/workflows/deploy.yml` | Lint, Vitest, bygge och publicering till GitHub Pages vid push till `main` | 1 |
 
@@ -100,13 +105,20 @@ Definieras i `src/sim/map/iso.ts`.
 | `seed` | Fröet spelet skapades från |
 | `tick` | Antal körda simuleringssteg |
 | `rng` | Slumpgeneratorns tillstånd (`{ s }`) |
-| `map` | `GameMap`: `width`, `height`, `terrain` (rad för rad, index `y · width + x`), `startPositions` (0 = spelaren, 1 = motståndaren) |
+| `map` | `GameMap`: `width`, `height`, `terrain` (rad för rad, index `y · width + x`), `resourceAmount` (enheter kvar i varje rutas källa, samma index), `startPositions` (0 = spelaren, 1 = motståndaren) |
+| `players` | En `PlayerState` per sida: `resources` (`food`, `wood`) |
 | `entities` | Alla enheter och byggnader, i den ordning de skapades |
 | `nextEntityId` | Id för nästa entitet. Id:n återanvänds aldrig |
 
 `Unit`: `id`, `kind: 'unit'`, `type`, `owner`, `x`/`y` (kontinuerliga
 rutkoordinater, rutans mitt är `+0.5`), `prevX`/`prevY` (läget före senaste
-steget, för interpolation), `hp`, `path` (rutor kvar att gå, nästa först).
+steget, för interpolation), `hp`, `path` (rutor kvar att gå, nästa först),
+`task` (vad enheten gör utöver att gå), `carryType` och `carryAmount`
+(buren resurs).
+
+`UnitTask` är `{ kind: 'idle' }` eller en `GatherTask`: `resource`, `node`
+(källans ruta), `phase` (`toSource`, `gathering`, `toDropoff`),
+`workTicks` (steg arbetade mot nästa enhet) och `dropoffId`.
 
 `Building`: `id`, `kind: 'building'`, `type`, `owner`, `x`/`y` (rutan i
 fotavtryckets hörn med lägst x och y), `hp`. Storleken står i
@@ -116,8 +128,9 @@ Terrängtyper: `grass` (gångbar), `tree`, `berries`, `rock`, `water` (blockerar
 
 ### Tidssteg
 
-- `tick(state)` kör ett steg: först `moveUnits`, sedan ökas `state.tick`.
-  System för insamling, byggande, strid m.m. läggs till här i fast ordning.
+- `tick(state)` kör ett steg: `gatherResources`, `moveUnits`, och sedan
+  ökas `state.tick`. System för byggande, strid m.m. läggs till här i fast
+  ordning.
 - `consumeSteps(clock, elapsedMs, stepMs, maxSteps)` samlar bildrutetid och
   ger antalet steg som ska köras. Resten sparas till nästa bildruta. Fler än
   `maxTicksPerFrame` (5) steg per bildruta körs aldrig; överskjutande tid
@@ -131,7 +144,8 @@ spelare, AI och tester. Kommandon utförs direkt, mellan två steg.
 
 | Kommando | Fält | Verkan |
 |---|---|---|
-| `move` | `player`, `unitIds`, `x`, `y` (målruta) | Spelarens egna enheter i listan får en väg till målet |
+| `move` | `player`, `unitIds`, `x`, `y` (målruta) | Spelarens egna enheter i listan får en väg till målet. Avbryter pågående insamling; lasten behålls |
+| `gather` | `player`, `unitIds`, `x`, `y` (källans ruta) | Spelarens egna enheter i listan börjar samla från källan. Ingen verkan om rutan saknar resurs |
 
 Så fördelas en grupp vid `move`:
 1. Målrutan begränsas till kartan. Är den ett hinder blir samlingspunkten
@@ -157,8 +171,9 @@ Så fördelas en grupp vid `move`:
 - `buildPathGrid(state)` räknar ut hindren: icke gångbar terräng och
   byggnaders fotavtryck. Enheter blockerar inte (GDD avsnitt 10). Rutnätet
   byggs om vid varje kommando och sparas inte.
-- Vägar räknas inte om när kartan ändras. Det behövs från fas 4 (träd som
-  försvinner) och fas 6 (nya byggnader).
+- Vägar räknas inte om när kartan ändras. Ett träd som försvinner gör bara
+  fler rutor gångbara, så befintliga vägar förblir giltiga. Nya byggnader
+  (fas 6) kan däremot blockera en väg och kräver omräkning.
 
 ### Förflyttning
 
@@ -166,6 +181,31 @@ Så fördelas en grupp vid `move`:
 nästa ruta i vägen. Sträcka som blir över när en ruta nås används mot nästa,
 så farten är jämn genom hörn. Diagonala steg är √2 rutor långa och tar
 motsvarande längre tid.
+
+### Resurser och insamling
+
+- Träd ger trä (100 per källa) och bärsnår ger mat (150 per källa).
+  `takeFromSource` minskar källan; vid 0 blir rutan gräs och därmed gångbar.
+- Lagret (`players[i].resources`) ökar först när lasten lämnas av.
+- `gatherResources` kör varje samlande enhet genom tre faser:
+  1. `toSource`: gå till en ruta intill källan. Väl framme börjar arbetet.
+  2. `gathering`: en enhet resurs var 20:e steg (1 per sekund) tills
+     enheten bär 10.
+  3. `toDropoff`: gå till sidans närmaste avlämningsbyggnad (räknat i
+     rutor fågelvägen) och lämna av intill den. Sedan tillbaka till källan.
+- En enhet kan byta fas flera gånger i samma steg. Står den intill både
+  källa och Storide tar ett varv därför exakt 200 steg.
+- **När källan tar slut:** enheten söker närmaste källa av samma slag inom
+  8 rutor från sig själv, bland dem den kan gå fram till. Finns ingen
+  lämnar den av det den bär och blir sedan sysslolös.
+- **Vilken källa:** en källa räknas som nåbar om enheten kan stå på någon
+  av de åtta rutorna runt den. Är den valda källan innesluten (ett träd mitt
+  i en skog) väljs närmaste nåbara källa av samma slag inom 8 rutor.
+- **Var enheten ställer sig:** på den närmaste rutan intill källan, helst
+  en där ingen annan enhet står eller är på väg, så att arbetare sprider sig.
+- Byter enheten resursslag tappas den gamla lasten. Saknar sidan
+  avlämningsbyggnad blir enheten sysslolös med lasten kvar.
+- Vägrutnätet byggs högst en gång per steg och byggs om när en källa töms.
 
 ### Slump
 
@@ -199,10 +239,13 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   räcker till, uppdaterar kameran, rensar markeringen från borttagna
   entiteter och ritar om enheter och markeringar.
 - **`UiScene`** ligger ovanpå `GameScene` med egen kamera, så att
-  gränssnittet står still när kartan rullar. Den hämtar sin text från
-  `GameScene` via gränssnittet `HudSource`. Markeringspanelen ligger nere
-  till vänster och syns bara när något är markerat. Klick på panelen når
-  inte kartan.
+  gränssnittet står still när kartan rullar. Den hämtar sitt innehåll från
+  `GameScene` via gränssnittet `HudSource`.
+  - Resursraden längs överkanten visar mat, trä och befolkning (`3/30`).
+  - Markeringspanelen ligger nere till vänster och syns bara när något är
+    markerat. För en egen enhet visas även vad den gör, t.ex.
+    `HP 40/40 · Samlar mat 7/10`.
+  - Klick på resursraden eller panelen når inte kartan.
 - **`EntityView`** håller en bild per entitet och synkar mot
   `state.entities` varje bildruta (skapar nya, tar bort försvunna).
   - Enheter ritas mellan `prev` och aktuellt läge med
@@ -214,6 +257,8 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     samma regel som träden i `MapView`.
   - Markerade enheter får en grön ellips på marken, markerade byggnader en
     grön kontur runt fotavtrycket.
+  - En enhet som bär något får en liten fyrkant uppe till höger: röd för
+    mat, brun för trä.
 - **`SelectionView`** ritar dragrutan (grön kontur 1 px, 20 % fyllning, i
   världskoordinater) och orderringar (krymper och tonas bort på 400 ms av
   spelets tid).
@@ -222,7 +267,9 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - vänsterknapp + dra minst 4 px ger en dragruta som markerar egna enheter
   - Shift lägger till eller tar bort egna enheter
   - Esc avmarkerar
-  - högerklick ger egna markerade enheter en flyttorder och visar en ring
+  - högerklick på ett träd eller bärsnår ger egna markerade Samlare en
+    insamlingsorder; annars en flyttorder. Båda visar en ring. Träd är
+    högre än en ruta, så `pickResourceTile` räknar på trädets ritade yta.
   - Markeringen ändras när knappen släpps. Pekskärm hanteras inte här än.
   - Reglerna ligger som rena funktioner i `selection.ts` och `picking.ts`.
     En markering är antingen ett antal egna enheter, eller en enda annan
@@ -235,7 +282,8 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - Träd, bärsnår och klippor: en `Image` per ruta med djup = skärmhöjden
     för rutans mitt, så att föremål längre ned täcker dem bakom. Enheter
     och byggnader ska använda samma djupregel.
-  - Kartvyn uppdateras inte när terrängen ändras. Det behövs först i fas 4.
+  - `update(map)` körs varje bildruta och tar bort bilden för rutor vars
+    terräng har ändrats (tömda källor). Marken under dem är redan gräs.
 - **`CameraController`** flyttar huvudkameran:
   - piltangenter och WASD, 900 px/s
   - muspekaren inom 20 px från skärmkanten, 900 px/s. Aktiveras först när
@@ -255,10 +303,11 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
 | `map.ts` | Kartans storlek, rutans storlek, standardfrö, startplatser, startresurser, antal och storlek på skogar, bärsnår, klippor och sjöar |
 | `camera.ts` | Panoreringsfart (tangenter, kant), kantmarginal, längsta bildrutetid |
 | `sim.ts` | Simuleringssteg per sekund, flest steg per bildruta |
-| `terrain.ts` | Terrängtyper och gångbarhet |
-| `units.ts` | Enheters HP och fart |
-| `buildings.ts` | Byggnaders HP och storlek |
-| `setup.ts` | Startbyggnad och startenheter per sida |
+| `terrain.ts` | Terrängtyper, gångbarhet och vilken resurs de ger |
+| `units.ts` | Enheters HP, fart, bärförmåga och insamlingstakt |
+| `buildings.ts` | Byggnaders HP, storlek och om de är avlämningsplats |
+| `resources.ts` | Mängd per källa, sökradie när en källa tar slut |
+| `setup.ts` | Startbyggnad, startenheter, startresurser och befolkningstak |
 | `ui.ts` | Dragtröskel, orderringens livslängd och storlek |
 | `strings.ts` | All speltext (svenska) |
 
@@ -282,6 +331,7 @@ URL-parametrar:
 | `command(cmd)` | Skickar ett kommando till simuleringen |
 | `getSelection()` | Id för markerade entiteter |
 | `getHud()` | Vad markeringspanelen visar: `visible`, `title`, `detail` |
+| `getResourceBar()` | Texterna i resursraden: `food`, `wood`, `population` |
 | `getOrderMarkerCount()` | Antal synliga orderringar |
 | `tileToScreen(x, y)` | Skärmposition för en punkt i rutkoordinater. Heltal är ruthörn; lägg till 0,5 för rutans mitt. Enheters `x`/`y` kan skickas som de är |
 | `centerCameraOnTile(x, y)` | Centrerar kameran på en punkt i rutkoordinater |
@@ -292,6 +342,10 @@ antalet spelar roll.
 
 Spelet startar med kameran vid spelarens bas, nära kartans hörn. Tester som
 behöver utrymme att panorera anropar först `centerCameraOnMapMiddle`.
+
+Enheter rör sig i realtid även i testläge. Ett test som ska klicka på en
+enhet måste läsa dess läge precis innan, eller klicka innan enheten får en
+order.
 
 Rutor inom 4 rutor från en startposition är alltid fria från terränghinder.
 Tester som behöver en garanterat fri ruta ska välja en sådan och inte anta
@@ -329,3 +383,7 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | 3 | Vägsökningens kostnader är heltal (10 och 14) | Jämförelser mellan vägar blir exakta, utan avrundningsfel. |
 | 3 | Startenheterna står framför Storiden och speglas inte mellan sidorna | Enheter bakom en byggnad döljs av den; i första versionen syntes spelarens Samlare inte alls vid start. Skillnaden mellan sidorna är högst ett par rutor. |
 | 3 | Gränssnittet är en egen scen (`UiScene`) | Egen kamera gör att det står still när kartan rullar, och det följer den planerade strukturen i `tech-stack.md`. |
+| 4 | Resursmängder ligger i `map.resourceAmount`, parallellt med `terrain` | Källor är rutor, inte entiteter. En lista per ruta är enklast att slå upp i och följer med när tillståndet kopieras. |
+| 4 | Insamlingen räknar hela steg (`workTicks`), inte bråkdelar | 1 enhet per sekund blir exakt 20 steg, utan avrundningsfel som kan ge en enhet för mycket eller för lite. |
+| 4 | En enhet kan byta fas flera gånger i samma steg | Annars går ett steg förlorat vid varje fasbyte, och tiderna i GDD:t stämmer inte exakt. |
+| 4 | Närmaste avlämningsplats räknas fågelvägen, inte efter vägens längd | Billigt och nästan alltid samma svar. Kan bytas om kartor med långa omvägar visar sig ge fel val. |

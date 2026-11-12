@@ -103,6 +103,30 @@ export function nearestReachable(grid: PathGrid, from: Point, target: Point): Po
   return { x: bx, y: (best - bx) / grid.width };
 }
 
+/**
+ * Every tile a unit standing on `from` can walk to. The result has one entry
+ * per tile, 1 where it can be reached; `from` itself counts.
+ */
+export function reachableTiles(grid: PathGrid, from: Point): Uint8Array {
+  const reached = new Uint8Array(grid.width * grid.height);
+  if (from.x < 0 || from.y < 0 || from.x >= grid.width || from.y >= grid.height) return reached;
+  const queue: number[] = [from.y * grid.width + from.x];
+  reached[queue[0] as number] = 1;
+  for (let head = 0; head < queue.length; head++) {
+    const index = queue[head] as number;
+    const x = index % grid.width;
+    const y = (index - x) / grid.width;
+    for (const [dx, dy] of STEPS) {
+      if (!canStep(grid, x, y, dx, dy)) continue;
+      const next = (y + dy) * grid.width + (x + dx);
+      if (reached[next]) continue;
+      reached[next] = 1;
+      queue.push(next);
+    }
+  }
+  return reached;
+}
+
 /** A* over the grid. `goal` must be passable. */
 function search(grid: PathGrid, from: Point, goal: Point): Point[] {
   const size = grid.width * grid.height;

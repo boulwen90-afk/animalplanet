@@ -1,9 +1,18 @@
 import { BUILDING_DEFS } from '../../data/buildings';
 import { buildingCentre, isBuilding, isUnit } from '../../sim/entities';
-import { tileToWorld, worldToTile, type Point, type TileSize } from '../../sim/map/iso';
+import type { GameMap } from '../../sim/map/grid';
+import {
+  tileCenterToWorld,
+  tileToWorld,
+  worldToTile,
+  type Point,
+  type TileSize,
+} from '../../sim/map/iso';
+import { resourceAt } from '../../sim/resources';
 import type { Building, Entity, PlayerId, Unit } from '../../sim/state';
 import {
   BUILDING_VISUALS,
+  TERRAIN_OBJECT_VISUALS,
   UNIT_PICK_MARGIN,
   UNIT_VISUALS,
   unitVisualCentre,
@@ -99,4 +108,42 @@ export function rectFromPoints(a: Point, b: Point): WorldRect {
     width: Math.abs(a.x - b.x),
     height: Math.abs(a.y - b.y),
   };
+}
+
+/**
+ * The tile of the resource source drawn at a world position, or undefined.
+ * Trees are taller than a tile, so the tree under the pointer may stand a
+ * few tiles further down the screen than the ground tile under it. Of
+ * several overlapping sources the one drawn in front wins.
+ */
+export function pickResourceTile(map: GameMap, world: Point, size: TileSize): Point | undefined {
+  const under = worldToTile(world.x, world.y, size);
+  let best: Point | undefined;
+  let bestDepth = -Infinity;
+
+  // The tallest object is under two tiles high, so its tile is at most four
+  // steps towards the bottom of the screen from the tile under the pointer.
+  for (let dy = -1; dy <= 4; dy++) {
+    for (let dx = -1; dx <= 4; dx++) {
+      const x = under.x + dx;
+      const y = under.y + dy;
+      if (resourceAt(map, x, y) === undefined) continue;
+      const terrain = map.terrain[y * map.width + x];
+      const visual = terrain ? TERRAIN_OBJECT_VISUALS[terrain] : undefined;
+      if (!visual) continue;
+
+      const centre = tileCenterToWorld(x, y, size);
+      const base = centre.y + size.tileHeight / 4;
+      const onObject =
+        Math.abs(world.x - centre.x) <= visual.width / 2 &&
+        world.y <= base &&
+        world.y >= base - visual.height;
+      const onTile = x === under.x && y === under.y;
+      if ((onObject || onTile) && centre.y > bestDepth) {
+        best = { x, y };
+        bestDepth = centre.y;
+      }
+    }
+  }
+  return best;
 }

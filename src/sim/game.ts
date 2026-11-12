@@ -5,7 +5,8 @@ import { createBuilding, createUnit } from './entities';
 import { generateMap, type MapGenConfig } from './map/mapgen';
 import type { MapSize } from './map/iso';
 import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
-import { createRng } from './rng';
+import type { GameMap } from './map/grid';
+import { createRng, type RngState } from './rng';
 import type { GameState, PlayerId } from './state';
 
 /** Creates a new game. The same seed always gives the same game. */
@@ -16,9 +17,22 @@ export function createGame(
 ): GameState {
   const rng = createRng(seed);
   const map = generateMap(rng, mapSize, mapGen);
-  const state: GameState = { seed, tick: 0, rng, map, entities: [], nextEntityId: 1 };
+  const state = emptyState(seed, rng, map);
   placeStartingEntities(state);
   return state;
+}
+
+/** A game state with a map and each side's starting stock, but no units or buildings. */
+export function emptyState(seed: number, rng: RngState, map: GameMap): GameState {
+  return {
+    seed,
+    tick: 0,
+    rng,
+    map,
+    players: map.startPositions.map(() => ({ resources: { ...START_CONFIG.resources } })),
+    entities: [],
+    nextEntityId: 1,
+  };
 }
 
 /**

@@ -20,6 +20,11 @@ export function selectionPanelRect(viewWidth: number, viewHeight: number): Scree
   };
 }
 
+/** The resource bar runs along the top of the screen. */
+export function resourceBarRect(viewWidth: number): ScreenRect {
+  return { x: 0, y: 0, width: viewWidth, height: 32 };
+}
+
 export function rectContains(rect: ScreenRect, x: number, y: number): boolean {
   return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
 }

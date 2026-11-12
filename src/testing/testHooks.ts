@@ -1,4 +1,4 @@
-import type { HudDisplay } from '../render/scenes/UiScene';
+import type { HudDisplay, ResourceBarDisplay } from '../render/scenes/UiScene';
 import type { Command } from '../sim/commands';
 import type { Point } from '../sim/map/iso';
 import type { GameState } from '../sim/state';
@@ -29,6 +29,7 @@ export interface TestApiSource {
   command(command: Command): void;
   getSelection(): number[];
   getHud(): HudDisplay;
+  getResourceBar(): ResourceBarDisplay;
   getOrderMarkerCount(): number;
   tileToScreen(tileX: number, tileY: number): Point;
   centerCameraOnTile(tileX: number, tileY: number): void;
@@ -55,6 +56,8 @@ export interface TestApi {
   getSelection(): number[];
   /** What the selection panel shows right now. */
   getHud(): HudDisplay;
+  /** The texts the resource bar shows right now. */
+  getResourceBar(): ResourceBarDisplay;
   /** Number of order rings currently visible. */
   getOrderMarkerCount(): number;
   /**
@@ -86,6 +89,7 @@ export function installTestApi(source: TestApiSource): TestApi {
     command: (command) => source.command(command),
     getSelection: () => source.getSelection(),
     getHud: () => source.getHud(),
+    getResourceBar: () => source.getResourceBar(),
     getOrderMarkerCount: () => source.getOrderMarkerCount(),
     tileToScreen: (tileX, tileY) => source.tileToScreen(tileX, tileY),
     centerCameraOnTile: (tileX, tileY) => source.centerCameraOnTile(tileX, tileY),

@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createBuilding, createUnit } from '../../sim/entities';
 import { openState } from '../../sim/testUtils';
-import { commandableUnitIds, pruneSelection, selectByBox, selectByClick } from './selection';
+import {
+  commandableUnitIds,
+  gathererUnitIds,
+  pruneSelection,
+  selectByBox,
+  selectByClick,
+} from './selection';
 
 function setup() {
   const state = openState(12, 12);
@@ -115,5 +121,14 @@ describe('commandableUnitIds', () => {
     const selected = new Set([a.id, b.id, enemy.id, building.id]);
     expect(commandableUnitIds(selected, entities, 0)).toEqual([a.id, b.id]);
     expect(commandableUnitIds(selected, entities, 1)).toEqual([enemy.id]);
+  });
+});
+
+describe('gathererUnitIds', () => {
+  it("returns the player's own selected units that can carry resources", () => {
+    const { entities, a, b, enemy, building } = setup();
+    const selected = new Set([a.id, b.id, enemy.id, building.id]);
+    expect(gathererUnitIds(selected, entities, 0)).toEqual([a.id, b.id]);
+    expect(gathererUnitIds(new Set([building.id]), entities, 0)).toEqual([]);
   });
 });

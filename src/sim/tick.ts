@@ -1,11 +1,13 @@
 import type { GameState } from './state';
+import { gatherResources } from './systems/gathering';
 import { moveUnits } from './systems/movement';
 
 /**
  * Advances the game by one simulation step. The systems always run in the
- * same order; later phases add gathering, construction, combat and so on.
+ * same order; later phases add construction, combat and so on.
  */
 export function tick(state: GameState): void {
+  gatherResources(state);
   moveUnits(state);
   state.tick++;
 }

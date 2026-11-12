@@ -5,6 +5,10 @@ export const UNIT_DEFS = {
     hp: 40,
     /** Movement speed in tiles per second. */
     speed: 2.5,
+    /** Most resource units carried at once. 0 for units that cannot gather. */
+    carryCapacity: 10,
+    /** Resource units gathered per second. */
+    gatherRate: 1,
   },
 } as const;
 
