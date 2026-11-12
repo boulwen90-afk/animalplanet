@@ -1,47 +1,169 @@
-import type { Scene } from 'phaser';
-import { tileToWorld, type MapSize, type TileSize } from '../../sim/map/iso';
+import type { GameObjects, Scene } from 'phaser';
+import type { Terrain } from '../../data/terrain';
+import type { GameMap } from '../../sim/map/grid';
+import { tileCenterToWorld, tileToWorld, type TileSize } from '../../sim/map/iso';
 
-const GRASS_TEXTURE = 'tile-grass';
-const GRASS_FILL = 0x5a8f3c;
-const GRASS_EDGE = 0x3f6b2a;
+/** Depth of the flat ground layer. Everything standing on the map is drawn above it. */
+const GROUND_DEPTH = -1;
 
-/** Draws the ground tiles. Phase 1: every tile is grass. */
+const COLORS = {
+  grassFill: 0x5a8f3c,
+  grassEdge: 0x3f6b2a,
+  waterFill: 0x2f6fb5,
+  waterEdge: 0x245a94,
+  treeLeaves: 0x1f5c2a,
+  treeLeavesEdge: 0x143d1c,
+  treeTrunk: 0x6b4423,
+  bushLeaves: 0x2f6b2f,
+  berries: 0xc8243a,
+  berriesEdge: 0x7d1322,
+  rockTop: 0x9a9a9a,
+  rockLeft: 0x6f6f6f,
+  rockRight: 0x565656,
+} as const;
+
+/** Flat ground texture drawn under each terrain type. */
+const GROUND_TEXTURE: Record<Terrain, string> = {
+  grass: 'tile-grass',
+  tree: 'tile-grass',
+  berries: 'tile-grass',
+  rock: 'tile-grass',
+  water: 'tile-water',
+};
+
+/** Texture of the object standing on a tile, for terrain that has one. */
+const OBJECT_TEXTURE: Partial<Record<Terrain, string>> = {
+  tree: 'obj-tree',
+  berries: 'obj-berries',
+  rock: 'obj-rock',
+};
+
+/**
+ * Draws the map: a flat ground layer, and on top of it the trees, berry
+ * bushes and rocks, sorted so that objects further down the screen cover
+ * the ones behind them.
+ */
 export class MapView {
-  constructor(scene: Scene, map: MapSize, size: TileSize) {
-    createDiamondTexture(scene, GRASS_TEXTURE, size, GRASS_FILL, GRASS_EDGE);
+  constructor(scene: Scene, map: GameMap, size: TileSize) {
+    createTextures(scene, size);
 
-    // A Blitter draws many copies of one texture cheaply.
-    const blitter = scene.add.blitter(0, 0, GRASS_TEXTURE);
+    // One Blitter per ground texture draws all its tiles in a single call.
+    const blitters = new Map<string, GameObjects.Blitter>();
     for (let ty = 0; ty < map.height; ty++) {
       for (let tx = 0; tx < map.width; tx++) {
+        const terrain = map.terrain[ty * map.width + tx] as Terrain;
+
+        const key = GROUND_TEXTURE[terrain];
+        let blitter = blitters.get(key);
+        if (!blitter) {
+          blitter = scene.add.blitter(0, 0, key).setDepth(GROUND_DEPTH);
+          blitters.set(key, blitter);
+        }
         const top = tileToWorld(tx, ty, size);
         blitter.create(top.x - size.tileWidth / 2, top.y);
+
+        const objectKey = OBJECT_TEXTURE[terrain];
+        if (objectKey) {
+          // Objects stand on the lower part of their tile and are sorted by
+          // the screen height of their tile's centre.
+          const centre = tileCenterToWorld(tx, ty, size);
+          scene.add
+            .image(centre.x, centre.y + size.tileHeight / 4, objectKey)
+            .setOrigin(0.5, 1)
+            .setDepth(centre.y);
+        }
       }
     }
   }
 }
 
-function createDiamondTexture(
-  scene: Scene,
-  key: string,
-  size: TileSize,
-  fill: number,
-  edge: number,
-): void {
-  if (scene.textures.exists(key)) return;
+function createTextures(scene: Scene, size: TileSize): void {
+  if (scene.textures.exists('tile-grass')) return;
   const w = size.tileWidth;
   const h = size.tileHeight;
-  const points = [
+  const g = scene.make.graphics({}, false);
+
+  const diamond = [
     { x: w / 2, y: 0.5 },
     { x: w - 0.5, y: h / 2 },
     { x: w / 2, y: h - 0.5 },
     { x: 0.5, y: h / 2 },
   ];
-  const graphics = scene.make.graphics({}, false);
-  graphics.fillStyle(fill, 1);
-  graphics.fillPoints(points, true);
-  graphics.lineStyle(1, edge, 1);
-  graphics.strokePoints(points, true);
-  graphics.generateTexture(key, w, h);
-  graphics.destroy();
+  const ground = (key: string, fill: number, edge: number) => {
+    g.clear();
+    g.fillStyle(fill, 1);
+    g.fillPoints(diamond, true);
+    g.lineStyle(1, edge, 1);
+    g.strokePoints(diamond, true);
+    g.generateTexture(key, w, h);
+  };
+  ground('tile-grass', COLORS.grassFill, COLORS.grassEdge);
+  ground('tile-water', COLORS.waterFill, COLORS.waterEdge);
+
+  // Tree: a green triangle on a short trunk, taller than a tile.
+  const treeW = Math.round(w * 0.6);
+  const treeH = Math.round(h * 1.9);
+  const trunkH = Math.round(h * 0.3);
+  g.clear();
+  g.fillStyle(COLORS.treeTrunk, 1);
+  g.fillRect(treeW / 2 - 3, treeH - trunkH - 1, 6, trunkH);
+  g.fillStyle(COLORS.treeLeaves, 1);
+  g.lineStyle(1, COLORS.treeLeavesEdge, 1);
+  const crown = [
+    { x: treeW / 2, y: 1 },
+    { x: treeW - 1, y: treeH - trunkH },
+    { x: 1, y: treeH - trunkH },
+  ];
+  g.fillPoints(crown, true);
+  g.strokePoints(crown, true);
+  g.generateTexture('obj-tree', treeW, treeH);
+
+  // Berry bush: a red circle on a low green bush.
+  const bushW = Math.round(w * 0.5);
+  const bushH = Math.round(h * 0.8);
+  g.clear();
+  g.fillStyle(COLORS.bushLeaves, 1);
+  g.fillEllipse(bushW / 2, bushH - bushH * 0.3, bushW - 2, bushH * 0.6 - 1);
+  g.fillStyle(COLORS.berries, 1);
+  g.lineStyle(1, COLORS.berriesEdge, 1);
+  g.fillCircle(bushW / 2, bushH * 0.4, bushH * 0.36);
+  g.strokeCircle(bushW / 2, bushH * 0.4, bushH * 0.36);
+  g.generateTexture('obj-berries', bushW, bushH);
+
+  // Rock: a grey block the size of a tile, raised above the ground.
+  const lift = Math.round(h * 0.5);
+  g.clear();
+  g.fillStyle(COLORS.rockLeft, 1);
+  g.fillPoints(
+    [
+      { x: 0, y: h / 2 },
+      { x: w / 2, y: h },
+      { x: w / 2, y: h + lift },
+      { x: 0, y: h / 2 + lift },
+    ],
+    true,
+  );
+  g.fillStyle(COLORS.rockRight, 1);
+  g.fillPoints(
+    [
+      { x: w / 2, y: h },
+      { x: w, y: h / 2 },
+      { x: w, y: h / 2 + lift },
+      { x: w / 2, y: h + lift },
+    ],
+    true,
+  );
+  g.fillStyle(COLORS.rockTop, 1);
+  g.fillPoints(
+    [
+      { x: w / 2, y: 0 },
+      { x: w, y: h / 2 },
+      { x: w / 2, y: h },
+      { x: 0, y: h / 2 },
+    ],
+    true,
+  );
+  g.generateTexture('obj-rock', w, h + lift);
+
+  g.destroy();
 }
