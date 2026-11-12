@@ -1,9 +1,9 @@
 # AnimalPlanet – implementationsplan (MVP)
 
-Status: **UTKAST – väntar på godkännande.**
+Status: **Godkänd 2026-11-12.**
 
 Regler för alla faser:
-- En fas i taget, på en egen branch (`fas-N-kort-namn`), avslutad med en
+- En fas i taget, på en egen branch, avslutad med en
   pull request mot `main`.
 - En fas är klar när: koden bygger, lint och alla tester går igenom, spelet
   startar i headless-webbläsare utan konsolfel, fasens test nedan är

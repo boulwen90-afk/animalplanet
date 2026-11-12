@@ -1,6 +1,6 @@
 # AnimalPlanet – speldesigndokument (GDD)
 
-Status: **UTKAST – väntar på godkännande.** Ingen spelkod skrivs innan detta är godkänt.
+Status: **Godkänd 2026-11-12.**
 
 Alla siffror i detta dokument är startvärden. De ligger i datafiler (`src/data/`)
 och justeras i balansfasen, inte i logiken.
@@ -100,7 +100,8 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 - Arbetare bär högst 10 enheter åt gången, samlar 1 enhet/s och måste lämna
   lasten vid Storide eller Visthus innan resursen räknas.
 - Startresurser: 200 mat, 100 trä.
-- Befolkningstak: fast 30 i MVP:n (inga bostadshus).
+- Befolkningstak: fast 30 i MVP:n (inga bostadshus). Efter MVP:n höjs taket
+  med bostadshus, upp till ett maxtak på omkring 250.
 
 ## 7. Enheter (MVP)
 
@@ -225,7 +226,8 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 - Fler raser än björnar, rasunika enheter eller bonusar
 - Tidsåldrar, uppgraderingar, forskning
 - Distansenheter, belägringsvapen, hjältar/ledare som enheter
-- Torn, murar, bostadshus, fler byggnadstyper
+- Torn, murar, fler byggnadstyper
+- Bostadshus som höjer befolkningstaket (planerat efter MVP, maxtak ca 250)
 - Fler resurser än mat och trä
 - Riktig grafik, animationer, ljud och musik
 - Minikarta, kontrollgrupper (Ctrl+1 …), patrull/håll position, formationer
@@ -234,20 +236,16 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 - Svårighetsgrader, AI som spanar eller påverkas av krigsdimma
 - Zoom, inställningsmeny, översättningar
 
-## 14. Öppna frågor och antaganden
+## 14. Beslut vid godkännandet (2026-11-12)
 
-Dokumenten utgår från standardvalen nedan. Säg till om något ska ändras.
-
-1. **Pekskärm.** Du vill kunna speltesta från vilken enhet som helst, så
-   planen har kamerapanorering med finger redan i fas 1 och en egen fas för
-   markering/order med pekskärm. Antagande: enkel pekstyrning ingår i MVP:n,
-   men spelet optimeras för mus och tangentbord.
-2. **Språk.** Antagande: speltext och dokument på svenska, kod och
-   kodkommentarer på engelska.
-3. **Arbetsnamnet "AnimalPlanet".** Namnet sammanfaller med TV-kanalen
-   Animal Planets varumärke. Det fungerar som arbetsnamn och reponamn, men
-   bör bytas innan spelet sprids offentligt.
-4. **Befolkningstak.** Antagande: fast tak på 30 utan bostadshus, eftersom
-   bostadshus inte står i MVP-listan.
-5. **Kartan.** Antagande: genererad från frö med ett fast standardfrö, i
-   stället för en handritad karta.
+1. **Pekskärm.** Enkel pekstyrning ingår i MVP:n (panorering i fas 1,
+   markering och order i fas 10). Spelet optimeras för mus och tangentbord.
+2. **Språk.** Speltext och dokument på svenska, kod och kodkommentarer på
+   engelska.
+3. **Arbetsnamnet "AnimalPlanet".** Sammanfaller med TV-kanalen Animal
+   Planets varumärke. Fungerar som arbetsnamn och reponamn, men bör bytas
+   innan spelet sprids offentligt.
+4. **Befolkningstak.** Fast tak på 30 i MVP:n. Senare tillkommer bostadshus
+   som höjer taket, med ett maxtak på omkring 250. Taket ligger i en datafil
+   så att det kan ändras utan kodändring.
+5. **Kartan.** Genererad från frö med ett fast standardfrö.

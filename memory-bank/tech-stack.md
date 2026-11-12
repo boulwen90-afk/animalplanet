@@ -1,6 +1,6 @@
 # AnimalPlanet – teknisk stack
 
-Status: **UTKAST – väntar på godkännande.**
+Status: **Godkänd 2026-11-12.**
 
 ## Stack
 

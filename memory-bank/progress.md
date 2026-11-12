@@ -4,15 +4,15 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 0 – planering (väntar på godkännande)
-- **Nästa steg:** godkännande av GDD och implementationsplan, därefter fas 1
+- **Aktuell fas:** Fas 1 – projektuppsättning, deploy, scrollbar karta
+- **Nästa steg:** slutföra fas 1 och öppna pull request mot `main`
 
 ## Fasstatus
 
 | Fas | Innehåll | Status | PR |
 |---|---|---|---|
-| 0 | Planeringsdokument | Väntar på godkännande | – |
-| 1 | Projektuppsättning, deploy, scrollbar karta | Ej påbörjad | – |
+| 0 | Planeringsdokument | Godkänd 2026-11-12 | – |
+| 1 | Projektuppsättning, deploy, scrollbar karta | Pågår | – |
 | 2 | Simuleringskärna och terräng | Ej påbörjad | – |
 | 3 | Enheter, markering, förflyttning | Ej påbörjad | – |
 | 4 | Resurser och insamling | Ej påbörjad | – |
