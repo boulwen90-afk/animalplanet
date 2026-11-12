@@ -46,6 +46,8 @@ export function createBuilding(
     x: tileX,
     y: tileY,
     hp: BUILDING_DEFS[type].hp,
+    complete: true,
+    buildProgress: 0,
     queue: [],
     trainTicks: 0,
   };

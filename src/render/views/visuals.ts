@@ -23,7 +23,15 @@ export const UNIT_VISUALS: Record<UnitType, { radius: number }> = {
 /** Buildings are drawn as blocks with walls of this height, in pixels, and a letter on the roof. */
 export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label: string }> = {
   storide: { wallHeight: 36, label: 'S' },
+  visthus: { wallHeight: 22, label: 'V' },
+  krigshall: { wallHeight: 30, label: 'K' },
 };
+
+/** Colours of the outline shown while placing a building: where it may stand, and where not. */
+export const PLACEMENT_COLORS = { valid: 0x35e06a, invalid: 0xe8384f } as const;
+
+/** How see-through a building under construction is when just placed; it turns solid as it is built. */
+export const CONSTRUCTION_START_ALPHA = 0.35;
 
 /**
  * Size in pixels of the things drawn standing on terrain tiles. Each stands

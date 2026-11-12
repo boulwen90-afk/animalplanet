@@ -3,8 +3,10 @@ import { BUILDING_DEFS } from '../../data/buildings';
 import { buildingCentre } from '../../sim/entities';
 import { tileToWorld, type TileSize } from '../../sim/map/iso';
 import type { Building, Entity, GameState, Unit } from '../../sim/state';
+import { buildFraction } from '../../sim/systems/construction';
 import {
   BUILDING_VISUALS,
+  CONSTRUCTION_START_ALPHA,
   OUTLINE_COLOR,
   PLAYER_COLORS,
   RESOURCE_COLORS,
@@ -59,8 +61,16 @@ export class EntityView {
         sprite = this.createSprite(entity);
         this.sprites.set(entity.id, sprite);
       }
-      if (entity.kind === 'unit') this.updateUnit(entity, sprite, alpha, selected.has(entity.id));
-      else if (selected.has(entity.id)) this.markBuilding(entity);
+      if (entity.kind === 'unit') {
+        this.updateUnit(entity, sprite, alpha, selected.has(entity.id));
+      } else {
+        // A building under construction is see-through and turns solid as it is built.
+        const solidity =
+          CONSTRUCTION_START_ALPHA + (1 - CONSTRUCTION_START_ALPHA) * buildFraction(entity);
+        sprite.image.setAlpha(solidity);
+        sprite.label?.setAlpha(solidity);
+        if (selected.has(entity.id)) this.markBuilding(entity);
+      }
     }
 
     for (const [id, sprite] of this.sprites) {

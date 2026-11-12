@@ -4,9 +4,9 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 5 – klar i kod, pull request öppen mot `main`
-- **Nästa steg:** merge av fas 5, därefter fas 6 (bygga Visthus och
-  Krigshall) när den beställs
+- **Aktuell fas:** Fas 6 – klar i kod, pull request öppen mot `main`
+- **Nästa steg:** beslut om designändringen "kapitulation och grottor"
+  (GDD avsnitt 15), som påverkar fas 7. Därefter fas 7 när den beställs
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -20,8 +20,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 2 | Simuleringskärna och terräng | Mergad | [#2](https://github.com/boulwen90-afk/animalplanet/pull/2) |
 | 3 | Enheter, markering, förflyttning | Mergad | [#3](https://github.com/boulwen90-afk/animalplanet/pull/3) |
 | 4 | Resurser och insamling | Mergad | [#4](https://github.com/boulwen90-afk/animalplanet/pull/4) |
-| 5 | Träna arbetare | Klar, väntar på merge | [#5](https://github.com/boulwen90-afk/animalplanet/pull/5) |
-| 6 | Bygga Visthus och Krigshall | Ej påbörjad | – |
+| 5 | Träna arbetare | Mergad | [#5](https://github.com/boulwen90-afk/animalplanet/pull/5) |
+| 6 | Bygga Visthus och Krigshall | Klar, väntar på merge | [#6](https://github.com/boulwen90-afk/animalplanet/pull/6) |
 | 7 | Soldater, strid, vinst och förlust | Ej påbörjad | – |
 | 8 | Krigsdimma | Ej påbörjad | – |
 | 9 | AI-motståndare | Ej påbörjad | – |
@@ -52,6 +52,76 @@ Mall – kopiera för varje avslutad fas:
 **Beslut och lärdomar**
 - …
 -->
+
+### Fas 6 – Bygga Visthus och Krigshall (2026-11-12)
+
+**Skärmdumpar:** `docs/screenshots/fas-6-spokbild.png` (byggmeny och grön
+kontur på giltig plats), `docs/screenshots/fas-6-ogiltig-plats.png` (röd
+kontur över Storiden), `docs/screenshots/fas-6-bygge.png` (Visthus under
+uppförande, 71 %), `docs/screenshots/fas-6-fardigt.png` (färdigt Visthus)
+
+**Avstämning mot planen**
+
+| Punkt i planen | Status | Kommentar |
+|---|---|---|
+| 1. Byggmeny på markerad Samlare: Visthus, Krigshall, med kostnad | Klar | |
+| 2. Placering med spökbild (grön/röd) och giltighetskontroll enligt GDD | Klar, med undantag | Kravet på utforskad mark kommer med krigsdimman i fas 8 |
+| 3. `build`-kommando: kostnaden dras, byggplats på 10 % HP, arbetaren går dit och bygger; fler arbetare bygger snabbare; högerklick på eget bygge låter fler hjälpa till | Klar | |
+| 4. Färdiga byggnader blockerar vägsökningen; Visthus är avlämningsplats | Klar | Byggen blockerar redan från placeringen |
+| 5. Krigshallen kan markeras men tränar ännu inget | Klar | |
+
+| Test i planen | Resultat |
+|---|---|
+| Vitest: giltig/ogiltig placering (på träd, på byggnad, utanför kartan, delvis blockerad) | Godkänt |
+| Vitest: kostnad dras vid placering och nekas vid för lite trä | Godkänt |
+| Vitest: en arbetare färdigställer ett Visthus på 20 s | Godkänt (exakt 400 steg, inte klart efter 399) |
+| Vitest: två arbetare går fortare enligt formeln | Godkänt (267 steg för två, 200 för tre) |
+| Vitest: ofärdigt Visthus tar inte emot resurser, färdigt gör det och väljs när det är närmast | Godkänt |
+| Vitest: A* går runt den nya byggnaden | Godkänt, även för en enhet som redan var på väg |
+| Playwright: välj Samlare → Visthus → klicka på giltig ruta → stega fram; färdigt Visthus och 80 mindre trä | Godkänt |
+| Skärmdump med spökbild och färdig byggnad | Klar |
+
+Utöver planen testas även: enhet på byggplatsen, byggnader som inte får
+byggas, order utan byggare, arbetare som går till bygget, bygge utan
+arbetare, hjälp till pågående bygge, arbetare som inte når bygget, ofärdig
+byggnad som inte tränar, röd kontur och klick på ogiltig plats, avbrott med
+högerklick och Esc, för dyr byggnad, och Krigshallen som färdig byggnad.
+
+**Saknas eller avviker**
+- **Byggplatsen behöver inte vara utforskad.** Det kravet i GDD:t kan inte
+  uppfyllas förrän krigsdimman finns (fas 8).
+- **Spökbilden är bara fotavtryckets kontur**, inte en bild av byggnaden.
+- **Ett bygge blockerar sina rutor direkt när det placeras**, inte först
+  när det är färdigt som planen säger.
+- **Har man inte råd blinkar träsiffran redan när man klickar på
+  byggknappen**, och placeringen startar inte.
+- **Ett bygge går inte att avbryta eller riva**, och ingenting återbetalas.
+  Utan arbetare står det kvar ofärdigt.
+- **Arbetare blir sysslolösa när bygget är klart.** De går inte tillbaka
+  till det de gjorde innan.
+- **En enhet på byggplatsen gör platsen ogiltig**, även när det är den
+  egna byggaren. Det följer GDD:t men kan upplevas som krångligt.
+- **Arbetare som bygger kan hamna bakom byggnaden och inte synas.** På
+  skärmdumpen av bygget syns en av tre.
+- **Pekskärm:** byggplacering fungerar inte med finger. Det hör till fas 10.
+- **Ingen garanterat fri plats för en Krigshall nära basen.**
+  Kartgenereringen håller bara 4 rutor fria runt startpositionen, och en
+  3×3-byggnad ryms inte där bredvid Storiden. Spelaren får hitta en plats
+  själv; på standardkartan finns gott om utrymme.
+
+**Testresultat**
+- Vitest: 272 av 272
+- Playwright: 58 av 58, även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll: utan anmärkning
+- Konsolfel i headless-webbläsare: inga
+
+**Beslut och lärdomar**
+- Enhets- och byggnadstypernas namn skrivs nu ut i `src/data/types.ts`.
+  När enheter pekar på byggnader och byggnader på enheter kan TypeScript
+  inte härleda namnen ur tabellerna.
+- Tre tester antog en fri plats som kartgenereringen inte garanterar. Det
+  är tredje gången samma slags fel uppstår; regeln står nu i
+  `architecture.md` under Testgränssnitt.
 
 ### Fas 5 – Träna arbetare (2026-11-12)
 

@@ -13,6 +13,9 @@ export type ResourceType = keyof typeof RESOURCE_DEFS;
 
 export const RESOURCE_TYPES = Object.keys(RESOURCE_DEFS) as ResourceType[];
 
+/** What something costs, per resource. Resources left out cost nothing. */
+export type Cost = Partial<Record<ResourceType, number>>;
+
 export const GATHER_CONFIG = {
   /**
    * When a source runs out, the worker looks for another source of the same

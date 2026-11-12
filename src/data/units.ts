@@ -1,24 +1,35 @@
-import type { ResourceType } from './resources';
+import type { Cost } from './resources';
+import type { BuildingType, UnitType } from './types';
 
-/** What something costs, per resource. Resources left out cost nothing. */
-export type Cost = Partial<Record<ResourceType, number>>;
+export type { UnitType } from './types';
+
+export interface UnitDef {
+  /** Price of training one. */
+  cost: Cost;
+  /** Time to train one, in seconds. */
+  trainTime: number;
+  /** Hit points. */
+  hp: number;
+  /** Movement speed in tiles per second. */
+  speed: number;
+  /** Most resource units carried at once. 0 for units that cannot gather. */
+  carryCapacity: number;
+  /** Resource units gathered per second. */
+  gatherRate: number;
+  /** Building types this unit can construct. */
+  builds: readonly BuildingType[];
+}
 
 /** Unit types. See GDD section 7. Later phases add combat values. */
-export const UNIT_DEFS = {
+export const UNIT_DEFS: Record<UnitType, UnitDef> = {
+  /** Worker: gathers resources and constructs buildings. */
   samlare: {
-    /** Price of training one. */
-    cost: { food: 50 } as Cost,
-    /** Time to train one, in seconds. */
+    cost: { food: 50 },
     trainTime: 12,
-    /** Hit points. */
     hp: 40,
-    /** Movement speed in tiles per second. */
     speed: 2.5,
-    /** Most resource units carried at once. 0 for units that cannot gather. */
     carryCapacity: 10,
-    /** Resource units gathered per second. */
     gatherRate: 1,
+    builds: ['visthus', 'krigshall'],
   },
-} as const;
-
-export type UnitType = keyof typeof UNIT_DEFS;
+};

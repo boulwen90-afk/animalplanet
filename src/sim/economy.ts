@@ -1,5 +1,4 @@
-import { RESOURCE_TYPES, type ResourceType } from '../data/resources';
-import type { Cost } from '../data/units';
+import { RESOURCE_TYPES, type Cost, type ResourceType } from '../data/resources';
 import type { PlayerState } from './state';
 
 /** The resources a side lacks to pay a cost; empty if it can afford it. */

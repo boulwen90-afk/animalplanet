@@ -31,7 +31,9 @@ describe('describeCommandPanel', () => {
     const { state, storide } = setup();
     expect(describeCommandPanel(state.entities, new Set([storide.id]), 0)).toEqual({
       buildingId: storide.id,
-      buttons: [{ unit: 'samlare', label: 'Träna Samlare', cost: '50 mat' }],
+      buttons: [
+        { action: { kind: 'train', unit: 'samlare' }, label: 'Träna Samlare', cost: '50 mat' },
+      ],
       queue: [],
       progress: 0,
     });
@@ -52,13 +54,48 @@ describe('describeCommandPanel', () => {
     expect(info.progress).toBeCloseTo(0.25);
   });
 
-  it('does not show for nothing, a unit, several things or an enemy building', () => {
+  it('does not show for nothing, an enemy building or a mix of a building and units', () => {
     const { state, storide } = setup();
     const unit = createUnit(state, 'samlare', 0, 1, 1);
     const enemy = createBuilding(state, 'storide', 1, 8, 8);
     expect(describeCommandPanel(state.entities, new Set(), 0)).toBeUndefined();
-    expect(describeCommandPanel(state.entities, new Set([unit.id]), 0)).toBeUndefined();
     expect(describeCommandPanel(state.entities, new Set([storide.id, unit.id]), 0)).toBeUndefined();
+    expect(describeCommandPanel(state.entities, new Set([enemy.id]), 0)).toBeUndefined();
+  });
+
+  it('does not show for a building under construction or one that trains nothing', () => {
+    const state = openState(14, 14);
+    const site = createBuilding(state, 'storide', 0, 1, 1);
+    site.complete = false;
+    const krigshall = createBuilding(state, 'krigshall', 0, 6, 6);
+    const visthus = createBuilding(state, 'visthus', 0, 10, 1);
+    for (const building of [site, krigshall, visthus]) {
+      expect(describeCommandPanel(state.entities, new Set([building.id]), 0)).toBeUndefined();
+    }
+  });
+
+  it('shows a build menu with prices for selected Samlare', () => {
+    const { state } = setup();
+    const a = createUnit(state, 'samlare', 0, 1, 1);
+    const b = createUnit(state, 'samlare', 0, 2, 1);
+    const expected = {
+      buttons: [
+        { action: { kind: 'build', building: 'visthus' }, label: 'Bygg Visthus', cost: '80 trä' },
+        {
+          action: { kind: 'build', building: 'krigshall' },
+          label: 'Bygg Krigshall',
+          cost: '150 trä',
+        },
+      ],
+      progress: 0,
+    };
+    expect(describeCommandPanel(state.entities, new Set([a.id]), 0)).toEqual(expected);
+    expect(describeCommandPanel(state.entities, new Set([a.id, b.id]), 0)).toEqual(expected);
+  });
+
+  it('shows no build menu for enemy units', () => {
+    const { state } = setup();
+    const enemy = createUnit(state, 'samlare', 1, 1, 1);
     expect(describeCommandPanel(state.entities, new Set([enemy.id]), 0)).toBeUndefined();
   });
 });
@@ -113,10 +150,20 @@ describe('commandPanelHit', () => {
   const centre = (rect: { x: number; y: number; width: number; height: number }) =>
     [rect.x + rect.width / 2, rect.y + rect.height / 2] as const;
 
-  it('finds the train button', () => {
+  it('finds the button', () => {
     expect(commandPanelHit(layout, ...centre(layout.buttons[0]!))).toEqual({
-      kind: 'train',
+      kind: 'button',
       index: 0,
+    });
+  });
+
+  it('finds each of several buttons, and no queue places in a panel without a queue', () => {
+    const menu = commandPanelLayout(1280, 720, 2, false);
+    expect(menu.slots).toEqual([]);
+    expect(menu.progressBar.width).toBe(0);
+    menu.buttons.forEach((button, index) => {
+      expect(commandPanelHit(menu, ...centre(button))).toEqual({ kind: 'button', index });
+      expect(button.x + button.width).toBeLessThanOrEqual(menu.panel.x + menu.panel.width);
     });
   });
 

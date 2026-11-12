@@ -2,7 +2,6 @@ import { Scene, type GameObjects, type Input } from 'phaser';
 import { PRODUCTION_CONFIG } from '../../data/production';
 import { STRINGS } from '../../data/strings';
 import { UI_CONFIG } from '../../data/ui';
-import type { UnitType } from '../../data/units';
 import type { CommandResult } from '../../sim/commands';
 import {
   commandPanelHit,
@@ -29,8 +28,8 @@ export interface HudSource {
   getResourceBarInfo(): ResourceBarInfo | undefined;
   /** The command panel for the selected building, or undefined when it should not show. */
   getCommandPanelInfo(): CommandPanelInfo | undefined;
-  /** Queues a unit in the selected building. */
-  trainUnit(unit: UnitType): CommandResult;
+  /** Presses the command panel button at an index: trains a unit or starts placing a building. */
+  activateButton(index: number): CommandResult;
   /** Cancels the unit at a position in the selected building's queue. */
   cancelQueuedUnit(index: number): CommandResult;
 }
@@ -195,7 +194,10 @@ export class UiScene extends Scene {
         cost: button.cost,
         ...centre(layout.buttons[i]!),
       })),
-      queue: info.queue.map((entry, i) => ({ label: entry.label, ...centre(layout.slots[i]!) })),
+      queue: (info.queue ?? []).map((entry, i) => ({
+        label: entry.label,
+        ...centre(layout.slots[i]!),
+      })),
       progress: info.progress,
     };
   }
@@ -208,16 +210,17 @@ export class UiScene extends Scene {
     const hit = commandPanelHit(layout, pointer.x, pointer.y);
     if (!hit) return;
 
-    if (hit.kind === 'train') {
-      const button = info.buttons[hit.index];
-      if (button) this.showRefusal(this.source.trainUnit(button.unit));
-    } else if (hit.index < info.queue.length) {
+    if (hit.kind === 'button') {
+      if (hit.index < info.buttons.length) {
+        this.showRefusal(this.source.activateButton(hit.index));
+      }
+    } else if (hit.index < (info.queue?.length ?? 0)) {
       this.source.cancelQueuedUnit(hit.index);
     }
   }
 
   /** Flashes the resource bar texts that explain why an order was refused. */
-  private showRefusal(result: CommandResult): void {
+  showRefusal(result: CommandResult): void {
     if (result.ok) return;
     const until = this.now + UI_CONFIG.refusalFlashMs;
     if (result.reason === 'insufficientResources') {
@@ -267,7 +270,12 @@ export class UiScene extends Scene {
       return;
     }
 
-    const layout = commandPanelLayout(this.scale.width, this.scale.height, info.buttons.length);
+    const layout = commandPanelLayout(
+      this.scale.width,
+      this.scale.height,
+      info.buttons.length,
+      info.queue !== undefined,
+    );
     this.commandLayout = layout;
     const g = this.command;
     const { panel } = layout;
@@ -297,8 +305,9 @@ export class UiScene extends Scene {
       texts.cost.setVisible(false);
     });
 
+    this.slotTexts.slice(layout.slots.length).forEach((text) => text.setVisible(false));
     layout.slots.forEach((rect, i) => {
-      const entry = info.queue[i];
+      const entry = info.queue?.[i];
       g.fillStyle(entry ? SLOT_FILLED_COLOR : SLOT_COLOR, 1);
       g.fillRect(rect.x, rect.y, rect.width, rect.height);
       g.lineStyle(1, PANEL_EDGE, 1);
@@ -310,6 +319,7 @@ export class UiScene extends Scene {
     });
 
     const bar = layout.progressBar;
+    if (bar.width === 0) return;
     g.fillStyle(SLOT_COLOR, 1);
     g.fillRect(bar.x, bar.y, bar.width, bar.height);
     if (info.progress > 0) {

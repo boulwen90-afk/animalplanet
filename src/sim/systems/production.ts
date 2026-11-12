@@ -67,7 +67,12 @@ export function queueUnit(
 ): CommandResult {
   const building = ownBuilding(state, player, buildingId);
   const stock = state.players[player];
-  if (!building || !stock || !BUILDING_DEFS[building.type].trains.includes(type)) {
+  if (
+    !building ||
+    !stock ||
+    !building.complete ||
+    !BUILDING_DEFS[building.type].trains.includes(type)
+  ) {
     return { ok: false, reason: 'invalid' };
   }
   if (building.queue.length >= PRODUCTION_CONFIG.maxQueue) {

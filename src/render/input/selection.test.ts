@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { createBuilding, createUnit } from '../../sim/entities';
 import { openState } from '../../sim/testUtils';
 import {
+  builderUnitIds,
   commandableUnitIds,
   gathererUnitIds,
   pruneSelection,
@@ -130,5 +131,17 @@ describe('gathererUnitIds', () => {
     const selected = new Set([a.id, b.id, enemy.id, building.id]);
     expect(gathererUnitIds(selected, entities, 0)).toEqual([a.id, b.id]);
     expect(gathererUnitIds(new Set([building.id]), entities, 0)).toEqual([]);
+  });
+});
+
+describe('builderUnitIds', () => {
+  it("returns the player's own selected units that can build the given type", () => {
+    const { entities, a, b, enemy, building } = setup();
+    const selected = new Set([a.id, b.id, enemy.id, building.id]);
+    expect(builderUnitIds(selected, entities, 0, 'visthus')).toEqual([a.id, b.id]);
+    expect(builderUnitIds(selected, entities, 0, 'krigshall')).toEqual([a.id, b.id]);
+    // Nobody can build a Storide.
+    expect(builderUnitIds(selected, entities, 0, 'storide')).toEqual([]);
+    expect(builderUnitIds(new Set(), entities, 0, 'visthus')).toEqual([]);
   });
 });

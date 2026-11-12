@@ -9,6 +9,8 @@ export const STRINGS = {
   } satisfies Record<UnitType, string>,
   buildings: {
     storide: 'Storide',
+    visthus: 'Visthus',
+    krigshall: 'Krigshall',
   } satisfies Record<BuildingType, string>,
   resources: {
     food: 'Mat',
@@ -16,6 +18,9 @@ export const STRINGS = {
   } satisfies Record<ResourceType, string>,
   hud: {
     train: (name: string) => `Träna ${name}`,
+    build: (name: string) => `Bygg ${name}`,
+    underConstruction: (percent: number) => `Byggs ${percent} %`,
+    building: (name: string) => `Bygger ${name}`,
     costPart: (amount: number, resource: string) => `${amount} ${resource.toLowerCase()}`,
     population: 'Befolkning',
     populationCount: (current: number, cap: number) => `${current}/${cap}`,

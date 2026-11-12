@@ -9,7 +9,7 @@ import type { RngState } from './rng';
 export type PlayerId = 0 | 1;
 
 /** What a unit is doing besides walking. */
-export type UnitTask = IdleTask | GatherTask;
+export type UnitTask = IdleTask | GatherTask | BuildTask;
 
 export interface IdleTask {
   kind: 'idle';
@@ -29,6 +29,12 @@ export interface GatherTask {
   workTicks: number;
   /** Building the load is being carried to, while in the toDropoff phase. */
   dropoffId: number | null;
+}
+
+/** Walking to a construction site and working on it until it is finished. */
+export interface BuildTask {
+  kind: 'build';
+  buildingId: number;
 }
 
 /** What a side owns apart from its units and buildings. */
@@ -66,6 +72,10 @@ export interface Building {
   x: number;
   y: number;
   hp: number;
+  /** False while the building is under construction. An unfinished building has no function. */
+  complete: boolean;
+  /** Work done on the construction so far, in worker-steps: one worker adds 1 per step. */
+  buildProgress: number;
   /** Units waiting to be trained here; the first one is in training. Already paid for. */
   queue: UnitType[];
   /** Simulation steps spent training the first unit in the queue. */
