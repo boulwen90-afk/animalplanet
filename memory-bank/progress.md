@@ -63,7 +63,7 @@ Mall – kopiera för varje avslutad fas:
 |---|---|---|
 | 1. Vite + TypeScript (strict) + Phaser 3, ESLint, Prettier, Vitest, Playwright | Klar | TypeScript 6.0.3 i stället för senaste 7.x, se avvikelser |
 | 2. Mappstruktur enligt `tech-stack.md` | Klar | Bara mappar som fasen behöver. `public/`, `src/sim/systems/` m.fl. finns inte än |
-| 3. `ci.yml` och `deploy.yml` | Klar i kod | `ci.yml` verifieras på pull requesten. `deploy.yml` kan verifieras först efter merge och kräver att Pages är påslaget |
+| 3. `ci.yml` och `deploy.yml` | Delvis verifierad | `ci.yml` är grön på pull requesten. `deploy.yml` kan verifieras först efter merge och kräver att Pages är påslaget |
 | 4. Isometrisk matematik i `src/sim/map/` | Klar | |
 | 5. 64×64 gräsrutor som romber med synliga kanter | Klar | |
 | 6. Kamera: piltangenter/WASD, kantpanorering, mittenknapp, ett finger, stannar vid kartans kant | Klar | Se avvikelse om hur "kartans kant" tolkats |
@@ -76,7 +76,7 @@ Mall – kopiera för varje avslutad fas:
 | Playwright: laddar utan konsolfel, `ready` blir sant | Godkänt |
 | Playwright: högerpil i 500 ms ökar kamerans x | Godkänt (300–650 px, förväntat 450) |
 | Playwright: kameran lämnar inte kartan efter 10 s panorering | Godkänt, i alla fyra riktningar |
-| CI grön på pull requesten | Verifieras när pull requesten har öppnats |
+| CI grön på pull requesten | Godkänt (lint, Vitest, bygge och Playwright på GitHub Actions) |
 | Pages-adressen visar kartan efter merge | Återstår: kräver merge och att Pages är påslaget |
 | Skärmdump av kartan | Klar |
 
