@@ -21,7 +21,7 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 3 | Enheter, markering, förflyttning | Mergad | [#3](https://github.com/boulwen90-afk/animalplanet/pull/3) |
 | 4 | Resurser och insamling | Mergad | [#4](https://github.com/boulwen90-afk/animalplanet/pull/4) |
 | 5 | Träna arbetare | Mergad | [#5](https://github.com/boulwen90-afk/animalplanet/pull/5) |
-| 6 | Bygga Visthus och Krigshall | Klar, väntar på merge | Se fasloggen |
+| 6 | Bygga Visthus och Krigshall | Klar, väntar på merge | [#6](https://github.com/boulwen90-afk/animalplanet/pull/6) |
 | 7 | Soldater, strid, vinst och förlust | Ej påbörjad | – |
 | 8 | Krigsdimma | Ej påbörjad | – |
 | 9 | AI-motståndare | Ej påbörjad | – |
