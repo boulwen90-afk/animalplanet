@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import { MAP_CONFIG } from '../../src/data/map';
+import type { GameState } from '../../src/sim/state';
 import type { TestCameraInfo } from '../../src/testing/testHooks';
 
 /** Collects console errors and uncaught exceptions for the lifetime of the page. */
@@ -40,6 +41,11 @@ export async function getCamera(page: Page): Promise<TestCameraInfo> {
 }
 
 /** The centre of the view must always be on the map. */
+/** A copy of the complete game state. */
+export async function getState(page: Page): Promise<GameState> {
+  return page.evaluate(() => window.__TEST__!.getState());
+}
+
 export function expectCameraOnMap(camera: TestCameraInfo): void {
   const { centerTile } = camera;
   // A little slack for floating point rounding.

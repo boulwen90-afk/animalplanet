@@ -1,3 +1,5 @@
+import type { GameState } from '../sim/state';
+
 /**
  * Test interface exposed as window.__TEST__ when the game runs with ?test=1.
  * Playwright tests read game state through this instead of inspecting pixels.
@@ -26,11 +28,17 @@ export interface TestApi {
    * clock. Tests measure speeds against this instead of real time.
    */
   readonly elapsedMs: number;
+  /** A copy of the complete game state. */
+  getState(): GameState;
+  /** Runs `steps` simulation steps immediately, on top of the real-time ones. */
+  advance(steps: number): void;
 }
 
 export interface TestApiSource {
   getCamera(): TestCameraInfo;
   getElapsedMs(): number;
+  getState(): GameState;
+  advance(steps: number): void;
 }
 
 declare global {
@@ -48,6 +56,8 @@ export function installTestApi(source: TestApiSource): TestApi {
     get elapsedMs() {
       return source.getElapsedMs();
     },
+    getState: () => source.getState(),
+    advance: (steps) => source.advance(steps),
   };
   window.__TEST__ = api;
   return api;
