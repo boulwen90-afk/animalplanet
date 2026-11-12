@@ -6,7 +6,7 @@ Status: **Godkänd 2026-11-12.**
 
 | Del | Val | Kommentar |
 |---|---|---|
-| Språk | TypeScript (`strict`) | |
+| Språk | TypeScript 6 (`strict`) | TypeScript 7 stöds ännu inte av typescript-eslint |
 | Spelmotor | Phaser 3 (senaste 3.x) | Endast rendering, inmatning och scener |
 | Byggverktyg | Vite | `base: '/animalplanet/'` för GitHub Pages |
 | Enhetstester | Vitest | Körs i Node, utan webbläsare |
@@ -45,7 +45,7 @@ animalplanet/
 ├── CLAUDE.md
 ├── memory-bank/              Designdokument, plan, framsteg, arkitektur
 ├── .github/workflows/
-│   ├── ci.yml                Lint, typkontroll, tester, bygge (PR + push)
+│   ├── ci.yml                Lint, typkontroll, tester, bygge (pull requests)
 │   └── deploy.yml            Bygger och publicerar till Pages (push till main)
 ├── index.html
 ├── package.json  tsconfig.json  vite.config.ts
@@ -105,7 +105,7 @@ Mappar och filer skapas först i den fas som behöver dem.
   - `getState()` – ögonblicksbild av speltillståndet.
   - `command(cmd)` – skickar ett kommando till simuleringen.
   - `advance(n)` – stegar simuleringen n steg direkt.
-  - `camera` – kamerans position.
+  - `camera` – kamerans position, storlek och vilken ruta som är i bildens mitt.
   - `tileToScreen(x, y)` – var en ruta ligger på skärmen, så att testerna
     kan klicka på rätt ställe.
   Gränssnittet byggs ut fas för fas och dokumenteras i `architecture.md`.
@@ -113,11 +113,13 @@ Mappar och filer skapas först i den fas som behöver dem.
 ## Bygg- och deployflöde
 
 1. Arbete sker på en feature-branch per fas.
-2. `ci.yml` kör på varje pull request och push: `npm ci` → lint →
-   typkontroll → Vitest → bygge → Playwright.
+2. `ci.yml` kör på varje pull request: `npm ci` → lint → Vitest →
+   typkontroll + bygge → Playwright.
 3. När fasen är klar öppnas en pull request mot `main`. Du granskar och mergar.
-4. `deploy.yml` kör på push till `main`: bygger och publicerar `dist/` med
-   `actions/upload-pages-artifact` och `actions/deploy-pages`.
+4. `deploy.yml` kör på push till `main`: lint, Vitest och bygge, och
+   publicerar sedan `dist/` med `actions/upload-pages-artifact` och
+   `actions/deploy-pages`. Playwright körs inte här; det har redan körts på
+   pull requesten.
 5. Spelet finns sedan på `https://boulwen90-afk.github.io/animalplanet/`.
 
 Bara `main` publiceras. En feature-branch går att speltesta först när dess
