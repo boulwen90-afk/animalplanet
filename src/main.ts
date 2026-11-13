@@ -2,6 +2,7 @@ import { AUTO, Game, Scale } from 'phaser';
 import { MAP_GEN_CONFIG } from './data/map';
 import { GameScene } from './render/scenes/GameScene';
 import { UiScene } from './render/scenes/UiScene';
+import { takeRestartRequest } from './render/session';
 import { parseSeed } from './sim/rng';
 
 const params = new URLSearchParams(window.location.search);
@@ -14,7 +15,11 @@ const fog = !(testMode && params.get('fog') === '0');
 // Likewise the computer opponent: ?ai=0 leaves the other side standing still.
 const ai = !(testMode && params.get('ai') === '0');
 
-const gameScene = new GameScene({ testMode, seed, fog, ai });
+// The start screen is skipped after "play again", and with ?start=0 in test mode.
+const restarted = takeRestartRequest();
+const startScreen = !restarted && !(testMode && params.get('start') === '0');
+
+const gameScene = new GameScene({ testMode, seed, fog, ai, startScreen });
 
 new Game({
   type: AUTO,

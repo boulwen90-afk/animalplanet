@@ -96,6 +96,8 @@ export interface CommandPanelLayout {
 
 const MARGIN = 12;
 const PANEL = { width: 424, height: 64 };
+/** Space between the edge of the panel and what is in it. */
+const PAD = 8;
 const BUTTON = { width: 150, height: 48, gap: 8 };
 /** Queue places are at least 44 px so they can be tapped on a touch screen. */
 const SLOT = { size: 44, gap: 2 };
@@ -110,29 +112,42 @@ export function commandPanelLayout(
   const beside = selection.x + selection.width + MARGIN;
   // Next to the selection panel when there is room, otherwise above it.
   const fitsBeside = beside + PANEL.width + MARGIN <= viewWidth;
+  const width = Math.min(PANEL.width, viewWidth - 2 * MARGIN);
+
+  // On a narrow screen the buttons shrink to share the width of the panel.
+  const room = width - 2 * PAD - (buttonCount - 1) * BUTTON.gap;
+  const buttonWidth =
+    buttonCount > 0 ? Math.min(BUTTON.width, Math.floor(room / buttonCount)) : BUTTON.width;
+  const buttonsWidth = buttonCount * (buttonWidth + BUTTON.gap);
+  const queueWidth = PRODUCTION_CONFIG.maxQueue * (SLOT.size + SLOT.gap) - SLOT.gap;
+  // And the queue goes under the buttons when one row cannot hold both.
+  const stacked = withQueue && PAD + buttonsWidth + 4 + queueWidth + 4 > width;
+  const height = stacked ? PANEL.height + SLOT.size + 14 : PANEL.height;
+
   const panel: ScreenRect = {
     x: fitsBeside ? beside : MARGIN,
-    y: fitsBeside ? selection.y : selection.y - 8 - PANEL.height,
-    width: Math.min(PANEL.width, viewWidth - 2 * MARGIN),
-    height: PANEL.height,
+    y: fitsBeside ? selection.y : selection.y - 8 - height,
+    width,
+    height,
   };
 
   const buttons: ScreenRect[] = [];
   for (let i = 0; i < buttonCount; i++) {
     buttons.push({
-      x: panel.x + 8 + i * (BUTTON.width + BUTTON.gap),
-      y: panel.y + 8,
-      width: BUTTON.width,
+      x: panel.x + PAD + i * (buttonWidth + BUTTON.gap),
+      y: panel.y + PAD,
+      width: buttonWidth,
       height: BUTTON.height,
     });
   }
 
-  const slotsX = panel.x + 8 + buttonCount * (BUTTON.width + BUTTON.gap) + 4;
+  const slotsX = stacked ? panel.x + PAD : panel.x + PAD + buttonsWidth + 4;
+  const slotsY = stacked ? panel.y + PAD + BUTTON.height + 6 : panel.y + 6;
   const slots: ScreenRect[] = [];
   for (let i = 0; withQueue && i < PRODUCTION_CONFIG.maxQueue; i++) {
     slots.push({
       x: slotsX + i * (SLOT.size + SLOT.gap),
-      y: panel.y + 6,
+      y: slotsY,
       width: SLOT.size,
       height: SLOT.size,
     });
@@ -144,8 +159,8 @@ export function commandPanelLayout(
     slots,
     progressBar: {
       x: slotsX,
-      y: panel.y + 6 + SLOT.size + 3,
-      width: withQueue ? PRODUCTION_CONFIG.maxQueue * (SLOT.size + SLOT.gap) - SLOT.gap : 0,
+      y: slotsY + SLOT.size + 3,
+      width: withQueue ? queueWidth : 0,
       height: withQueue ? 6 : 0,
     },
   };

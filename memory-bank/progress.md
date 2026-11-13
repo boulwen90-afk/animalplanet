@@ -4,13 +4,15 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 9 – klar i kod, pull request öppen mot `main`
-- **Nästa steg:** fas 10 (pekstyrning, balans, MVP-avstämning). Användaren
-  har gett klartecken (2026-11-13) att köra fas 9 och 10 utan nytt
-  godkännande, så länge allt fungerar. Varje fas mergas när CI är grön
-- **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
-  vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
-  från Claudes session, som inte når github.io
+- **Aktuell fas:** ingen. Fas 10 var MVP:ns sista fas, och alla tio faser
+  är genomförda
+- **Nästa steg:** användaren speltestar MVP:n på
+  https://boulwen90-afk.github.io/animalplanet/ och bestämmer vad som ska
+  byggas efter MVP:n. Avstämningen av hela MVP:n mot GDD:t står under
+  "MVP-avstämning" nedan
+- **Publicering:** sidan uppdateras vid varje merge till `main`. Att den
+  visar spelet är inte kontrollerat från Claudes session, som inte når
+  github.io
 
 ## Fasstatus
 
@@ -25,8 +27,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 6 | Bygga Visthus och Krigshall | Mergad | [#6](https://github.com/boulwen90-afk/animalplanet/pull/6) |
 | 7 | Soldater, strid, kapitulation, vinst och förlust | Mergad | [#7](https://github.com/boulwen90-afk/animalplanet/pull/7) |
 | 8 | Krigsdimma | Mergad | [#8](https://github.com/boulwen90-afk/animalplanet/pull/8) |
-| 9 | AI-motståndare | Klar, väntar på merge | [#9](https://github.com/boulwen90-afk/animalplanet/pull/9) |
-| 10 | Pekstyrning, balans, MVP-avstämning | Ej påbörjad | – |
+| 9 | AI-motståndare | Mergad | [#9](https://github.com/boulwen90-afk/animalplanet/pull/9) |
+| 10 | Pekstyrning, balans, MVP-avstämning | Klar | [#10](https://github.com/boulwen90-afk/animalplanet/pull/10) |
 
 ## Fasloggar
 
@@ -53,6 +55,121 @@ Mall – kopiera för varje avslutad fas:
 **Beslut och lärdomar**
 - …
 -->
+
+### Fas 10 – Pekstyrning, balans och MVP-avstämning (2026-11-13)
+
+**PR:** https://github.com/boulwen90-afk/animalplanet/pull/10
+
+**Skärmdumpar:** `docs/screenshots/fas-10-startskarm.png` (startskärmen på
+dator), `fas-10-hallring.png` (ringen under ett finger som legat still i
+300 ms), `fas-10-pekdragruta.png` (dragruta med finger),
+`fas-10-hud-knappar.png` (knapparna "Bas" och "Avmarkera"),
+`fas-10-mobil-startskarm.png`, `fas-10-mobil-storide.png` (Storidens panel
+med kö på en 390 px bred skärm) och `fas-10-mobil-bygge.png` (byggplacering
+med finger)
+
+**Avstämning mot planen**
+
+| Punkt i planen | Status | Kommentar |
+|---|---|---|
+| 1. Pekstyrning enligt GDD avsnitt 4: tryck för markering och order, håll + dra för dragruta, knappen "Avmarkera". HUD-knappar minst 44×44 px | Klar | Även byggplacering med finger, som GDD:t inte beskriver |
+| 2. Startskärm med titel, kort kontrollbeskrivning och "Starta" | Klar | Matchen står still bakom den |
+| 3. Tangenten H / knapp för att hoppa till egen bas | Klar | Både tangent och knappen "Bas" |
+| 4. Balanspass: enbart ändringar i `src/data/` | Klar | En ändring: motståndarens andel arbetare på trä, från 0,5 till 0,375 |
+| 5. Avstämning av hela MVP:n mot GDD:t | Klar | Se "MVP-avstämning" nedan |
+
+| Test i planen | Resultat |
+|---|---|
+| Playwright med pekemulering: tryck markerar | Godkänt |
+| Playwright med pekemulering: tryck på mark flyttar | Godkänt |
+| Playwright med pekemulering: håll + dra markerar flera | Godkänt |
+| Playwright med pekemulering: ett finger panorerar | Godkänt (fas 1-testet och ett nytt) |
+| Playwright: hela flödet startskärm → match → slutskärm → "Spela igen" | Godkänt |
+| Vitest: AI mot AI ger matchlängd inom 10–20 min | Godkänt för frön 1–3 (19,1, 14,2 och 17,2 min) |
+| Vitest: 6 Ramkrigare vid basen slår tillbaka första vågen | Godkänt för frön 1–3 (högst en försvarare kapitulerar, Storiden förlorar högst 10 liv) |
+| Avstämningslistan finns i `progress.md` | Klar |
+| Skärmdumpar, dator och mobil | Klara |
+
+Utöver planen testas även: tryck på träd ger insamlingsorder och tryck på
+fiende ger anfallsorder, att ett finger på en knapp aldrig flyttar kameran,
+byggplacering och "Avbryt" med finger, att startskärm, knappar och paneler
+ryms på en 390×844-skärm, att en order syns på enheten inom 100 ms, att
+motståndaren själv har 6 Ramkrigare när första vågen får gå, och att den
+inte samlar trä på hög.
+
+**Balanspasset i siffror** (frön 1–6, mätt innan testerna skrevs)
+
+| | Före (träandel 0,5) | Efter (träandel 0,375) |
+|---|---|---|
+| AI mot AI, matchlängd | 11,1–17,5 min | 14,2–19,1 min |
+| Motståndarens trä efter 10 min | 1130–1230 | 590–740 |
+| Motståndarens Ramkrigare efter 4 min | 7–9 | 8–9 |
+| Motståndarens Ramkrigare efter 10 min | 9–15 | 13–19 |
+| 6 Ramkrigare mot första vågen | Vinner på alla frön | Vinner på alla frön |
+| 4 Ramkrigare mot första vågen | Förlorar på 3 av 6 frön | Inte mätt |
+| Spelare som inte gör något | Förlorar efter 5,3 min | Förlorar efter 5,3 min |
+
+Träandel 0,3 och 0,25 provades också. Då får motståndaren ont om trä, och
+med 0,3 tog en match över 20 minuter. Vågornas tider och storlekar, och
+alla enhets- och byggnadssiffror, är oförändrade: båda målen i planen var
+redan uppfyllda.
+
+**Saknas eller avviker**
+- **Matchlängden mot en människa är inte mätt.** Målet 10–20 min är
+  kontrollerat för dator mot dator. En spelare som inte försvarar sig
+  förlorar efter drygt 5 minuter, när första vågen river Storiden.
+- **Första vågen kräver att spelaren håller ungefär två tredjedelar av
+  motståndarens takt.** Motståndaren har 5 Ramkrigare efter 3 minuter och
+  8–9 efter 4. Vågen når basen efter cirka 4,5 minuter. Om det är lagom för
+  en ny spelare går bara att avgöra genom speltest.
+- **Motståndaren har fortfarande ett träöverskott**, ungefär hälften så
+  stort som förut.
+- **Byggplacering med finger står inte i GDD:t.** Konturen börjar mitt i
+  bilden; ett tryck flyttar den och ett tryck på den bygger.
+- **Knappen "Avmarkera" heter "Avbryt" medan en byggnad placeras** och
+  avbryter då bara placeringen.
+- **Det går inte att lägga till enheter i en markering med finger.**
+  Shift-klick har ingen motsvarighet på pekskärm.
+- **Bara ett finger följs.** Ett andra finger gör ingenting. Zoom ingår
+  inte i MVP:n.
+- **Hålltiden på 300 ms räknas i spelets tid.** På en enhet som ritar färre
+  än 10 bilder per sekund blir den längre i verklig tid.
+- **Pekstyrningen är bara provad med emulerat finger i Chromium**, inte på
+  en riktig telefon eller surfplatta.
+- **På en telefon i stående läge täcker panelerna ungefär en femtedel av
+  skärmen** när Storiden är markerad (se `fas-10-mobil-storide.png`).
+- **"Spela igen" hoppar över startskärmen**, via webbläsarens
+  sessionslagring. Laddas sidan om för hand visas startskärmen igen.
+- **Ny URL-parameter `?start=0`** för tester, utöver planen. Alla äldre
+  webbläsartester använder den.
+- **Standardfröet är kvar på 1.** Fas 2 lämnade frågan öppen till
+  balansfasen. Kartan har en stor skog i mitten, och dator mot dator tar
+  där 19,1 minuter, nära den övre gränsen.
+- **Fas 1-testet för fingerpanorering ändrades.** Det väntade mellan
+  nedsättning och första rörelse. Nu när ett finger som ligger still blir
+  en dragruta kunde testet falla på en hårt belastad maskin.
+- **Ett fas 8-test trycker nu på "Starta"** innan det tar sina bilder,
+  eftersom det öppnar spelet utan testläge.
+
+**Testresultat**
+- Vitest: 397 av 397
+- Playwright: 88 av 88, även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll: utan anmärkning
+- Konsolfel i headless-webbläsare: inga
+
+**Beslut och lärdomar**
+- **Ett test hittade ett verkligt fel:** ett finger på "Avmarkera" flyttade
+  kameran. Grundorsaken var ordningen mellan scenerna. Gränssnittet fick
+  trycket först och tog bort knappen. När spelscenen sedan frågade om
+  trycket låg på gränssnittet var svaret nej. Samma fel fanns för "Starta"
+  och för musklick. Lösningen är att gränssnittet stoppar tryck det agerar
+  på, inte att knappens yta räknas som gränssnitt i efterhand.
+- Balansmålen var uppfyllda redan före passet. Det visade sig först när de
+  mättes; utan mätningen hade vågorna sannolikt ändrats i onödan.
+- Vitest visar inte `console.log` från godkända tester. Mätskript skriver
+  till en fil i stället.
+- Arbetsprocessen startades om flera gånger under fasen. Ocommittat arbete
+  överlevde, men en lokal commit tidigt i fasen är en billig försäkring.
 
 ### Fas 9 – AI-motståndare (2026-11-13)
 
@@ -694,6 +811,113 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   Testerna mäter nu fart mot spelets egen tid (`__TEST__.elapsedMs`).
   Tester i kommande faser ska stega simuleringen i stället för att vänta
   på verklig tid.
+
+## MVP-avstämning mot GDD:t (fas 10, 2026-11-13)
+
+Hela MVP:n jämförd med `game-design-document.md`, avsnitt för avsnitt.
+"Uppfyllt" betyder att det finns i spelet och kontrollerades med tester i
+den fas där det byggdes. Allt som saknas eller avviker står i listorna
+efter tabellen.
+
+| GDD-avsnitt | Status | Kommentar |
+|---|---|---|
+| 1. Översikt | Uppfyllt | Isometrisk RTS i webbläsaren. Världen och klanen syns inte i spelet, se avvikelse 9 |
+| 2. Kärnloop | Uppfyllt | Samla, bygg ut, rusta, utforska och slåss, vinn |
+| 2. Matchlängd 10–20 min | Delvis | Dator mot dator: 14–19 min. Mot människa inte mätt, se avvikelse 1 |
+| 3. Vinst och förlust | Uppfyllt | Slutskärm, frusen simulering, "Spela igen", inga djur dör |
+| 4. Mus och tangentbord | Uppfyllt | Alla tolv rader i tabellen, se avvikelse 3 och 4 |
+| 4. Pekskärm | Uppfyllt | Alla fem rader i tabellen. Bara provat med emulerat finger |
+| 4. HUD | Uppfyllt | Resursrad, markeringspanel, kommandopanel med kostnad och kö. Ingen minikarta |
+| 5. Raser | Uppfyllt | Bara björnar; spelare blå, fiende röd |
+| 6. Resurser | Uppfyllt | Alla siffror enligt tabellen, befolkningstak 30 |
+| 7. Enheter och stridsregler | Uppfyllt | Alla siffror enligt tabellen, se avvikelse 2 |
+| 8. Byggnader och byggregler | Uppfyllt | Alla siffror enligt tabellen, se avvikelse 5 |
+| 9. Karta och krigsdimma | Uppfyllt | 64×64, frö, punktspeglad, grottor, tre dimlägen |
+| 10. AI-motståndare | Uppfyllt | Alla fem punkter, se avvikelse 10 |
+| 10. Förenklingar | Uppfyllt | Ingen kollision, ingen formation, terräng påverkar inte sikt eller fart |
+| 11. Spelkänsla | Uppfyllt | Alla tretton rader, se avvikelse 3, 4, 6, 7 och 8 |
+| 12. Visuell stil | Uppfyllt | Platshållargrafik enligt beskrivningen; text i `strings.ts` |
+| 13. Ingår inte i MVP:n | Uppfyllt | Inget av det är byggt |
+| 14. Beslut | Uppfyllt | Se avvikelse 11 om arbetsnamnet |
+| 15. Kapitulation och grottor (MVP-delen) | Uppfyllt | Vit flagga, 2 grottor × 12 platser per sida, reservering, fulla grottor |
+
+### Avviker från GDD:t
+
+1. **Matchlängden mot en människa är inte mätt.** En spelare som inte
+   försvarar sig förlorar efter drygt 5 minuter. Dator mot dator tar 14–19
+   minuter.
+2. **Sysslolösa Ramkrigare anfaller självmant bara enheter, inte
+   byggnader.** GDD:t säger "fiender". Byggnader anfalls på order.
+3. **Markeringen ändras när musknappen släpps**, inte samma bildruta som
+   den trycks ned.
+4. **Kameran stannar inte vid kartans kant.** Bildens mittpunkt hålls inom
+   kartromben, så upp till halva bilden kan visa tomrum utanför kartan.
+5. **Spökbilden är fotavtryckets kontur**, inte en bild av byggnaden.
+6. **Skärmskakningen kan bli längre än 150 ms** vid låg bildfrekvens,
+   eftersom den går på Phasers egen klocka.
+7. **"Din bas anfalls!" visas bara när en byggnad träffas**, inte när
+   enheter anfalls.
+8. **Orderringen är grön även för insamling och bygghjälp.** GDD:t nämner
+   bara grön för flytt och röd för attack.
+9. **Världen syns inte i spelet.** Klomark, Granheden, Järnramarna och
+   Hövding Halvard Stenrygg finns bara i GDD:t. Spelet visar namnen på
+   enheter och byggnader.
+10. **Motståndaren har ett tak på 20 soldater och ett tidsfönster per
+    våg.** Inget av det står i GDD:t. Soldater i en våg går förbi arbetare
+    och andra byggnader, och motståndarens arbetare flyr inte.
+11. **Arbetsnamnet "AnimalPlanet" står på startskärmen och på den
+    publicerade sidan.** GDD avsnitt 14 säger att namnet bör bytas innan
+    spelet sprids offentligt. Sidan är publik men inte spridd.
+
+### Finns i spelet men inte i GDD:t
+
+- Startskärm, knapparna "Bas" och "Avbryt", byggplacering med finger och
+  ringen under ett finger som hållits kvar (fas 10)
+- En liten färgad fyrkant på enheter som bär något (fas 4)
+- Fiendens enheter och byggnader går att markera för att se namn och liv
+  (fas 3)
+- Befolkningssiffran blinkar rött vid fullt tak, och enheter i kö räknas
+  mot taket (fas 5)
+- Byggen under uppförande ser 2 rutor (fas 8)
+- Antalet djur står ovanför varje grotta (fas 7)
+- Testparametrarna `?fog=0`, `?ai=0` och `?start=0`, samt `spawnUnit` i
+  testgränssnittet. De fungerar bara med `?test=1`
+
+### Brister som GDD:t inte reglerar
+
+Inget av detta bryter mot GDD:t, men det märks när man spelar.
+
+- Full kö ger ingen återkoppling, och träningsknappen ser likadan ut när
+  man inte har råd
+- Ett bygge går inte att avbryta eller riva
+- Arbetare blir sysslolösa när ett bygge är klart, och sysslolösa arbetare
+  syns inte på något särskilt sätt
+- Hur mycket som finns kvar i en resurskälla visas inte
+- En arbetare som byter resursslag tappar det den bär
+- Arbetare som blir anfallna gör ingenting åt det
+- Markeringen runt en vald byggnad syns dåligt, och enheter bakom en
+  byggnad döljs av den
+- Nya enheter står stilla där de dyker upp (ingen samlingspunkt)
+- Ingen plats nära basen är garanterat fri för en Krigshall
+- Utforskad mark visar kartan som den är nu, och enheter hittar vägen
+  genom outforskad mark
+- Utforskad mark har ett svagt mörkare rutnät, och träd i dimmans kant
+  ritas delvis nedtonade
+- "Spela igen" ger samma karta, eftersom fröet är detsamma
+- Grottorna ligger på den egna halvan, så en enhet som besegras vid
+  fiendens bas går över hela kartan med vit flagga
+- Flera enheter kan dela ruta när det är trångt runt ett mål
+- En orderring visas även när målet inte går att nå
+- Med finger går det inte att lägga till enheter i en markering, och på en
+  telefon i stående läge täcker panelerna ungefär en femtedel av skärmen
+
+### Inte kontrollerat
+
+- Att den publicerade sidan fungerar. Claudes session når inte github.io;
+  bara att publiceringsjobben har gått igenom är kontrollerat
+- Pekstyrning på en riktig telefon eller surfplatta
+- Andra webbläsare än Chromium
+- Hur balansen känns för en människa
 
 ## Kända problem
 

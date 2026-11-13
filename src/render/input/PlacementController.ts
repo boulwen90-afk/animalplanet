@@ -26,6 +26,10 @@ export interface PlacementControllerDeps {
  * building follows the mouse: green where it may stand, red where not.
  * Left click places it there if the place is valid; right click or Esc cancels.
  *
+ * A finger cannot hover, so on a touch screen the outline starts in the
+ * middle of the view and stays where it is put: a tap elsewhere moves it
+ * there, and a tap on the outline itself places the building.
+ *
  * It must be created after the SelectionController, so that the click that
  * places the building reaches the selection logic while placement is still
  * active and is ignored there.
@@ -33,6 +37,8 @@ export interface PlacementControllerDeps {
 export class PlacementController {
   private building: BuildingType | undefined;
   private placement: Placement | undefined;
+  /** Where a finger has put the outline; undefined while the mouse leads it. */
+  private touchOrigin: Point | undefined;
 
   constructor(
     private readonly scene: Scene,
@@ -55,12 +61,14 @@ export class PlacementController {
   /** Starts placing a building of the given type. */
   start(building: BuildingType): void {
     this.building = building;
+    this.touchOrigin = undefined;
     this.refresh();
   }
 
   cancel(): void {
     this.building = undefined;
     this.placement = undefined;
+    this.touchOrigin = undefined;
     this.deps.view.update(undefined);
   }
 
@@ -75,7 +83,15 @@ export class PlacementController {
     const building = this.building;
     if (!building) return;
     const pointer = this.scene.input.activePointer;
-    const origin = this.originAt(building, pointer);
+    let origin: Point;
+    if (pointer.wasTouch) {
+      const camera = this.scene.cameras.main;
+      this.touchOrigin ??= this.originAt(building, camera.width / 2, camera.height / 2);
+      origin = this.touchOrigin;
+    } else {
+      this.touchOrigin = undefined;
+      origin = this.originAt(building, pointer.x, pointer.y);
+    }
     this.placement = {
       building,
       x: origin.x,
@@ -85,12 +101,40 @@ export class PlacementController {
     this.deps.view.update(this.placement);
   }
 
-  /** The footprint corner that puts the middle of the building under the pointer. */
-  private originAt(building: BuildingType, pointer: Input.Pointer): Point {
-    const world = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
-    const tile = worldToTile(world.x, world.y, this.deps.tileSize);
+  /** The footprint corner that puts the middle of the building at a screen position. */
+  private originAt(building: BuildingType, screenX: number, screenY: number): Point {
+    const tile = this.tileAt(screenX, screenY);
     const offset = Math.floor(BUILDING_DEFS[building].size / 2);
     return { x: tile.x - offset, y: tile.y - offset };
+  }
+
+  private tileAt(screenX: number, screenY: number): Point {
+    const world = this.scene.cameras.main.getWorldPoint(screenX, screenY);
+    return worldToTile(world.x, world.y, this.deps.tileSize);
+  }
+
+  /**
+   * A tap on the map while placing: on the outline it places the building,
+   * if the place is valid; anywhere else it moves the outline there.
+   */
+  tapAt(screenX: number, screenY: number): void {
+    const building = this.building;
+    if (!building) return;
+    const tile = this.tileAt(screenX, screenY);
+    const origin = this.touchOrigin;
+    const size = BUILDING_DEFS[building].size;
+    const onOutline =
+      origin !== undefined &&
+      tile.x >= origin.x &&
+      tile.x < origin.x + size &&
+      tile.y >= origin.y &&
+      tile.y < origin.y + size;
+    if (onOutline) {
+      this.place(building, origin);
+    } else {
+      this.touchOrigin = this.originAt(building, screenX, screenY);
+      this.refresh();
+    }
   }
 
   private onPointerDown(pointer: Input.Pointer): void {
@@ -101,8 +145,11 @@ export class PlacementController {
       return;
     }
     if (!pointer.leftButtonDown()) return;
+    this.place(building, this.originAt(building, pointer.x, pointer.y));
+  }
 
-    const origin = this.originAt(building, pointer);
+  /** Orders the building at a footprint corner, if it may stand there. */
+  private place(building: BuildingType, origin: Point): void {
     // On an invalid place a click does nothing; the outline is already red.
     if (!canPlaceBuilding(this.deps.getState(), building, origin.x, origin.y, this.deps.player))
       return;

@@ -24,10 +24,17 @@ async function throttleCpu(page: Page): Promise<void> {
   await cdp.send('Emulation.setCPUThrottlingRate', { rate });
 }
 
-/** Opens the game in test mode and waits until it is running. */
-export async function openGame(page: Page, query = ''): Promise<void> {
+/**
+ * Opens the game in test mode and waits until it is running. The start
+ * screen is skipped unless `startScreen` is set.
+ */
+export async function openGame(
+  page: Page,
+  query = '',
+  options: { startScreen?: boolean } = {},
+): Promise<void> {
   await throttleCpu(page);
-  await page.goto(`./?test=1${query}`);
+  await page.goto(`./?test=1${options.startScreen ? '' : '&start=0'}${query}`);
   await page.waitForFunction(() => window.__TEST__?.ready === true);
 }
 
@@ -105,4 +112,32 @@ export async function measurePanSpeed(page: Page): Promise<{ x: number; y: numbe
 
   const seconds = (end.elapsedMs - start.elapsedMs) / 1000;
   return { x: (end.x - start.x) / seconds, y: (end.y - start.y) / seconds };
+}
+
+/** One emulated finger. Needs `test.use({ hasTouch: true })`. */
+export interface Finger {
+  down(x: number, y: number): Promise<void>;
+  move(x: number, y: number): Promise<void>;
+  up(): Promise<void>;
+  /** Puts the finger down and lifts it at once. */
+  tap(x: number, y: number): Promise<void>;
+}
+
+export async function finger(page: Page): Promise<Finger> {
+  const cdp = await page.context().newCDPSession(page);
+  const send = (type: 'touchStart' | 'touchMove' | 'touchEnd', x?: number, y?: number) =>
+    cdp.send('Input.dispatchTouchEvent', {
+      type,
+      touchPoints: x === undefined || y === undefined ? [] : [{ x, y }],
+    });
+  const self: Finger = {
+    down: async (x, y) => void (await send('touchStart', x, y)),
+    move: async (x, y) => void (await send('touchMove', x, y)),
+    up: async () => void (await send('touchEnd')),
+    tap: async (x, y) => {
+      await self.down(x, y);
+      await self.up();
+    },
+  };
+  return self;
 }

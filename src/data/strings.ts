@@ -39,5 +39,17 @@ export const STRINGS = {
     enemy: 'Fiende',
     unitsSelected: (count: number) => `${count} enheter markerade`,
     countOfType: (name: string, count: number) => `${name} ×${count}`,
+    deselect: 'Avmarkera',
+    cancelPlacement: 'Avbryt',
+    toBase: 'Bas',
+  },
+  start: {
+    title: 'AnimalPlanet',
+    button: 'Starta',
+    help: [
+      'Samla mat och trä, bygg en Krigshall och träna Ramkrigare. Förstör fiendens Storide för att vinna.',
+      'Mus: vänsterklick markerar, högerklick ger order. Piltangenter eller WASD flyttar kameran, H hoppar till basen.',
+      'Pekskärm: tryck för att markera och ge order, dra för att flytta kameran, håll kvar och dra för att markera flera.',
+    ].join('\n\n'),
   },
 } as const;

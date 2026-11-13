@@ -54,7 +54,8 @@ interface Drag {
  * left click selects, left drag draws a selection box, Shift adds to the
  * selection, Esc clears it, and right click gives the selected units an
  * order that depends on what is under the pointer.
- * Touch input is not handled here yet; one finger pans the camera.
+ * A finger does the same through `tapAt` and `selectBox`, called by the
+ * TouchController.
  */
 export class SelectionController {
   private selected = new Set<number>();
@@ -91,8 +92,50 @@ export class SelectionController {
     this.selected = pruneSelection(this.selected, this.deps.getVisibleEntities());
   }
 
+  /**
+   * A tap on the map. With units selected it gives them an order for what
+   * was tapped, exactly as a right click does. A tap on one of the player's
+   * own units or buildings selects it instead, except an unfinished building
+   * when someone who can build it is selected. With no units selected a tap
+   * works as a left click.
+   */
+  tapAt(screenX: number, screenY: number): void {
+    const state = this.deps.getState();
+    const { player, tileSize } = this.deps;
+    const world = this.worldAt(screenX, screenY);
+    const entities = this.deps.getVisibleEntities();
+    const hit = pickEntity(entities, world, tileSize);
+
+    if (commandableUnitIds(this.selected, state.entities, player).length > 0) {
+      const own = hit?.owner === player;
+      const toBuild =
+        hit?.kind === 'building' &&
+        own &&
+        !hit.complete &&
+        builderUnitIds(this.selected, state.entities, player, hit.type).length > 0;
+      if (!own || toBuild) {
+        this.giveOrder(world);
+        return;
+      }
+    }
+    this.selected = selectByClick(this.selected, entities, hit, false, player);
+  }
+
+  /** Selects the player's units inside a box between two world positions. */
+  selectBox(startWorld: Point, endWorld: Point, add = false): void {
+    const entities = this.deps.getVisibleEntities();
+    const { player, tileSize } = this.deps;
+    const rect = rectFromPoints(startWorld, endWorld);
+    const boxed = unitsInRect(entities, rect, player, tileSize).map((unit) => unit.id);
+    this.selected = selectByBox(this.selected, entities, boxed, add, player);
+  }
+
   private worldPoint(pointer: Input.Pointer): Point {
-    const point = this.scene.cameras.main.getWorldPoint(pointer.x, pointer.y);
+    return this.worldAt(pointer.x, pointer.y);
+  }
+
+  private worldAt(screenX: number, screenY: number): Point {
+    const point = this.scene.cameras.main.getWorldPoint(screenX, screenY);
     return { x: point.x, y: point.y };
   }
 
@@ -100,7 +143,7 @@ export class SelectionController {
     if (pointer.wasTouch || this.deps.isOverHud(pointer.x, pointer.y)) return;
     if (this.deps.isPlacing()) return;
     if (pointer.rightButtonDown()) {
-      this.giveOrder(pointer);
+      this.giveOrder(this.worldPoint(pointer));
     } else if (pointer.leftButtonDown() && !this.drag) {
       this.drag = {
         startScreen: { x: pointer.x, y: pointer.y },
@@ -133,9 +176,7 @@ export class SelectionController {
     const world = this.worldPoint(pointer);
 
     if (drag.active) {
-      const rect = rectFromPoints(drag.startWorld, world);
-      const boxed = unitsInRect(entities, rect, player, tileSize).map((unit) => unit.id);
-      this.selected = selectByBox(this.selected, entities, boxed, shift, player);
+      this.selectBox(drag.startWorld, world, shift);
     } else {
       const hit = pickEntity(entities, world, tileSize);
       this.selected = selectByClick(this.selected, entities, hit, shift, player);
@@ -143,16 +184,15 @@ export class SelectionController {
   }
 
   /**
-   * Gives the selected units of the player an order for what is under the
-   * pointer: attack an enemy, help build an unfinished building, gather from
+   * Gives the selected units of the player an order for what is at a world
+   * position: attack an enemy, help build an unfinished building, gather from
    * a resource source, or otherwise walk to the tile.
    */
-  private giveOrder(pointer: Input.Pointer): void {
+  private giveOrder(world: Point): void {
     const state = this.deps.getState();
     const { player, tileSize } = this.deps;
     const unitIds = commandableUnitIds(this.selected, state.entities, player);
     if (unitIds.length === 0) return;
-    const world = this.worldPoint(pointer);
 
     const hit = pickEntity(this.deps.getVisibleEntities(), world, tileSize);
 

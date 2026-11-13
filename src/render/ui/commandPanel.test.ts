@@ -9,7 +9,7 @@ import {
   describeCommandPanel,
   formatCost,
 } from './commandPanel';
-import { rectContains, selectionPanelRect } from './layout';
+import { rectContains, selectionPanelRect, type ScreenRect } from './layout';
 
 function setup() {
   const state = openState(12, 12);
@@ -167,6 +167,48 @@ describe('commandPanelLayout', () => {
     for (let i = 1; i < rects.length; i++) {
       expect(rects[i]!.x).toBeGreaterThanOrEqual(rects[i - 1]!.x + rects[i - 1]!.width);
     }
+  });
+});
+
+describe('commandPanelLayout on a phone', () => {
+  const inside = (panel: ScreenRect, rect: ScreenRect) =>
+    rectContains(panel, rect.x, rect.y) &&
+    rectContains(panel, rect.x + rect.width, rect.y + rect.height);
+  const overlaps = (a: ScreenRect, b: ScreenRect) =>
+    a.x < b.x + b.width && b.x < a.x + a.width && a.y < b.y + b.height && b.y < a.y + a.height;
+
+  it.each([
+    [390, 844, 1, true],
+    [390, 844, 2, false],
+    [360, 640, 1, true],
+    [320, 568, 2, false],
+  ])('fits a %i×%i screen with %i button(s)', (width, height, buttonCount, withQueue) => {
+    const layout = commandPanelLayout(width, height, buttonCount, withQueue);
+    expect(layout.panel.x).toBeGreaterThanOrEqual(0);
+    expect(layout.panel.x + layout.panel.width).toBeLessThanOrEqual(width);
+    const parts = [...layout.buttons, ...layout.slots];
+    for (const rect of parts) {
+      expect(inside(layout.panel, rect)).toBe(true);
+      expect(rect.width).toBeGreaterThanOrEqual(44);
+      expect(rect.height).toBeGreaterThanOrEqual(44);
+    }
+    if (withQueue) expect(inside(layout.panel, layout.progressBar)).toBe(true);
+    for (let i = 0; i < parts.length; i++) {
+      for (let j = i + 1; j < parts.length; j++) {
+        expect(overlaps(parts[i]!, parts[j]!)).toBe(false);
+      }
+    }
+    // The panel stays clear of the selection panel below it.
+    expect(layout.panel.y + layout.panel.height).toBeLessThanOrEqual(
+      selectionPanelRect(width, height).y,
+    );
+  });
+
+  it('puts the queue under the buttons when one row cannot hold both', () => {
+    const layout = commandPanelLayout(390, 844, 1);
+    expect(layout.slots[0]!.y).toBeGreaterThanOrEqual(
+      layout.buttons[0]!.y + layout.buttons[0]!.height,
+    );
   });
 });
 

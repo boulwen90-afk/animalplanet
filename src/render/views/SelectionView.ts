@@ -21,6 +21,7 @@ export class SelectionView {
   private readonly overlay: GameObjects.Graphics;
   private readonly markers: OrderMarker[] = [];
   private dragBox: WorldRect | undefined;
+  private holdRing: { x: number; y: number } | undefined;
 
   constructor(scene: Scene) {
     this.ground = scene.add.graphics().setDepth(GROUND_MARK_DEPTH);
@@ -30,6 +31,14 @@ export class SelectionView {
   /** Shows the drag box, in world coordinates, or hides it. */
   setDragBox(rect: WorldRect | undefined): void {
     this.dragBox = rect;
+  }
+
+  /**
+   * Shows a ring at a world position, under a finger that has rested long
+   * enough to draw a selection box, or hides it.
+   */
+  setHoldRing(at: { x: number; y: number } | undefined): void {
+    this.holdRing = at;
   }
 
   /** Starts a ring at a world position that shrinks and fades away. */
@@ -50,6 +59,10 @@ export class SelectionView {
       this.overlay.fillRect(x, y, width, height);
       this.overlay.lineStyle(1, SELECTION_COLOR, 1);
       this.overlay.strokeRect(x, y, width, height);
+    }
+    if (this.holdRing) {
+      this.overlay.lineStyle(3, SELECTION_COLOR, 0.9);
+      this.overlay.strokeCircle(this.holdRing.x, this.holdRing.y, UI_CONFIG.touchHoldRingRadius);
     }
 
     this.ground.clear();

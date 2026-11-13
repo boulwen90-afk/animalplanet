@@ -177,8 +177,11 @@ test.describe('phase 1: touch', () => {
         touchPoints: x === undefined || y === undefined ? [] : [{ x, y }],
       });
 
-    await touch('touchStart', 400, 300);
-    for (let i = 1; i <= 10; i++) {
+    // The finger moves at once: a finger that rests first draws a selection
+    // box instead (phase 10). The start and the first move are sent together,
+    // so that a slow machine cannot let time pass between them.
+    await Promise.all([touch('touchStart', 400, 300), touch('touchMove', 388, 294)]);
+    for (let i = 2; i <= 10; i++) {
       await touch('touchMove', 400 - i * 12, 300 - i * 6);
     }
     await touch('touchEnd');
