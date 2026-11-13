@@ -18,6 +18,8 @@ export interface BuildingDef {
   buildTime: number;
   /** Taken off the damage of every strike against this building. */
   armor: number;
+  /** How far the finished building sees, in tiles, measured from its centre. */
+  sight: number;
 }
 
 /** Building types. See GDD section 8. */
@@ -26,6 +28,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
   storide: {
     trains: ['samlare'],
     hp: 1500,
+    sight: 9,
     size: 3,
     dropoff: true,
     cost: {},
@@ -36,6 +39,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
   visthus: {
     trains: [],
     hp: 400,
+    sight: 5,
     size: 2,
     dropoff: true,
     cost: { wood: 80 },
@@ -46,6 +50,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
   krigshall: {
     trains: ['ramkrigare'],
     hp: 700,
+    sight: 6,
     size: 3,
     dropoff: false,
     cost: { wood: 150 },
@@ -59,4 +64,6 @@ export const CONSTRUCTION_CONFIG = {
   startHpFraction: 0.1,
   /** Each worker beyond the first adds this share of one worker's building speed. */
   extraBuilderRate: 0.5,
+  /** How far a building under construction sees, in tiles. */
+  sight: 2,
 } as const;

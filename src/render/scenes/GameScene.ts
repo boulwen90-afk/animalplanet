@@ -1,6 +1,6 @@
 import { Scene } from 'phaser';
 import { CAMERA_CONFIG } from '../../data/camera';
-import { MAP_CONFIG } from '../../data/map';
+import { MAP_CONFIG, MAP_GEN_CONFIG } from '../../data/map';
 import { STRINGS } from '../../data/strings';
 import { UI_CONFIG } from '../../data/ui';
 import { START_CONFIG } from '../../data/setup';
@@ -13,6 +13,13 @@ import { missingResources } from '../../sim/economy';
 import { createGame } from '../../sim/game';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
 import type { GameState, PlayerId, SimEvent } from '../../sim/state';
+import {
+  isEntityVisibleTo,
+  isTileExplored,
+  isTileVisible,
+  updateVisibility,
+  visibleEntities,
+} from '../../sim/systems/visibility';
 import { tick } from '../../sim/tick';
 import { installTestApi, type TestApi } from '../../testing/testHooks';
 import { CameraController } from '../input/CameraController';
@@ -28,6 +35,7 @@ import { rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout'
 import { describeSelection, type SelectionInfo } from '../ui/selectionInfo';
 import { CaveView } from '../views/CaveView';
 import { EntityView } from '../views/EntityView';
+import { FogView } from '../views/FogView';
 import { MapView } from '../views/MapView';
 import { PlacementView } from '../views/PlacementView';
 import { SelectionView } from '../views/SelectionView';
@@ -38,6 +46,8 @@ export interface GameSceneOptions {
   testMode: boolean;
   /** Seed for all randomness in the game (set with ?seed=N). */
   seed: number;
+  /** Whether the fog of war is on. Off only with ?fog=0 in test mode. */
+  fog: boolean;
 }
 
 /** The side the person at the screen plays. */
@@ -51,6 +61,8 @@ export class GameScene extends Scene implements HudSource {
   private placementController!: PlacementController;
   private mapView!: MapView;
   private caveView!: CaveView;
+  /** Undefined when the fog of war is off. */
+  private fogView: FogView | undefined;
   private entityView!: EntityView;
   private selectionView!: SelectionView;
   private testApi: TestApi | undefined;
@@ -69,11 +81,14 @@ export class GameScene extends Scene implements HudSource {
   }
 
   create(): void {
-    const state = createGame(this.options.seed);
+    const state = createGame(this.options.seed, MAP_CONFIG, MAP_GEN_CONFIG, {
+      fog: this.options.fog,
+    });
     this.state = state;
 
     this.mapView = new MapView(this, state.map, MAP_CONFIG);
     this.caveView = new CaveView(this, state.map, MAP_CONFIG);
+    if (state.fogEnabled) this.fogView = new FogView(this, state.map, MAP_CONFIG);
     this.entityView = new EntityView(this, MAP_CONFIG);
     this.selectionView = new SelectionView(this);
 
@@ -82,6 +97,8 @@ export class GameScene extends Scene implements HudSource {
 
     this.selectionController = new SelectionController(this, {
       getState: () => state,
+      getVisibleEntities: () => visibleEntities(state, LOCAL_PLAYER),
+      isExplored: (x, y) => isTileExplored(state, LOCAL_PLAYER, x, y),
       issue: (command) => applyCommand(state, command),
       isOverHud: (x, y) => this.isOverHud(x, y),
       isPlacing: () => this.placementController.active,
@@ -132,9 +149,25 @@ export class GameScene extends Scene implements HudSource {
 
     // Draw units part-way into the next step, so movement looks smooth.
     const alpha = Math.min(this.stepClock.accumulatorMs / TICK_MS, 1);
-    this.mapView.update(state.map);
-    this.caveView.update(state.map);
-    this.entityView.update(state, alpha, this.selectionController.selection, this.elapsedTotal);
+    const { width } = state.map;
+    this.mapView.update(state.map, (index) =>
+      isTileExplored(state, LOCAL_PLAYER, index % width, Math.floor(index / width)),
+    );
+    this.caveView.update(
+      state.map,
+      LOCAL_PLAYER,
+      (cave) => isTileExplored(state, LOCAL_PLAYER, cave.x, cave.y),
+      (cave) => isTileVisible(state, LOCAL_PLAYER, cave.x, cave.y),
+    );
+    this.entityView.update(
+      state,
+      alpha,
+      this.selectionController.selection,
+      this.elapsedTotal,
+      (entity) => isEntityVisibleTo(state, LOCAL_PLAYER, entity),
+    );
+    const seen = state.players[LOCAL_PLAYER]?.visibility;
+    if (seen) this.fogView?.update(seen);
     this.selectionView.update(elapsed);
 
     // Ready once the first frame has been simulated with the scene fully built.
@@ -165,7 +198,10 @@ export class GameScene extends Scene implements HudSource {
         }
         break;
       case 'buildingCollapsed':
-        this.shakeIfOnScreen(event.x, event.y);
+        // A collapse hidden by the fog of war must not give itself away.
+        if (event.owner === LOCAL_PLAYER || isTileVisible(state, LOCAL_PLAYER, event.x, event.y)) {
+          this.shakeIfOnScreen(event.x, event.y);
+        }
         break;
       default:
         break;
@@ -298,7 +334,12 @@ export class GameScene extends Scene implements HudSource {
       getElapsedMs: () => this.elapsedTotal,
       getState: () => structuredClone(state),
       advance: (steps) => this.runSteps(state, steps),
-      spawnUnit: (type, owner, tileX, tileY) => createUnit(state, type, owner, tileX, tileY).id,
+      spawnUnit: (type, owner, tileX, tileY) => {
+        const unit = createUnit(state, type, owner, tileX, tileY);
+        // Let the new unit see at once, as it would after the next step.
+        updateVisibility(state);
+        return unit.id;
+      },
       getAlert: () => (this.scene.get('Ui') as UiScene).getAlertDisplay(),
       getOutcome: () => (this.scene.get('Ui') as UiScene).getOutcomeDisplay(),
       getShakeCount: () => this.shakeCount,

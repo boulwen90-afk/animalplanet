@@ -89,8 +89,15 @@ export class EntityView {
   /**
    * @param alpha How far into the next simulation step the frame is, from 0 to 1.
    * @param now Frame time in milliseconds, for effects that last a set time.
+   * @param isShown Whether the player can see an entity; hidden ones are not drawn.
    */
-  update(state: GameState, alpha: number, selected: ReadonlySet<number>, now: number): void {
+  update(
+    state: GameState,
+    alpha: number,
+    selected: ReadonlySet<number>,
+    now: number,
+    isShown: (entity: Entity) => boolean,
+  ): void {
     this.now = now;
     this.marks.clear();
     this.marks.lineStyle(2, SELECTION_COLOR, 1);
@@ -104,6 +111,13 @@ export class EntityView {
         sprite = this.createSprite(entity);
         this.sprites.set(entity.id, sprite);
       }
+      const shown = isShown(entity);
+      if (sprite.image.visible !== shown) {
+        sprite.image.setVisible(shown);
+        sprite.label?.setVisible(shown);
+      }
+      // Nothing more is drawn for an entity lost in the fog: no bars, flags or marks.
+      if (!shown) continue;
       this.updateFlash(entity.id, sprite);
       if (entity.kind === 'unit') {
         this.updateUnit(entity, sprite, alpha, selected.has(entity.id));
@@ -118,7 +132,7 @@ export class EntityView {
       this.flashUntil.delete(id);
       this.lunges.delete(id);
       sprite.label?.destroy();
-      if (sprite.kind === 'unit') {
+      if (sprite.kind === 'unit' && sprite.image.visible) {
         // A unit that went into a cave or vanished fades away where it stood.
         sprite.image.clearTint();
         this.fading.push({ image: sprite.image, since: now });

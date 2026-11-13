@@ -5,6 +5,7 @@ import { gatherResources } from './systems/gathering';
 import { moveUnits } from './systems/movement';
 import { produceUnits } from './systems/production';
 import { resolveSurrenders } from './systems/surrender';
+import { updateVisibility } from './systems/visibility';
 
 /**
  * Advances the game by one simulation step. The systems always run in the
@@ -19,6 +20,7 @@ export function tick(state: GameState): void {
   resolveCombat(state);
   resolveSurrenders(state);
   moveUnits(state);
+  updateVisibility(state);
   state.tick++;
 }
 

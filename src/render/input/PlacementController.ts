@@ -80,7 +80,7 @@ export class PlacementController {
       building,
       x: origin.x,
       y: origin.y,
-      valid: canPlaceBuilding(this.deps.getState(), building, origin.x, origin.y),
+      valid: canPlaceBuilding(this.deps.getState(), building, origin.x, origin.y, this.deps.player),
     };
     this.deps.view.update(this.placement);
   }
@@ -104,7 +104,8 @@ export class PlacementController {
 
     const origin = this.originAt(building, pointer);
     // On an invalid place a click does nothing; the outline is already red.
-    if (!canPlaceBuilding(this.deps.getState(), building, origin.x, origin.y)) return;
+    if (!canPlaceBuilding(this.deps.getState(), building, origin.x, origin.y, this.deps.player))
+      return;
     const result = this.deps.issue({
       type: 'build',
       player: this.deps.player,

@@ -87,12 +87,20 @@ export class MapView {
   /**
    * Removes the objects of tiles whose terrain has changed, such as trees and
    * berry bushes that have been emptied. The ground under them is already grass.
+   *
+   * `isExplored` says whether the player has seen a tile. Objects on unseen
+   * tiles are hidden altogether: they are taller than a tile and would
+   * otherwise stick up out of the fog.
    */
-  update(map: GameMap): void {
+  update(map: GameMap, isExplored: (index: number) => boolean): void {
     for (const [index, object] of this.objects) {
-      if (map.terrain[index] === object.terrain) continue;
-      object.image.destroy();
-      this.objects.delete(index);
+      if (map.terrain[index] !== object.terrain) {
+        object.image.destroy();
+        this.objects.delete(index);
+        continue;
+      }
+      const explored = isExplored(index);
+      if (object.image.visible !== explored) object.image.setVisible(explored);
     }
   }
 }

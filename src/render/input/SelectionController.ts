@@ -10,7 +10,7 @@ import {
   type Point,
   type TileSize,
 } from '../../sim/map/iso';
-import type { GameState, PlayerId } from '../../sim/state';
+import type { Entity, GameState, PlayerId } from '../../sim/state';
 import { isAttackable } from '../../sim/systems/combat';
 import type { SelectionView } from '../views/SelectionView';
 import { ATTACK_COLOR } from '../views/visuals';
@@ -27,6 +27,10 @@ import {
 
 export interface SelectionControllerDeps {
   getState(): GameState;
+  /** The units and buildings the player can see right now. Only these can be clicked or selected. */
+  getVisibleEntities(): Entity[];
+  /** True if the player has seen a tile at some point. */
+  isExplored(tileX: number, tileY: number): boolean;
   /** Sends a command to the simulation. */
   issue(command: Command): void;
   /** True if a screen position is covered by the interface rather than the map. */
@@ -83,7 +87,8 @@ export class SelectionController {
 
   /** Drops selected entities that no longer exist. Call once per frame. */
   update(): void {
-    this.selected = pruneSelection(this.selected, this.deps.getState().entities);
+    // An enemy that slips into the fog is deselected, like one that is gone.
+    this.selected = pruneSelection(this.selected, this.deps.getVisibleEntities());
   }
 
   private worldPoint(pointer: Input.Pointer): Point {
@@ -122,7 +127,7 @@ export class SelectionController {
     this.drag = undefined;
     this.deps.view.setDragBox(undefined);
 
-    const { entities } = this.deps.getState();
+    const entities = this.deps.getVisibleEntities();
     const { player, tileSize } = this.deps;
     const shift = (pointer.event as MouseEvent | undefined)?.shiftKey === true;
     const world = this.worldPoint(pointer);
@@ -149,10 +154,10 @@ export class SelectionController {
     if (unitIds.length === 0) return;
     const world = this.worldPoint(pointer);
 
-    const hit = pickEntity(state.entities, world, tileSize);
+    const hit = pickEntity(this.deps.getVisibleEntities(), world, tileSize);
 
     // An enemy unit or building: attack it.
-    if (hit && isAttackable(hit, player)) {
+    if (hit && isAttackable(state, hit, player)) {
       const attackers = attackerUnitIds(this.selected, state.entities, player);
       if (attackers.length > 0) {
         this.deps.issue({ type: 'attack', player, unitIds: attackers, targetId: hit.id });
@@ -175,9 +180,10 @@ export class SelectionController {
       }
     }
 
+    // A source the player has never seen is not drawn and cannot be picked.
     const source = pickResourceTile(state.map, world, tileSize);
     const gatherers = gathererUnitIds(this.selected, state.entities, player);
-    if (source && gatherers.length > 0) {
+    if (source && gatherers.length > 0 && this.deps.isExplored(source.x, source.y)) {
       this.deps.issue({ type: 'gather', player, unitIds: gatherers, x: source.x, y: source.y });
       this.markOrder(source);
       return;

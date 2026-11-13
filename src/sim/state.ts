@@ -64,10 +64,22 @@ export type SimEvent =
   | { type: 'buildingCollapsed'; buildingId: number; owner: PlayerId; x: number; y: number }
   | { type: 'buildingAttacked'; buildingId: number; owner: PlayerId };
 
-/** What a side owns apart from its units and buildings. */
+/** How much a side knows about a tile. See GDD section 9. */
+export const UNEXPLORED = 0;
+/** Seen before, but not right now: the terrain is known, what stands there is not. */
+export const EXPLORED = 1;
+/** Within sight of one of the side's units or buildings right now. */
+export const VISIBLE = 2;
+
+/** What a side owns and knows apart from its units and buildings. */
 export interface PlayerState {
   /** Resources in stock. Gathered resources count once they are delivered. */
   resources: Record<ResourceType, number>;
+  /**
+   * What the side knows about each tile: UNEXPLORED, EXPLORED or VISIBLE.
+   * Same indexing as the map's terrain.
+   */
+  visibility: number[];
 }
 
 export interface Unit {
@@ -131,6 +143,11 @@ export interface GameState {
   entities: Entity[];
   /** Id the next created entity gets. Ids are never reused. */
   nextEntityId: number;
+  /**
+   * Whether the fog of war is on. With it off, every side sees everything;
+   * unit tests of other things and ?fog=0 use that.
+   */
+  fogEnabled: boolean;
   /** The side that has won, once a main building has collapsed. The simulation then stops. */
   winner: PlayerId | null;
   /** What happened during the latest simulation step. Replaced every step. */
