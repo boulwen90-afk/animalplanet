@@ -77,12 +77,16 @@ describe('activityOf', () => {
 
 describe('activityOf for a worker', () => {
   const worker = () => createUnit(openState(8, 8), 'samlare', 0, 2, 2);
-  const gathering = (phase: 'toSource' | 'gathering' | 'toDropoff') => {
+  const gathering = (
+    phase: 'toSource' | 'gathering' | 'toDropoff',
+    resource: 'wood' | 'food' = 'wood',
+  ) => {
     const unit = worker();
     unit.task = {
       kind: 'gather',
-      resource: 'wood',
+      resource,
       node: { x: 3, y: 2 },
+      place: { x: 2, y: 2 },
       phase,
       workTicks: 0,
       dropoffId: null,
@@ -90,16 +94,21 @@ describe('activityOf for a worker', () => {
     return unit;
   };
 
-  it('is gather while it works a source, and not on the way there or back', () => {
-    expect(activityOf(gathering('gathering'))).toBe('gather');
+  it('chops while it works a tree, and not on the way there or back', () => {
+    expect(activityOf(gathering('gathering'))).toBe('chop');
     expect(activityOf(gathering('toSource'))).toBe('idle');
     expect(activityOf(gathering('toDropoff'))).toBe('idle');
+  });
+
+  it('picks while it works a berry bush', () => {
+    expect(activityOf(gathering('gathering', 'food'))).toBe('pick');
+    expect(activityOf(gathering('toSource', 'food'))).toBe('idle');
   });
 
   it('goes on working when a neighbour nudges it aside', () => {
     const nudged = gathering('gathering');
     nudged.prevX = nudged.x - 0.02;
-    expect(activityOf(nudged)).toBe('gather');
+    expect(activityOf(nudged)).toBe('chop');
   });
 
   it('is walk on the way to a source', () => {
@@ -108,10 +117,10 @@ describe('activityOf for a worker', () => {
     expect(activityOf(walking)).toBe('walk');
   });
 
-  it('is gather while it raises a building, once it has arrived', () => {
+  it('hammers while it raises a building, once it has arrived', () => {
     const builder = worker();
     builder.task = { kind: 'build', buildingId: 7 };
-    expect(activityOf(builder)).toBe('gather');
+    expect(activityOf(builder)).toBe('hammer');
     builder.path = [{ x: 4, y: 2 }];
     builder.prevX = builder.x - 0.1;
     expect(activityOf(builder)).toBe('walk');
@@ -138,22 +147,31 @@ describe('progressFrame', () => {
 
 describe('animationFor', () => {
   const info: AnimationInfo = { frames: 8, fps: 8, loop: true };
-  const warrior: CharacterAnimations = { idle: info, walk: info, defeat: info, attack: info };
-  const worker: CharacterAnimations = { idle: info, walk: info, defeat: info, gather: info };
+  const basic = { idle: info, walk: info, defeat: info };
+  const warrior: CharacterAnimations = { ...basic, attack: info };
+  const worker: CharacterAnimations = { ...basic, chop: info, pick: info, hammer: info };
 
   it('is the animation of the activity when the character has it', () => {
     expect(animationFor(warrior, 'attack')).toBe('attack');
-    expect(animationFor(worker, 'gather')).toBe('gather');
+    expect(animationFor(worker, 'chop')).toBe('chop');
+    expect(animationFor(worker, 'pick')).toBe('pick');
+    expect(animationFor(worker, 'hammer')).toBe('hammer');
     expect(animationFor(worker, 'walk')).toBe('walk');
   });
 
-  it('lets a worker strike with its tool: it has no attack of its own', () => {
-    expect(animationFor(worker, 'attack')).toBe('gather');
+  it('lets a worker strike with its axe: it has no attack of its own', () => {
+    expect(animationFor(worker, 'attack')).toBe('chop');
+  });
+
+  it('lets a character with only the axe swing use it for all work', () => {
+    const chopper: CharacterAnimations = { ...basic, chop: info };
+    expect(animationFor(chopper, 'pick')).toBe('chop');
+    expect(animationFor(chopper, 'hammer')).toBe('chop');
   });
 
   it('falls back on standing when a character has neither', () => {
-    expect(animationFor({ idle: info, walk: info, defeat: info }, 'attack')).toBe('idle');
-    expect(animationFor({ idle: info, walk: info, defeat: info }, 'gather')).toBe('idle');
+    expect(animationFor(basic, 'attack')).toBe('idle');
+    expect(animationFor(basic, 'pick')).toBe('idle');
   });
 });
 

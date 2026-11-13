@@ -240,7 +240,7 @@ test.describe('characters: the bear worker', () => {
     expect(errors).toEqual([]);
   });
 
-  test('a worker sent to a tree runs there and then swings its tool at it', async ({ page }) => {
+  test('a worker sent to a tree runs there and then chops at it with its axe', async ({ page }) => {
     const errors = trackConsoleErrors(page);
     await openGame(page, '&ai=0&fog=0');
     const state = await getState(page);
@@ -282,16 +282,71 @@ test.describe('characters: the bear worker', () => {
     const facing = towards(there, { x: tree.x + 0.5, y: tree.y + 0.5 });
     await expect
       .poll(() => sprite(page, worker.id))
-      .toMatchObject({ animation: 'gather', direction: facing });
-    expect((await sprite(page, worker.id))!.frame).toMatch(/^gather_[a-z]+_\d$/);
+      .toMatchObject({ animation: 'chop', direction: facing });
+    expect((await sprite(page, worker.id))!.frame).toMatch(/^chop_[a-z]+_\d$/);
 
-    // With a full load it runs back with it.
-    await advance(page, 220);
+    // Its basket is empty until the first piece of wood is in it, and then shown filled.
+    const carried = (await unitOf(page, worker.id)).carryAmount;
+    if (carried === 0) expect((await sprite(page, worker.id))!.load).toBeNull();
+    await advance(page, 30);
     await expect.poll(async () => (await unitOf(page, worker.id)).carryAmount).toBeGreaterThan(0);
+    await expect
+      .poll(async () => (await sprite(page, worker.id))!.load)
+      .toMatch(/^load_wood\.chop_[a-z]+_\d$/);
+
+    // With a full load it runs home, the basket still filled, and comes back with it empty.
+    const delivered = await page.evaluate((id) => {
+      const t = window.__TEST__!;
+      const seen: string[] = [];
+      for (let step = 0; step < 1200; step++) {
+        t.advance(1);
+        const unit = t.getState().entities.find((e) => e.id === id);
+        if (unit?.kind !== 'unit' || unit.task.kind !== 'gather') return seen;
+        if (unit.task.phase === 'toDropoff' && !seen.includes('home')) seen.push('home');
+        if (seen.includes('home') && unit.carryAmount === 0) return [...seen, 'emptied'];
+      }
+      return seen;
+    }, worker.id);
+    expect(delivered).toEqual(['home', 'emptied']);
+    await expect.poll(async () => (await sprite(page, worker.id))!.load).toBeNull();
     expect(errors).toEqual([]);
   });
 
-  test('a worker that raises a building swings its tool facing the site', async ({ page }) => {
+  test('a worker at a berry bush picks, and its basket fills with berries', async ({ page }) => {
+    await openGame(page, '&ai=0&fog=0');
+    const state = await getState(page);
+    const worker = state.entities.find(
+      (e): e is Unit => e.kind === 'unit' && e.type === 'samlare' && e.owner === 0,
+    )!;
+    const { width, terrain } = state.map;
+    let bush = { x: 0, y: 0 };
+    let nearest = Infinity;
+    terrain.forEach((kind, index) => {
+      if (kind !== 'berries') return;
+      const at = { x: index % width, y: Math.floor(index / width) };
+      const distance = Math.hypot(at.x - worker.x, at.y - worker.y);
+      if (distance < nearest) [bush, nearest] = [at, distance];
+    });
+    await lookAt(page, bush.x, bush.y);
+    await page.evaluate(
+      ([id, x, y]) => window.__TEST__!.command({ type: 'gather', player: 0, unitIds: [id], x, y }),
+      [worker.id, bush.x, bush.y] as const,
+    );
+    const working = await page.evaluate((id) => {
+      const t = window.__TEST__!;
+      for (let step = 0; step < 1200; step++) {
+        t.advance(1);
+        const unit = t.getState().entities.find((e) => e.id === id);
+        if (unit?.kind === 'unit' && unit.carryAmount >= 2) return true;
+      }
+      return false;
+    }, worker.id);
+    expect(working).toBe(true);
+    await expect.poll(() => sprite(page, worker.id)).toMatchObject({ animation: 'pick' });
+    expect((await sprite(page, worker.id))!.load).toMatch(/^load_food\.pick_[a-z]+_\d$/);
+  });
+
+  test('a worker that raises a building hammers, facing the site', async ({ page }) => {
     await openGame(page, '&ai=0&fog=0');
     const row = freeRow(await getState(page), 6);
     await lookAt(page, row.x + 3, row.y);
@@ -310,14 +365,14 @@ test.describe('characters: the bear worker', () => {
     );
     expect(result.ok).toBe(true);
 
-    await expect.poll(() => sprite(page, id)).toMatchObject({ animation: 'gather' });
+    await expect.poll(() => sprite(page, id)).toMatchObject({ animation: 'hammer' });
     const builder = await unitOf(page, id);
     const side = BUILDING_DEFS.visthus.size;
     const centre = { x: row.x + 3 + side / 2, y: row.y + side / 2 };
     expect((await sprite(page, id))!.direction).toBe(towards(builder, centre));
   });
 
-  test('a worker ordered to fight strikes with its tool, facing its target', async ({ page }) => {
+  test('a worker ordered to fight strikes with its axe, facing its target', async ({ page }) => {
     const errors = trackConsoleErrors(page);
     await openGame(page, '&ai=0&fog=0');
     const row = freeRow(await getState(page), 4);
@@ -329,10 +384,78 @@ test.describe('characters: the bear worker', () => {
         window.__TEST__!.command({ type: 'attack', player: 0, unitIds: [unitId], targetId }),
       [blue, red] as const,
     );
-    // It has no attack animation of its own, so it shows the swing it works with.
+    // It has no attack animation of its own, so it shows the swing it chops with.
     await expect
       .poll(() => sprite(page, blue))
-      .toMatchObject({ animation: 'gather', direction: 'se' });
+      .toMatchObject({ animation: 'chop', direction: 'se' });
     expect(errors).toEqual([]);
+  });
+});
+
+test.describe('work places', () => {
+  test('six workers sent to one tree: four work it from a place each, two go to the next tree', async ({
+    page,
+  }) => {
+    await openGame(page, '&ai=0&fog=0');
+    const state = await getState(page);
+    const home = state.entities.find((e) => e.kind === 'building' && e.owner === 0)!;
+    const { width, height, terrain } = state.map;
+    const at = (x: number, y: number) =>
+      x >= 0 && y >= 0 && x < width && y < height ? terrain[y * width + x] : 'water';
+    // The nearest tree with open ground on at least four of the eight tiles around it.
+    let tree: { x: number; y: number } | undefined;
+    let nearest = Infinity;
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (at(x, y) !== 'tree') continue;
+        let open = 0;
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) if (at(x + dx, y + dy) === 'grass') open++;
+        }
+        const distance = Math.hypot(x - home.x, y - home.y);
+        if (open >= 4 && distance < nearest) [tree, nearest] = [{ x, y }, distance];
+      }
+    }
+    expect(tree, 'a tree with four open tiles around it').toBeDefined();
+    await lookAt(page, tree!.x, tree!.y);
+
+    const starters = state.entities
+      .filter((e): e is Unit => e.kind === 'unit' && e.type === 'samlare' && e.owner === 0)
+      .map((w) => w.id);
+    const first = state.entities.find((e) => e.id === starters[0]) as Unit;
+    const ids = [...starters];
+    for (let i = 0; ids.length < 6; i++) {
+      ids.push(await spawnWorker(page, 0, Math.floor(first.x) + 2 + i, Math.floor(first.y) + 2));
+    }
+    await page.evaluate(
+      ([unitIds, x, y]) =>
+        window.__TEST__!.command({ type: 'gather', player: 0, unitIds: [...unitIds], x, y }),
+      [ids, tree!.x, tree!.y] as const,
+    );
+    const tasks = async () =>
+      (await getState(page)).entities
+        .filter((e): e is Unit => e.kind === 'unit' && ids.includes(e.id))
+        .map((unit) => (unit.task.kind === 'gather' ? unit.task : undefined));
+    const here = (await tasks()).filter((t) => t?.node.x === tree!.x && t?.node.y === tree!.y);
+    expect(here).toHaveLength(4);
+    expect((await tasks()).every((t) => t !== undefined)).toBe(true);
+
+    // Step until the four are at work, and check that they stand on a place each, next to the tree.
+    await page.evaluate(() => window.__TEST__!.advance(200));
+    const working = (await getState(page)).entities.filter(
+      (e): e is Unit =>
+        e.kind === 'unit' &&
+        ids.includes(e.id) &&
+        e.task.kind === 'gather' &&
+        e.task.node.x === tree!.x &&
+        e.task.node.y === tree!.y &&
+        (e.task.phase === 'gathering' || e.carryAmount > 0),
+    );
+    expect(working).toHaveLength(4);
+    const places = working.map((u) => (u.task.kind === 'gather' ? u.task.place : null));
+    expect(new Set(places.map((p) => `${p!.x},${p!.y}`)).size).toBe(4);
+    for (const place of places) {
+      expect(Math.max(Math.abs(place!.x - tree!.x), Math.abs(place!.y - tree!.y))).toBe(1);
+    }
   });
 });

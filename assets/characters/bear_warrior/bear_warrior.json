@@ -5967,8 +5967,14 @@
   "figure": {
    "sizeClass": "warrior",
    "height": 35.2,
-   "scale": 0.7855
+   "scale": 0.7855,
+   "speed": 2.2
   },
+  "loopsPerSecondRange": [
+   1.8,
+   3.0
+  ],
+  "layers": [],
   "neutral": "#bcbcbc",
   "directions": [
    "s",
@@ -5990,7 +5996,8 @@
     "frames": 8,
     "fps": 16.0,
     "loop": true,
-    "distance": 0.7882
+    "distance": 0.7882,
+    "loopsPerSecond": 2.791
    },
    "attack": {
     "frames": 10,

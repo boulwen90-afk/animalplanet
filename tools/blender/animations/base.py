@@ -25,6 +25,10 @@ class Context:
     stance: Pose           # the unit's standing pose, complete
     proportions: dict      # the race's lengths
     rest: Skeleton         # the figure standing in its stance
+    # For animations of moving along the ground: the share of a loop that each
+    # foot is on the ground, fitted to the unit's speed (see walk.ground_share).
+    # None gives the gait its natural pace.
+    ground_share: float | None = None
 
 
 @dataclass(frozen=True)

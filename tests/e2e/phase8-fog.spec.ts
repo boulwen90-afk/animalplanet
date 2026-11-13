@@ -176,29 +176,28 @@ test.describe('phase 8: fog of war', () => {
     // tell: with the fog on, far less of the screen shows the green ground.
     // The start screen dims the map. Its button sits in the same place in and
     // out of test mode, so test mode can say where to press.
+    // Three page loads with pictures to analyse: give it three times the usual time.
+    test.slow();
     await openGame(page, '', { startScreen: true });
     const start = (await page.evaluate(() => window.__TEST__!.getStartScreen())).button;
 
-    const greenShare = async (url: string): Promise<number> => {
-      await page.goto(url);
-      await expect(page.locator('#game canvas')).toBeVisible();
-      await page.waitForTimeout(400);
-      await page.mouse.click(start.x, start.y);
-      await page.waitForTimeout(800);
+    /** The share of the screen that shows the bright grass green of ground in sight. */
+    const greenNow = async (): Promise<number> => {
       const shot = await page.screenshot();
       return page.evaluate(async (base64) => {
         const image = new Image();
         image.src = `data:image/png;base64,${base64}`;
         await image.decode();
+        // A quarter of the size in each direction is plenty to tell grass from fog,
+        // and keeps the count quick when the browser is slowed down.
         const canvas = document.createElement('canvas');
-        canvas.width = image.width;
-        canvas.height = image.height;
+        canvas.width = Math.round(image.width / 4);
+        canvas.height = Math.round(image.height / 4);
         const context = canvas.getContext('2d')!;
-        context.drawImage(image, 0, 0);
+        context.drawImage(image, 0, 0, canvas.width, canvas.height);
         const { data } = context.getImageData(0, 0, canvas.width, canvas.height);
         let green = 0;
         for (let i = 0; i < data.length; i += 4) {
-          // The bright grass green of ground in sight.
           if (
             data[i + 1]! > 120 &&
             data[i + 1]! > data[i]! + 30 &&
@@ -209,6 +208,26 @@ test.describe('phase 8: fog of war', () => {
         }
         return green / (data.length / 4);
       }, shot.toString('base64'));
+    };
+
+    const greenShare = async (url: string): Promise<number> => {
+      await page.goto(url);
+      await expect(page.locator('#game canvas')).toBeVisible();
+      // Outside test mode nothing says when the loading is done, and the
+      // loading screen ignores presses. So press "start" until the picture
+      // shows the map undimmed: neither the loading screen nor the start
+      // screen has any bright green.
+      await expect
+        .poll(
+          async () => {
+            await page.mouse.click(start.x, start.y);
+            return greenNow();
+          },
+          { timeout: 30_000 },
+        )
+        .toBeGreaterThan(0.01);
+      // The map was drawn before the start screen went away, so the picture is complete.
+      return greenNow();
     };
 
     const withoutFog = await greenShare('./?test=1&fog=0');

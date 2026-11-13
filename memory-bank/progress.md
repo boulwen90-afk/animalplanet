@@ -6,13 +6,16 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
 - **Pågår:** riktig figurgrafik, byggd med kod i Blender. Båda
-  enhetstyperna ritas nu som figurer: björnkrigaren (Ramkrigaren) och
-  björnarbetaren (Samlaren). Arbetet väntar på att användaren ser
-  skärmdumparna av Samlaren. Se "Efter MVP:n" nedan
+  enhetstyperna ritas som figurer: björnkrigaren (Ramkrigaren) och
+  björnarbetaren (Samlaren). Sex förbättringar av Samlaren och grunden är
+  gjorda och väntar på att användaren ser skärmdumparna. Se "Efter MVP:n"
+- **Väntar på användaren:** uppdraget "bygg resten av figurerna" har tre
+  punkter med stopp efter varje. Punkt 1 (björnarbetaren) är klar. Punkt 2
+  (byggnader) och 3 (tigrar) är inte påbörjade
 - **Beslutat men inte påbörjat:** skarp rendering i skärmens verkliga
   upplösning. Den står som egen punkt sist i `implementation-plan.md`
-- **Tänkbara nästa steg:** byggnader enligt storleksstandarden, och träd,
-  bärsnår och klippor i samma stil
+- **Mäta på telefon:** `?debug=1` visar bilder per sekund, och
+  `?stress=120` startar en match med 120 extra Samlare
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -816,6 +819,88 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Samlaren och grunden: sex förbättringar (2026-11-13)
+
+Användaren bad om sex ändringar i den gemensamma pipelinen och spelkoden,
+så att framtida figurer får samma lösning. Arbetet ligger i samma pull
+request som figurerna.
+
+**Skärmdumpar:** `docs/screenshots/arbetsplatser.png` (fyra Samlare runt
+ett träd, fyra runt ett bärsnår, två som hamrar på ett Visthus),
+`korg-tom-full.png` (Samlare på väg hem med full korg och ut med tom),
+`arbetsplatser-narbild.png` och `korg-tom-full-narbild.png` (utsnitt av
+de två, förstorade två gånger), `laddning.png` (laddningsstapeln) och
+`stress-120.png` (`?stress=120` på en skärm i telefonstorlek). Korgens
+utseende i stor bild: `assets/previews/bear_worker/layers.png`.
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| 1. Stegfrekvens: högst ca 3 steg per sekund, genom längre steg; regel i pipelinen från fart och benlängd | Klar | Takten hålls inom 1,8–3,0 varv per sekund (`[gait]` i `game.toml`, `walk.ground_share`). Samlaren gick 3,79 och går nu 3,00 med 26 % längre steg. Ramkrigaren (2,79) är oförändrad. Se "Tolkning" nedan |
+| 2. Korgen syns fylld vid last; ta bort fyrkanten | Klar | Ett lager per resurs i spritearket (`load_wood`, `load_food`), ritat ovanpå figuren. Fyrkanten är borta för figurer |
+| 3. Yxhugg för trä, plock för bärsnår, hammarslag för byggen, kopplat till uppgiften | Klar | `chop`, `pick` och `hammer`. Tabellen `GATHER_ACTIVITY` i spelkoden kopplar resurs till animation |
+| 4. Upp till 4 fasta arbetsplatser per källa; ledig plats väljs, ingen överlappar; fulla källor skickar vidare till närmaste liknande | Klar | I simuleringen (`GatherTask.place`, `workPlaces`). Se "Avviker" om vad som händer när ingen plats finns |
+| 5. Laddningsstapel med procent innan startskärmen | Klar | Dessutom texten "Laddar …" i sidan medan spelets kod hämtas |
+| 6. `?debug=1` ger fps-räknare; `?stress=120` startar med 120 Samlare | Klar | Båda fungerar utan `?test=1`. Stress slår på räknaren och sätter Samlarna i arbete |
+| Tester gröna, inga konsolfel | Klar | Se "Testresultat" |
+| Skärmdumpar: tom och full korg, flera Samlare runt samma träd, laddningsstapeln | Klar | Tagna och granskade |
+| Uppdatera progress.md | Klar | |
+
+**Tolkning: "3 steg per sekund".** I förra rapporten stod att Samlaren
+gick 3,8 *varv* per sekund mot Ramkrigarens 2,8, där ett varv är ett steg
+med vardera foten. Gränsen är satt till 3,0 i samma mått, eftersom
+Ramkrigarens gång på 2,8 var godkänd. Räknat som enskilda fotnedsättningar
+är det 6 per sekund. Om användaren menade 3 fotnedsättningar ändras ett
+tal (`loops_per_second` till `[0.9, 1.5]`) och figurerna byggs om, men då
+svävar båda figurerna i långa språng mellan stegen.
+
+**Saknas eller avviker**
+
+- **Samlare utan ledig plats står kvar.** Finns ingen källa av rätt slag
+  med ledig plats inom 8 rutor får enheten ingen uppgift. Den väntar inte
+  på en plats och söker inte längre bort. Syns tydligt med `?stress=120`.
+- **Arbetsplatserna ändrar spelet.** Högst fyra Samlare per källa, och en
+  Samlare som stod snett intill en källa måste nu gå en ruta till en
+  plats. Balanstesterna (dator mot dator, sex frön) går igenom utan
+  ändrade värden. Balansen mot en mänsklig spelare är inte speltestad.
+- **Yxan försvinner när Samlaren plockar bär** och byts mot en hammare
+  vid byggen. Den hängs inte i bältet.
+- **Korgen är antingen tom eller full.** Den fylls inte gradvis: en enhet
+  i lasten räcker för full korg.
+- **Farten finns på två ställen**: `src/data/units.ts` och enhetens
+  konfig i pipelinen. Ett enhetstest jämför dem.
+- **Laddningsstapeln visar andelen filer, inte byte.** Med sex filer
+  hoppar den i steg om cirka 17 %.
+- **"Laddar …" i `index.html`** ligger utanför `strings.ts`, eftersom
+  texten måste finnas innan koden har laddats.
+- **Atlasen växte.** Samlarens atlas är 1,6 MB (1032 bilder med lagren),
+  mot 1,0 MB. Båda figurerna är 3,4 MB att ladda.
+- **Gemensam kod ändrad:** `animations/walk.py` (steglängd efter fart),
+  `animations/gather.py` heter nu `chop.py`, `lib/weapons.py` (namngrupp
+  och hammare), `lib/figure.py` (extra verktyg), `lib/export.py`
+  (lagerpass), `build.py` (verktyg per animation, lager, stegfrekvens).
+  Björnkrigarens bilder är oförändrade bit för bit; bara metadatan fick
+  fart och takt.
+
+**Testresultat**
+
+- Vitest: 478 av 478 (19 nya: arbetsplatser, stresstart, stegfrekvens och
+  lager i atlasen, laddningsstapelns mått, de nya arbetsanimationerna)
+- Playwright: 104 av 104 (6 nya), även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+- Björnkrigarens atlasbilder är identiska med förra bygget (kontrollsummor).
+- Prestanda, huvudlös Chromium utan grafikkort: 32–37 bilder/s med
+  `?stress=120` på en skärm om 844×390 punkter. Inte mätt på telefon; det
+  är det räknaren är till för.
+
+**Ett äldre test rättat.** Fas 8-testet "`?fog=0` har ingen verkan utanför
+testläge" väntade fasta 400 ms och tryckte sedan på "Starta". Med
+nedbromsad webbläsare hinner laddningen inte bli klar på den tiden, och
+laddningsskärmen tar inte emot tryck. Spelet gjorde rätt; testet antog en
+klocktid. Det trycker nu tills bilden visar kartan, och räknar på en
+nedskalad bild.
 
 ### Figurgrafik: björnarbetaren, Samlarens figur (2026-11-13)
 

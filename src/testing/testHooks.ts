@@ -6,6 +6,8 @@ import type {
   HudDisplay,
   OutcomeDisplay,
   ResourceBarDisplay,
+  DebugDisplay,
+  LoadingDisplay,
   StartScreenDisplay,
 } from '../render/scenes/UiScene';
 import type { UnitSpriteInfo } from '../render/views/EntityView';
@@ -41,6 +43,7 @@ export interface TestApiSource {
   getAlert(): string;
   getOutcome(): OutcomeDisplay;
   getStartScreen(): StartScreenDisplay;
+  getDebug(): DebugDisplay;
   getHudButtons(): HudButtonDisplay[];
   getTouchMode(): TouchMode | 'none';
   getShakeCount(): number;
@@ -84,6 +87,7 @@ export interface TestApi {
   getOutcome(): OutcomeDisplay;
   /** The start screen: whether it shows, its title and text, and where its button is. */
   getStartScreen(): StartScreenDisplay;
+  getDebug(): DebugDisplay;
   /** The buttons under the resource bar, with the screen position and size of each. */
   getHudButtons(): HudButtonDisplay[];
   /**
@@ -129,7 +133,14 @@ export interface TestApi {
 declare global {
   interface Window {
     __TEST__?: TestApi;
+    /** What the loading bar shows. Available in test mode from the start, before the game is built. */
+    __TEST_LOADING__?: () => LoadingDisplay;
   }
+}
+
+/** Lets tests read the loading bar while the game's files are still coming in. */
+export function installLoadingProbe(read: () => LoadingDisplay): void {
+  window.__TEST_LOADING__ = read;
 }
 
 export function installTestApi(source: TestApiSource): TestApi {
@@ -147,6 +158,7 @@ export function installTestApi(source: TestApiSource): TestApi {
     getAlert: () => source.getAlert(),
     getOutcome: () => source.getOutcome(),
     getStartScreen: () => source.getStartScreen(),
+    getDebug: () => source.getDebug(),
     getHudButtons: () => source.getHudButtons(),
     getTouchMode: () => source.getTouchMode(),
     getShakeCount: () => source.getShakeCount(),

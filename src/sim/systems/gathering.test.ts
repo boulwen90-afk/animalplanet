@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RESOURCE_DEFS } from '../../data/resources';
+import { GATHER_CONFIG, RESOURCE_DEFS } from '../../data/resources';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
@@ -16,6 +16,9 @@ const CAPACITY = UNIT_DEFS.samlare.carryCapacity;
 const TICKS_PER_UNIT = SIM_CONFIG.ticksPerSecond / UNIT_DEFS.samlare.gatherRate;
 /** Steps to fill up when standing next to the source. */
 const TICKS_TO_FILL = CAPACITY * TICKS_PER_UNIT;
+
+/** Steps a Samlare needs, at most, to walk to the next tile. */
+const WALK_ONE_TILE = Math.ceil(SIM_CONFIG.ticksPerSecond / UNIT_DEFS.samlare.speed) + 2;
 
 const START_FOOD = START_CONFIG.resources.food;
 const START_WOOD = START_CONFIG.resources.wood;
@@ -300,27 +303,29 @@ describe('the gather command', () => {
   it('drops a load of another kind when switching resource', () => {
     const state = stateFromRows(['.......', '....T..', '.......', '....B..', '.......']);
     createBuilding(state, 'storide', 0, 0, 1);
-    const worker = createUnit(state, 'samlare', 0, 3, 2);
+    // Between the two sources, on a work place of both.
+    const worker = createUnit(state, 'samlare', 0, 4, 2);
     gather(state, worker, 4, 1);
     advance(state, 4 * TICKS_PER_UNIT);
     expect([worker.carryType, worker.carryAmount]).toEqual(['wood', 4]);
 
     gather(state, worker, 4, 3);
     expect([worker.carryType, worker.carryAmount]).toEqual(['food', 0]);
-    advance(state, TICKS_TO_FILL);
+    // It fills up where it stands, then walks one tile to the Storide.
+    advance(state, TICKS_TO_FILL + WALK_ONE_TILE);
     expect(state.players[0]!.resources).toEqual({ food: START_FOOD + CAPACITY, wood: START_WOOD });
   });
 
   it('keeps a load of the same kind when sent to another source', () => {
     const state = stateFromRows(['.......', '....B..', '.......', '....B..', '.......']);
     createBuilding(state, 'storide', 0, 0, 1);
-    const worker = createUnit(state, 'samlare', 0, 3, 2);
+    const worker = createUnit(state, 'samlare', 0, 4, 2);
     gather(state, worker, 4, 1);
     advance(state, 4 * TICKS_PER_UNIT);
     gather(state, worker, 4, 3);
     expect(worker.carryAmount).toBe(4);
-    // Six more units fill the load.
-    advance(state, 6 * TICKS_PER_UNIT);
+    // Six more units fill the load, and one tile's walk brings it to the Storide.
+    advance(state, 6 * TICKS_PER_UNIT + WALK_ONE_TILE);
     expect(state.players[0]!.resources.food).toBe(START_FOOD + CAPACITY);
   });
 
@@ -427,5 +432,140 @@ describe('gathering in a real game', () => {
       return state;
     };
     expect(run()).toEqual(run());
+  });
+});
+
+describe('work places around a source', () => {
+  const PLACES = GATHER_CONFIG.placesPerSource;
+  const workers = (state: GameState) =>
+    state.entities.filter((e): e is Unit => e.kind === 'unit' && e.type === 'samlare');
+  const tileKey = (unit: Unit) => `${unitTile(unit).x},${unitTile(unit).y}`;
+  const nodeOf = (unit: Unit) => (unit.task.kind === 'gather' ? unit.task.node : undefined);
+  const placeOf = (unit: Unit) => (unit.task.kind === 'gather' ? unit.task.place : undefined);
+
+  /** Two lone trees eight tiles apart, a Storide far below them, and `count` workers in a row. */
+  function twoTrees(count: number) {
+    const rows = Array.from({ length: 14 }, () => '.'.repeat(16));
+    rows[3] = '...T.......T....';
+    const state = stateFromRows(rows);
+    createBuilding(state, 'storide', 0, 6, 9);
+    const units = Array.from({ length: count }, (_, i) =>
+      createUnit(state, 'samlare', 0, 1 + i, 6),
+    );
+    return { state, units };
+  }
+
+  it('has four places: the tiles that share a side with the source', () => {
+    const { state, units } = twoTrees(4);
+    applyCommand(state, {
+      type: 'gather',
+      player: 0,
+      unitIds: units.map((u) => u.id),
+      x: 3,
+      y: 3,
+    });
+    advance(state, 60);
+    expect(units.map(tileKey).sort()).toEqual(['2,3', '3,2', '3,4', '4,3']);
+    for (const unit of units) {
+      expect(unit.task).toMatchObject({ kind: 'gather', phase: 'gathering', node: { x: 3, y: 3 } });
+    }
+  });
+
+  it('sends the workers that find no place to the nearest source of the same kind', () => {
+    const { state, units } = twoTrees(6);
+    applyCommand(state, {
+      type: 'gather',
+      player: 0,
+      unitIds: units.map((u) => u.id),
+      x: 3,
+      y: 3,
+    });
+    const first = units.filter((u) => nodeOf(u)?.x === 3);
+    const second = units.filter((u) => nodeOf(u)?.x === 11);
+    expect(first).toHaveLength(PLACES);
+    expect(second).toHaveLength(2);
+    advance(state, 120);
+    // Every worker stands on a tile of its own.
+    expect(new Set(units.map(tileKey)).size).toBe(units.length);
+    for (const unit of units) expect(unit.task).toMatchObject({ phase: 'gathering' });
+  });
+
+  it('never lets two workers hold the same place, through a whole match of work', () => {
+    const { state, units } = twoTrees(8);
+    applyCommand(state, {
+      type: 'gather',
+      player: 0,
+      unitIds: units.map((u) => u.id),
+      x: 3,
+      y: 3,
+    });
+    for (let step = 0; step < 2400; step++) {
+      tick(state);
+      const held = workers(state)
+        .map(placeOf)
+        .filter((place): place is { x: number; y: number } => !!place)
+        .map((place) => `${place.x},${place.y}`);
+      expect(new Set(held).size, `step ${step}`).toBe(held.length);
+      // Nobody works anywhere but on the place it holds.
+      for (const unit of units) {
+        if (unit.task.kind === 'gather' && unit.task.phase === 'gathering') {
+          expect(tileKey(unit)).toBe(`${unit.task.place!.x},${unit.task.place!.y}`);
+        }
+      }
+    }
+    expect(state.players[0]!.resources.wood).toBeGreaterThan(START_WOOD);
+  });
+
+  it('keeps its place while it carries a load home, and returns to it', () => {
+    const { state, units } = twoTrees(1);
+    const [worker] = units;
+    gather(state, worker!, 3, 3);
+    advance(state, 60);
+    const place = { ...placeOf(worker!)! };
+    // Until it has delivered once.
+    for (let step = 0; step < 1200 && state.players[0]!.resources.wood === START_WOOD; step++) {
+      tick(state);
+      expect(placeOf(worker!)).toEqual(place);
+    }
+    expect(state.players[0]!.resources.wood).toBe(START_WOOD + CAPACITY);
+    advance(state, 200);
+    expect(worker!.task).toMatchObject({ phase: 'gathering' });
+    expect(unitTile(worker!)).toEqual(place);
+  });
+
+  it('gives a source by other trees only as many places as it has open tiles', () => {
+    // The middle tree of a row has two open sides; its corners are open too.
+    const state = stateFromRows(['.......', '.......', '..TTT..', '.......', '.......', '.......']);
+    createBuilding(state, 'storide', 0, 0, 3);
+    const units = [0, 1, 2, 3, 4].map((i) => createUnit(state, 'samlare', 0, 6, 1 + i));
+    applyCommand(state, {
+      type: 'gather',
+      player: 0,
+      unitIds: units.map((u) => u.id),
+      x: 3,
+      y: 2,
+    });
+    const onMiddle = units.filter((u) => nodeOf(u)?.x === 3);
+    expect(onMiddle).toHaveLength(PLACES);
+    // Above, below, and the two corners that come first in the fixed order.
+    expect(onMiddle.map((u) => `${placeOf(u)!.x},${placeOf(u)!.y}`).sort()).toEqual([
+      '3,1',
+      '3,3',
+      '4,1',
+      '4,3',
+    ]);
+    expect(units.filter((u) => nodeOf(u)?.x !== 3)).toHaveLength(1);
+  });
+
+  it('frees the place when the worker is given another order', () => {
+    const { state, units } = twoTrees(5);
+    const ids = units.map((u) => u.id);
+    applyCommand(state, { type: 'gather', player: 0, unitIds: ids, x: 3, y: 3 });
+    const away = units.find((u) => nodeOf(u)?.x === 11)!;
+    const leaver = units.find((u) => nodeOf(u)?.x === 3)!;
+    applyCommand(state, { type: 'move', player: 0, unitIds: [leaver.id], x: 8, y: 8 });
+    // The one that was turned away now finds room at the first tree.
+    gather(state, away, 3, 3);
+    expect(nodeOf(away)).toEqual({ x: 3, y: 3 });
   });
 });

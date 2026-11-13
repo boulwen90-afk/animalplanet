@@ -1,3 +1,4 @@
+import type { ResourceType } from '../../data/resources';
 import type { Unit } from '../../sim/state';
 
 /**
@@ -14,14 +15,10 @@ import type { Unit } from '../../sim/state';
 export const DIRECTIONS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
 export type Direction = (typeof DIRECTIONS)[number];
 
-export type CharacterAnimation = 'idle' | 'walk' | 'attack' | 'gather' | 'defeat';
-
-/** What a character has pictures of. Every character can stand, walk and give up. */
-export type CharacterAnimations = Record<'idle' | 'walk' | 'defeat', AnimationInfo> &
-  Partial<Record<'attack' | 'gather', AnimationInfo>>;
+export type CharacterAnimation = 'idle' | 'walk' | 'attack' | 'chop' | 'pick' | 'hammer' | 'defeat';
 
 /** What a unit is doing, as far as its animation goes. */
-export type Activity = 'idle' | 'walk' | 'attack' | 'gather';
+export type Activity = Exclude<CharacterAnimation, 'defeat'>;
 
 /** What the atlas says about an animation. */
 export interface AnimationInfo {
@@ -33,7 +30,19 @@ export interface AnimationInfo {
    * travels while the loop plays once without its feet sliding.
    */
   distance?: number;
+  /** For such an animation: how many loops a second the legs make at the unit's speed. */
+  loopsPerSecond?: number;
 }
+
+/** What a character has pictures of. Every character can stand, walk and give up. */
+export type CharacterAnimations = Record<'idle' | 'walk' | 'defeat', AnimationInfo> &
+  Partial<Record<'attack' | 'chop' | 'pick' | 'hammer', AnimationInfo>>;
+
+/** How a unit works each resource: it chops wood and picks food. */
+export const GATHER_ACTIVITY: Record<ResourceType, Activity> = { wood: 'chop', food: 'pick' };
+
+/** How a unit raises a building. */
+export const BUILD_ACTIVITY: Activity = 'hammer';
 
 /**
  * The direction, as an index into DIRECTIONS, of a step of (dx, dy) tiles;
@@ -51,16 +60,13 @@ export function facingOf(dx: number, dy: number): number | undefined {
   return ((eighth % 8) + 8) % 8;
 }
 
-/**
- * What a unit is doing. A beaten unit that leaves the field walks. Raising a
- * building counts as gathering: the unit swings its tool either way.
- */
+/** What a unit is doing. A beaten unit that leaves the field walks. */
 export function activityOf(unit: Unit): Activity {
   const task = unit.task;
   // A unit at work stands by what it works on. If a neighbour nudges it
   // aside it goes on working, so this comes before the check for movement.
-  if (task.kind === 'gather' && task.phase === 'gathering') return 'gather';
-  if (task.kind === 'build' && unit.path.length === 0) return 'gather';
+  if (task.kind === 'gather' && task.phase === 'gathering') return GATHER_ACTIVITY[task.resource];
+  if (task.kind === 'build' && unit.path.length === 0) return BUILD_ACTIVITY;
   if (unit.x !== unit.prevX || unit.y !== unit.prevY) return 'walk';
   // A unit that stands still with a target strikes it as soon as it may, so a
   // running cooldown means it is in the middle of a fight.
@@ -116,9 +122,11 @@ export function progressFrame(info: AnimationInfo, progress: number): number {
 const STAND_INS: Record<Activity, readonly CharacterAnimation[]> = {
   idle: [],
   walk: [],
-  // A worker has no attack of its own: it strikes with its tool as it works.
-  attack: ['gather'],
-  gather: ['attack'],
+  // A worker has no attack of its own: it strikes with its axe as when it chops.
+  attack: ['chop'],
+  chop: ['attack'],
+  pick: ['chop'],
+  hammer: ['chop'],
 };
 
 /** The animation a character plays for what its unit does, of the ones it has pictures of. */

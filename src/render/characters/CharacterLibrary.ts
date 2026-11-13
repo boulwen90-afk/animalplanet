@@ -1,4 +1,5 @@
 import type { Scene } from 'phaser';
+import type { ResourceType } from '../../data/resources';
 import type { UnitType } from '../../data/types';
 import type { AnimationInfo, CharacterAnimations } from './animation';
 import { CHARACTERS, type CharacterSource } from './characters';
@@ -13,6 +14,8 @@ interface AtlasFile {
     /** The grey the team-coloured parts are rendered in, as "#rrggbb". */
     neutral: string;
     animations: Record<string, AnimationInfo>;
+    /** Names of the layers: pictures drawn on top of the figure's, named `<layer>.<frame>`. */
+    layers?: string[];
   };
 }
 
@@ -22,6 +25,8 @@ export interface CharacterSheet {
   /** Scale to draw the pictures at so that they have their size in game pixels. */
   displayScale: number;
   animations: CharacterAnimations;
+  /** The layer that shows the unit's basket filled with a resource, if the character has one. */
+  loadLayer(resource: ResourceType): string | undefined;
   /** Key of the texture in a player's colour. */
   textureKey(owner: number): string;
 }
@@ -83,6 +88,10 @@ export class CharacterLibrary {
         name: source.name,
         displayScale: 1 / atlas.meta.scale,
         animations: atlas.meta.animations as unknown as CharacterAnimations,
+        loadLayer: (resource) => {
+          const layer = source.loads?.[resource];
+          return layer && atlas.meta.layers?.includes(layer) ? layer : undefined;
+        },
         textureKey: (owner) => key(source, `player-${owner}`),
       });
     }

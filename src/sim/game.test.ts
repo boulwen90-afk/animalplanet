@@ -126,3 +126,39 @@ describe('tick', () => {
     expect(a).toEqual(b);
   });
 });
+
+describe('extra units for stress runs', () => {
+  const stressed = (count: number) =>
+    createGame(1, undefined, undefined, {
+      extraUnits: { owner: 0, type: 'samlare', count },
+    });
+
+  it('gives the side that many more units, each on a walkable tile of its own', () => {
+    const plain = createGame(1);
+    const state = stressed(120);
+    const mine = units(state).filter((unit) => unit.owner === 0);
+    expect(mine).toHaveLength(units(plain).filter((unit) => unit.owner === 0).length + 120);
+    const tiles = mine.map((unit) => `${Math.floor(unit.x)},${Math.floor(unit.y)}`);
+    expect(new Set(tiles).size).toBe(mine.length);
+    for (const unit of mine) {
+      expect(isWalkable(state.map, Math.floor(unit.x), Math.floor(unit.y))).toBe(true);
+    }
+  });
+
+  it('leaves the other side and the map as in a normal game', () => {
+    const plain = createGame(1);
+    const state = stressed(120);
+    expect(state.map).toEqual(plain.map);
+    expect(units(state).filter((unit) => unit.owner === 1)).toHaveLength(
+      units(plain).filter((unit) => unit.owner === 1).length,
+    );
+  });
+
+  it('gives the same game for the same seed', () => {
+    const a = stressed(40);
+    const b = stressed(40);
+    advance(a, 100);
+    advance(b, 100);
+    expect(a.entities).toEqual(b.entities);
+  });
+});

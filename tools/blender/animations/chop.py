@@ -1,5 +1,5 @@
 """
-Work: a tool swung down from the shoulder, as when chopping wood or digging.
+Chopping: a tool swung down from the shoulder, as when felling a tree.
 The loop starts when the tool strikes. The edge of the tool leads the swing:
 its flat side stays in the plane the tool is swung in.
 """
@@ -39,4 +39,4 @@ def pose(phase: float, ctx: Context) -> Pose:
     return keyed([(0.0, strike), (0.2, strike), (0.7, lifted), (0.82, lifted), (1.0, strike)], phase)
 
 
-GATHER = Animation("gather", frames=8, fps=8.0, loop=True, pose=pose)
+CHOP = Animation("chop", frames=8, fps=8.0, loop=True, pose=pose)

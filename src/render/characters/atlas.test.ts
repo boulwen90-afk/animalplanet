@@ -10,8 +10,10 @@ interface Atlas {
   frames: Record<string, { anchor: { x: number; y: number } }>;
   meta: {
     directions: string[];
-    figure: { sizeClass: string; height: number };
-    animations: Record<string, { frames: number; distance?: number }>;
+    figure: { sizeClass: string; height: number; speed?: number };
+    animations: Record<string, { frames: number; distance?: number; loopsPerSecond?: number }>;
+    loopsPerSecondRange: [number, number];
+    layers: string[];
   };
 }
 
@@ -26,6 +28,8 @@ const FIGURES: {
   sizeClass: string;
   tileWidths: number;
   animations: string[];
+  /** The layers the game draws on top of the figure. */
+  layers: string[];
 }[] = [
   {
     name: 'bear_warrior',
@@ -33,17 +37,20 @@ const FIGURES: {
     sizeClass: 'warrior',
     tileWidths: 0.55,
     animations: ['idle', 'walk', 'attack', 'defeat'],
+    layers: [],
   },
   {
     name: 'bear_worker',
     unit: 'samlare',
     sizeClass: 'worker',
     tileWidths: 0.46,
-    animations: ['idle', 'walk', 'gather', 'defeat'],
+    animations: ['idle', 'walk', 'chop', 'pick', 'hammer', 'defeat'],
+    layers: ['load_wood', 'load_food'],
   },
 ];
 
-describe.each(FIGURES)('the $name atlas', ({ name, unit, sizeClass, tileWidths, animations }) => {
+describe.each(FIGURES)('the $name atlas', (figure) => {
+  const { name, unit, sizeClass, tileWidths, animations, layers } = figure;
   const atlas = read(name);
 
   it('has every animation the game plays, in all eight directions', () => {
@@ -75,13 +82,35 @@ describe.each(FIGURES)('the $name atlas', ({ name, unit, sizeClass, tileWidths, 
   });
 
   it('gives the run a distance, so that the game can keep the feet from sliding', () => {
-    const { distance, frames } = atlas.meta.animations.walk!;
+    const { distance } = atlas.meta.animations.walk!;
     expect(distance).toBeGreaterThan(0.5);
     expect(distance).toBeLessThan(1.5);
-    // At the unit's speed that is between 10 and 40 pictures a second.
-    const perSecond = (UNIT_DEFS[unit].speed / distance!) * frames;
-    expect(perSecond).toBeGreaterThan(10);
-    expect(perSecond).toBeLessThan(40);
+  });
+
+  it("was built for the unit's speed in the game", () => {
+    // The pipeline has the speed in its own config; it must not drift from the game's.
+    expect(atlas.meta.figure.speed).toBe(UNIT_DEFS[unit].speed);
+  });
+
+  it('keeps the legs within the allowed pace at that speed', () => {
+    const { distance, loopsPerSecond } = atlas.meta.animations.walk!;
+    const [slowest, fastest] = atlas.meta.loopsPerSecondRange;
+    // One loop is a step with each foot.
+    const inGame = UNIT_DEFS[unit].speed / distance!;
+    expect(loopsPerSecond).toBeCloseTo(inGame, 2);
+    expect(inGame).toBeGreaterThanOrEqual(slowest - 0.01);
+    expect(inGame).toBeLessThanOrEqual(fastest + 0.01);
+  });
+
+  it('has its layers as pictures of their own, one for every picture of the figure', () => {
+    expect(atlas.meta.layers).toEqual(layers);
+    const own = Object.keys(atlas.frames).filter((frame) => !frame.includes('.'));
+    for (const layer of layers) {
+      for (const frame of own) {
+        expect(atlas.frames[`${layer}.${frame}`], `${layer}.${frame}`).toBeDefined();
+      }
+    }
+    expect(Object.keys(atlas.frames)).toHaveLength(own.length * (1 + layers.length));
   });
 
   it('stands every picture on the same point: between the feet', () => {

@@ -11,6 +11,7 @@ import { buildFraction } from '../../sim/systems/construction';
 import { ticksPerUnit } from '../../sim/systems/gathering';
 import {
   DIRECTIONS,
+  BUILD_ACTIVITY,
   activityOf,
   animationFor,
   attackFrame,
@@ -44,7 +45,9 @@ const OVERLAY_DEPTH = 900_000;
 /** Depth of the shadows under characters: on the ground, above the selection marks. */
 const SHADOW_DEPTH = -0.45;
 const SHADOW_TEXTURE = 'character-shadow';
-/** Side of the square shown on a unit that carries a resource, in pixels. */
+/** How far in front of its character a load is drawn: less than the gap between any two rows of pixels. */
+const LOAD_DEPTH_OFFSET = 0.01;
+/** Side of the square shown on a placeholder unit that carries a resource, in pixels. */
 const CARRY_MARK_SIZE = 7;
 
 interface EntitySprite {
@@ -57,6 +60,8 @@ interface EntitySprite {
   character?: CharacterDrawing;
   /** The shadow on the ground under a character. */
   shadow?: GameObjects.Image;
+  /** What a character carries, drawn on top of it: its basket filled. Made when first needed. */
+  load?: GameObjects.Image;
 }
 
 /** What is remembered about a character between frames. */
@@ -83,6 +88,8 @@ export interface UnitSpriteInfo {
   direction: string;
   frame: string;
   texture: string;
+  /** The picture of what it carries, drawn on top of it; null when it carries nothing. */
+  load: string | null;
 }
 
 interface Lunge {
@@ -175,6 +182,7 @@ export class EntityView {
         sprite.image.setVisible(shown);
         sprite.label?.setVisible(shown);
         sprite.shadow?.setVisible(shown);
+        if (!shown) sprite.load?.setVisible(false);
       }
       // Nothing more is drawn for an entity lost in the fog: no bars, flags or marks.
       if (!shown) continue;
@@ -197,6 +205,7 @@ export class EntityView {
       this.lunges.delete(id);
       sprite.label?.destroy();
       sprite.shadow?.destroy();
+      sprite.load?.destroy();
       if (sprite.kind === 'unit' && sprite.image.visible) {
         // A unit that went into a cave or vanished fades away where it stood.
         sprite.image.clearTint();
@@ -227,6 +236,7 @@ export class EntityView {
       direction: DIRECTIONS[drawing.direction] ?? 's',
       frame: drawing.frame,
       texture: sprite.image.texture.key,
+      load: sprite.load?.visible ? sprite.load.frame.name : null,
     };
   }
 
@@ -351,11 +361,11 @@ export class EntityView {
         face(target && (target.kind === 'unit' ? target : buildingCentre(target)));
         const cooldown = Math.max(0, unit.attackCooldown - alpha);
         frame = attackFrame(info, cooldown, strikeTicks(unit));
-      } else if (activity === 'gather' && task.kind === 'gather') {
-        // One swing for each unit of the resource: the tool lands as it is taken.
+      } else if (task.kind === 'gather' && task.phase === 'gathering') {
+        // One swing or one handful for each unit of the resource: it is taken as the loop starts.
         face({ x: task.node.x + 0.5, y: task.node.y + 0.5 });
         frame = progressFrame(info, (task.workTicks + alpha) / ticksPerUnit(unit));
-      } else if (activity === 'gather' && task.kind === 'build') {
+      } else if (activity === BUILD_ACTIVITY && task.kind === 'build') {
         const site = byId.get(task.buildingId);
         face(site?.kind === 'building' ? buildingCentre(site) : undefined);
         frame = frameAt(info, this.now, unit.id * 3);
@@ -377,6 +387,7 @@ export class EntityView {
       .setPosition(x + (lunge?.dx ?? 0) * reach, y + (lunge?.dy ?? 0) * reach)
       .setDepth(y);
     sprite.shadow?.setPosition(x + CHARACTER_SHADOW.offsetX, y + CHARACTER_SHADOW.offsetY);
+    this.updateLoad(unit, sprite, name);
 
     const visual = CHARACTER_VISUALS[unit.type] ?? {
       height: 48,
@@ -406,15 +417,30 @@ export class EntityView {
       unit.hp,
       UNIT_DEFS[unit.type].hp,
     );
+  }
 
-    // A small square in the resource's colour, by the shoulder, shows that the unit carries something.
-    if (unit.carryAmount > 0 && unit.carryType) {
-      this.drawCarryMark(
-        x + visual.halfWidth - CARRY_MARK_SIZE / 2,
-        y - visual.height,
-        unit.carryType,
-      );
+  /**
+   * Shows what a character carries: a picture of its basket filled, drawn on
+   * top of it in the same pose. The atlas has one for every picture of the
+   * figure, with the parts of the figure in front of the load already cut out.
+   */
+  private updateLoad(unit: Unit, sprite: EntitySprite, frame: string): void {
+    const drawing = sprite.character as CharacterDrawing;
+    const layer =
+      unit.carryAmount > 0 && unit.carryType ? drawing.sheet.loadLayer(unit.carryType) : undefined;
+    if (!layer) {
+      sprite.load?.setVisible(false);
+      return;
     }
+    const name = `${layer}.${frame}`;
+    sprite.load ??= this.scene.add
+      .image(0, 0, sprite.image.texture.key, name)
+      .setScale(drawing.sheet.displayScale);
+    if (sprite.load.frame.name !== name) sprite.load.setFrame(name);
+    sprite.load
+      .setVisible(true)
+      .setPosition(sprite.image.x, sprite.image.y)
+      .setDepth(sprite.image.depth + LOAD_DEPTH_OFFSET);
   }
 
   private drawCarryMark(x: number, y: number, resource: ResourceType): void {

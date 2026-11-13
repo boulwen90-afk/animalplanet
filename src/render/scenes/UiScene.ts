@@ -16,6 +16,7 @@ import {
   rectContains,
   resourceBarRect,
   selectionPanelRect,
+  loadingLayout,
   startScreenLayout,
   type ScreenRect,
 } from '../ui/layout';
@@ -63,6 +64,29 @@ export interface HudSource {
   getHudButtons(): HudButton[];
   /** Presses one of those buttons. */
   pressHudButton(id: HudButtonId): void;
+  /** How much of the game's files have been loaded, from 0 to 1; undefined once all are in. */
+  getLoadProgress(): number | undefined;
+  /** How many units there are on the map. */
+  getUnitCount(): number;
+}
+
+export interface UiSceneOptions {
+  /** Show how many frames a second the game draws (on with ?debug=1). */
+  debug: boolean;
+}
+
+/** What the loading bar shows. */
+export interface LoadingDisplay {
+  visible: boolean;
+  percent: number;
+  text: string;
+}
+
+/** What the frame counter shows. */
+export interface DebugDisplay {
+  visible: boolean;
+  text: string;
+  fps: number;
 }
 
 /** What the start screen shows, with the screen position of the button's centre. */
@@ -176,7 +200,21 @@ export class UiScene extends Scene {
   private startShown = false;
   private startButtonRect: ScreenRect = { x: 0, y: 0, width: 0, height: 0 };
 
-  constructor(private readonly source: HudSource) {
+  private loading!: GameObjects.Graphics;
+  private loadingText!: GameObjects.Text;
+  /** Whole percent loaded while the loading bar shows; undefined when it does not. */
+  private loadingShown: number | undefined;
+
+  private debugText: GameObjects.Text | undefined;
+  /** Frames drawn since the counter was last written, and when that was. */
+  private debugFrames = 0;
+  private debugSince = 0;
+  private debugFps = 0;
+
+  constructor(
+    private readonly source: HudSource,
+    private readonly options: UiSceneOptions = { debug: false },
+  ) {
     super({ key: 'Ui', active: true });
   }
 
@@ -227,6 +265,26 @@ export class UiScene extends Scene {
       .setVisible(false);
 
     this.hudButtons = this.add.graphics();
+
+    // The loading bar covers everything, the start screen too, until the game's files are in.
+    this.loading = this.add.graphics().setDepth(110).setVisible(false);
+    this.loadingText = this.add
+      .text(0, 0, '', { fontFamily: 'sans-serif', fontSize: '18px', color: TEXT_COLOR })
+      .setOrigin(0.5)
+      .setDepth(111)
+      .setVisible(false);
+
+    if (this.options.debug) {
+      this.debugText = this.add
+        .text(8, 0, '', {
+          fontFamily: 'monospace',
+          fontSize: '14px',
+          color: '#ffe066',
+          backgroundColor: '#10141acc',
+          padding: { x: 6, y: 3 },
+        })
+        .setDepth(90);
+    }
 
     // The start screen lies on top of everything else, like the end-of-game screen.
     this.startShown = !this.source.isStarted();
@@ -294,6 +352,8 @@ export class UiScene extends Scene {
 
   override update(time: number): void {
     this.now = time;
+    this.updateLoading();
+    this.updateDebug(time);
     this.updateResourceBar();
     this.updateCommandPanel();
     this.updateHudButtons();
@@ -372,11 +432,30 @@ export class UiScene extends Scene {
     };
   }
 
+  /** What the loading bar shows right now. */
+  getLoadingDisplay(): LoadingDisplay {
+    const percent = this.loadingShown ?? 100;
+    return {
+      visible: this.loadingShown !== undefined,
+      percent,
+      text: this.loadingShown === undefined ? '' : STRINGS.loading(percent),
+    };
+  }
+
+  /** What the frame counter shows right now. */
+  getDebugDisplay(): DebugDisplay {
+    return {
+      visible: this.debugText !== undefined,
+      text: this.debugText?.text ?? '',
+      fps: this.debugFps,
+    };
+  }
+
   /** What the start screen shows right now. */
   getStartScreenDisplay(): StartScreenDisplay {
     const button = this.startButtonRect;
     return {
-      visible: this.startShown,
+      visible: this.startShown && this.loadingShown === undefined,
       title: STRINGS.start.title,
       help: STRINGS.start.help,
       button: {
@@ -445,6 +524,48 @@ export class UiScene extends Scene {
     this.hudButtonTexts.slice(buttons.length).forEach((text) => text.setVisible(false));
   }
 
+  /** Shows the loading bar while the game's files come in, with how far it has got in percent. */
+  private updateLoading(): void {
+    const progress = this.source.getLoadProgress();
+    const next = progress === undefined ? undefined : Math.floor(progress * 100);
+    if (next === this.loadingShown) return;
+    this.loadingShown = next;
+    const visible = next !== undefined;
+    this.loading.setVisible(visible);
+    this.loadingText.setVisible(visible);
+    if (visible) this.drawLoading();
+  }
+
+  private drawLoading(): void {
+    const percent = this.loadingShown;
+    if (percent === undefined) return;
+    const { width, height } = this.scale;
+    const { bar, text } = loadingLayout(width, height);
+    const g = this.loading;
+    g.clear();
+    g.fillStyle(PANEL_COLOR, 1);
+    g.fillRect(0, 0, width, height);
+    g.fillStyle(BUTTON_COLOR, 1);
+    g.fillRoundedRect(bar.x, bar.y, bar.width, bar.height, 4);
+    g.fillStyle(PROGRESS_COLOR, 1);
+    g.fillRoundedRect(bar.x, bar.y, Math.max(8, (bar.width * percent) / 100), bar.height, 4);
+    g.lineStyle(2, PANEL_EDGE, 1);
+    g.strokeRoundedRect(bar.x, bar.y, bar.width, bar.height, 4);
+    this.loadingText.setText(STRINGS.loading(percent)).setPosition(text.x, text.y);
+  }
+
+  /** Counts the frames drawn and writes the rate twice a second. */
+  private updateDebug(time: number): void {
+    if (!this.debugText) return;
+    this.debugFrames++;
+    const elapsed = time - this.debugSince;
+    if (elapsed < UI_CONFIG.debugIntervalMs) return;
+    this.debugFps = Math.round((this.debugFrames * 1000) / elapsed);
+    this.debugFrames = 0;
+    this.debugSince = time;
+    this.debugText.setText(STRINGS.debug.fps(this.debugFps, this.source.getUnitCount()));
+  }
+
   private hideStartScreen(): void {
     this.startShown = false;
     this.startScreen.setVisible(false);
@@ -473,6 +594,9 @@ export class UiScene extends Scene {
 
   private onPointerDown(pointer: Input.Pointer): void {
     const pressed = pointer.wasTouch || pointer.leftButtonDown();
+
+    // Nothing responds while the game is loading.
+    if (this.loadingShown !== undefined) return;
 
     // On the start screen only the "start" button responds.
     if (this.startShown) {
@@ -689,6 +813,8 @@ export class UiScene extends Scene {
     this.alert.setPosition(this.scale.width / 2, alertTop(this.scale.width));
     this.drawHudButtons();
     this.layoutStartScreen();
+    this.drawLoading();
+    this.debugText?.setPosition(8, resourceBarRect(this.scale.width).height + 8);
 
     const end = outcomeLayout(this.scale.width, this.scale.height);
     this.outcome.clear();

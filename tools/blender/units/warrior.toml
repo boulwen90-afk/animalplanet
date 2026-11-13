@@ -4,6 +4,11 @@ name = "warrior"
 game_unit = "ramkrigare"
 size_class = "warrior"   # which height the size standard gives it; see game.toml
 
+# How fast it moves in the game, in tiles a second: the same number as in
+# src/data/units.ts (a test compares them). The gait is fitted to it.
+[movement]
+speed = 2.2
+
 # The animations this unit is drawn with, from the shared library in animations/.
 [animations]
 list = ["idle", "walk", "attack", "defeat"]

@@ -1,3 +1,4 @@
+import type { ResourceType } from '../../data/resources';
 import type { UnitType } from '../../data/types';
 import bearWarriorAtlasUrl from '../../../assets/characters/bear_warrior/bear_warrior.json?url';
 import bearWarriorBaseUrl from '../../../assets/characters/bear_warrior/bear_warrior.png';
@@ -16,6 +17,8 @@ export interface CharacterSource {
   baseUrl: string;
   /** The same layout with only the team-coloured parts. */
   maskUrl: string;
+  /** The layer of the atlas that shows the unit carrying each resource, for units that carry. */
+  loads?: Partial<Record<ResourceType, string>>;
 }
 
 /** The unit types that are drawn as characters. Any others are placeholder shapes. */
@@ -25,6 +28,7 @@ export const CHARACTERS: Partial<Record<UnitType, CharacterSource>> = {
     atlasUrl: bearWorkerAtlasUrl,
     baseUrl: bearWorkerBaseUrl,
     maskUrl: bearWorkerMaskUrl,
+    loads: { wood: 'load_wood', food: 'load_food' },
   },
   ramkrigare: {
     name: 'bear_warrior',

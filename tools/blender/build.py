@@ -12,11 +12,13 @@ import math
 import sys
 from pathlib import Path
 
+import bpy  # noqa: F401
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from animations import ANIMATIONS, Context  # noqa: E402
+from animations.walk import ground_share  # noqa: E402
 from lib import export  # noqa: E402
 from lib.camera import make_camera, make_lights, make_shadow_catcher  # noqa: E402
 from lib.atlas import write_atlas  # noqa: E402
@@ -70,6 +72,39 @@ class Studio:
         self.ground = make_shadow_catcher(self.scene)
         self.camera = None
         self._actions: dict[str, object] = {}
+        self.unit = unit
+
+        # Parts that are only in the picture some of the time.
+        parts = self.figure.parts
+        named = lambda prefix: [part for part in parts if part.name.startswith(prefix)]  # noqa: E731
+        # Layers: drawn by the game on top of the figure, each as pictures of its own.
+        self.layers = {layer["name"]: named(layer["parts"]) for layer in unit.get("layer", [])}
+        for name, found in self.layers.items():
+            if not found:
+                raise SystemExit(f"Layer {name!r} of unit {unit['name']!r} matches no parts")
+        layered = {part.name for found in self.layers.values() for part in found}
+        # The weapon and the other tools: one is held at a time, by animation.
+        self._weapon = named("weapon.")
+        self._tools = {tool["name"]: named(f"tool.{tool['name']}.") for tool in unit.get("tool", [])}
+        held = {part.name for part in self._weapon} | {
+            part.name for found in self._tools.values() for part in found
+        }
+        self._fixed = [part for part in parts if part.name not in layered | held]
+        for name in layered:
+            bpy.data.objects[name].hide_render = True
+        self.shown = list(parts)
+        self.hold(None)
+
+        # The gait fitted to the unit's speed: how long each foot is on the ground.
+        self.ground_share = None
+        self.loops_per_second = None
+        speed = unit.get("movement", {}).get("speed")
+        if speed is not None:
+            p = race["proportions"]
+            own_speed = speed * tile_side_units(game) / self.figure.scale
+            self.ground_share, self.loops_per_second = ground_share(
+                p["thigh"] + p["shin"], own_speed, tuple(game["gait"]["loops_per_second"])
+            )
         # How many pictures had the figure cut off by the edge of the frame.
         self.clipped = 0
 
@@ -82,11 +117,34 @@ class Studio:
 
     def context(self) -> Context:
         figure = self.figure
-        return Context(figure.stance, figure.race["proportions"], figure.rig.rest)
+        return Context(figure.stance, figure.race["proportions"], figure.rig.rest, self.ground_share)
+
+    def hold(self, animation: str | None) -> None:
+        """
+        Shows what the figure holds in an animation: its weapon, unless the
+        unit's config hides it there, or the tool that is shown in it. With no
+        animation it holds its weapon.
+        """
+        weapon = self.unit.get("weapon") or {}
+        shown = list(self._fixed)
+        show_weapon = animation not in weapon.get("hidden_in", [])
+        for part in self._weapon:
+            part.hide_render = not show_weapon
+        if show_weapon:
+            shown += self._weapon
+        for tool in self.unit.get("tool", []):
+            show = animation in tool.get("shown_in", [])
+            for part in self._tools[tool["name"]]:
+                part.hide_render = not show
+            if show:
+                shown += self._tools[tool["name"]]
+        # The parts that are in the figure's picture right now.
+        self.shown = shown
 
     def animate(self, name: str, index: int) -> None:
         """Puts the figure in one frame of an animation from the shared library."""
         figure = self.figure
+        self.hold(name)
         if name not in self._actions:
             animation = ANIMATIONS[name]
             proportions = figure.race["proportions"]
@@ -102,8 +160,19 @@ class Studio:
         """The figure turned `yaw_deg`, as (figure, mask, shadow) pictures."""
         self.figure.rig.face(yaw_deg)
         return export.render_passes(
-            self.scene, self.figure.parts, self.ground, self.scratch, size, size, shadow
+            self.scene, self.shown, self.ground, self.scratch, size, size, shadow
         )
+
+    def layer_sprites(self, scale: int) -> dict[str, np.ndarray]:
+        """
+        Each layer as a picture to draw on top of the figure's, for the pose
+        and the direction of the latest `sprite`.
+        """
+        size = self.game["sprite"]["frame"] * scale
+        return {
+            name: export.render_layer(self.scene, parts, self.shown, self.scratch, size, size)
+            for name, parts in self.layers.items()
+        }
 
     def sprite(self, yaw_deg: float, shadow: bool = True, scale: int | None = None):
         """
@@ -148,12 +217,18 @@ def export_sprites(race: dict, unit: dict, game: dict, out: Path) -> None:
             # How many tiles the unit moves while the loop plays once without its feet sliding.
             travelled = animation.distance(studio.context()) * studio.figure.scale
             animations[animation_name]["distance"] = round(travelled / tile_side_units(game), 4)
+            if studio.loops_per_second is not None:
+                # How many loops a second the legs make at the unit's speed.
+                animations[animation_name]["loopsPerSecond"] = round(studio.loops_per_second, 3)
             check_feet(animation, studio)
         for direction, yaw in DIRECTIONS:
             for index in range(animation.frames):
                 studio.animate(animation_name, index)
                 base, mask = studio.sprite(yaw, shadow=False, scale=sprite["atlas_scale"])
-                frames.append((f"{animation_name}_{direction}_{index}", base, mask))
+                frame_name = f"{animation_name}_{direction}_{index}"
+                frames.append((frame_name, base, mask))
+                for layer, picture in studio.layer_sprites(sprite["atlas_scale"]).items():
+                    frames.append((f"{layer}.{frame_name}", picture, np.zeros_like(picture)))
         print(f"  {name}: rendered {animation_name}", flush=True)
 
     (out / ".render.png").unlink(missing_ok=True)
@@ -181,7 +256,11 @@ def export_sprites(race: dict, unit: dict, game: dict, out: Path) -> None:
                 # From the ground to the top of the head, in game pixels.
                 "height": round(figure_height_px(race, unit, game), 2),
                 "scale": round(studio.figure.scale, 4),
+                # The speed the gait was fitted to, in tiles a second. It must be the unit's speed in the game.
+                **({"speed": unit["movement"]["speed"]} if "movement" in unit else {}),
             },
+            "loopsPerSecondRange": game["gait"]["loops_per_second"],
+            "layers": list(studio.layers),
             "neutral": NEUTRAL,
             "directions": [direction for direction, _ in DIRECTIONS],
             "animations": animations,
@@ -223,16 +302,17 @@ def check_feet(animation, studio: Studio) -> None:
 
 
 def render_animation_sheet(race: dict, unit: dict, game: dict, out: Path) -> None:
-    """Every animation in the library as a row of frames, to look at the motion."""
+    """Every animation the unit uses as a row of frames, to look at the motion."""
     out.mkdir(parents=True, exist_ok=True)
     studio = Studio(race, unit, game, out / ".render.png")
     sprite = game["sprite"]
     studio.scene.cycles.samples = sprite["samples"]
     studio.aim(sprite["camera_elevation_deg"], sprite["frame"] / sprite["pixels_per_unit"])
     first = next(iter(game["teams"].values()))
-    width = max(animation.frames for animation in ANIMATIONS.values())
+    listed = {name: ANIMATIONS[name] for name in unit["animations"]["list"]}
+    width = max(animation.frames for animation in listed.values())
     rows = []
-    for name, animation in ANIMATIONS.items():
+    for name, animation in listed.items():
         cells = []
         for index in range(animation.frames):
             studio.animate(name, index)
@@ -276,6 +356,25 @@ def render_previews(race: dict, unit: dict, game: dict, out: Path) -> None:
     for team, color in teams.items():
         large[f"game_{team}"] = on_grass(export.recolor(figure, mask, color, NEUTRAL))
         export.write_png(out / f"game_{team}.png", large[f"game_{team}"])
+
+    # The figure with each of its layers on: a worker with its basket empty and filled.
+    if studio.layers:
+        cells = []
+        for yaw in (GAME_YAW, 180.0 + GAME_YAW):
+            plain, plain_mask, _ = studio.shoot(yaw, size, shadow=False)
+            colored = export.recolor(plain, plain_mask, first, NEUTRAL)
+            cells.append(export.on_background(colored, background))
+            for parts in studio.layers.values():
+                layer = export.render_layer(studio.scene, parts, studio.shown, scratch, size, size)
+                filled = colored.copy()
+                export.over(filled, layer, 0, 0)
+                cells.append(export.on_background(filled, background))
+        # Only the middle of each picture, where the figure is, so that the load is easy to see.
+        top, bottom, side = size * 15 // 64, size * 9 // 64, size * 12 // 64
+        cells = [cell[top : size - bottom, side : size - side] for cell in cells]
+        columns = 1 + len(studio.layers)
+        rows = [np.concatenate(cells[i : i + columns], axis=1) for i in range(0, len(cells), columns)]
+        export.write_png(out / "layers.png", np.concatenate(rows, axis=0))
 
     # How the mask works: the white render, the mask, and four colours made from them.
     demo = [on_grass(figure), export.on_background(mask, "#20262c")]

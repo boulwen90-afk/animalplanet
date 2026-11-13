@@ -99,6 +99,10 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 | Trä | Träd | 100 | Byggnader, soldater |
 
 - Källor är ändliga och försvinner när de är tömda. Tömda träd blir gångbar mark.
+- **Arbetsplatser:** varje källa har upp till 4 fasta arbetsplatser, på de
+  öppna rutorna runt den. En arbetare tar en ledig plats och behåller den
+  medan den bär hem lasten. Är alla platser tagna går arbetaren till
+  närmaste källa av samma slag som har en ledig.
 - Arbetare bär högst 10 enheter åt gången, samlar 1 enhet/s och måste lämna
   lasten vid Storide eller Visthus innan resursen räknas.
 - Startresurser: 200 mat, 100 trä.

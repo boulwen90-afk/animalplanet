@@ -9,8 +9,12 @@ from .materials import Palette
 from .mesh import Builder, frame
 
 
-def build_weapon(b: Builder, weapon: dict, hand: Vector, pal: Palette) -> None:
-    """Puts a weapon in a hand. `direction` is where the blade or head points."""
+def build_weapon(b: Builder, weapon: dict, hand: Vector, pal: Palette, group: str = "weapon") -> None:
+    """
+    Puts a weapon or a tool in a hand. `direction` is where the blade or head
+    points. The parts are named `<group>.<part>`, so that a figure can hold
+    several things and show one at a time.
+    """
     d = Vector(weapon["direction"]).normalized()
     wide = tuple(weapon.get("flat_axis", (1.0, 0.0, 0.0)))
     turn = frame(d, wide)
@@ -20,14 +24,14 @@ def build_weapon(b: Builder, weapon: dict, hand: Vector, pal: Palette) -> None:
 
     if kind == "sword":
         width = weapon.get("width", 0.2)
-        b.limb("weapon.grip", hand - d * 0.15, hand + d * 0.15, 0.05, 0.05, pal["leather"], 6)
-        b.ellipsoid("weapon.pommel", hand - d * 0.21, (0.085,) * 3, pal["brass"], detail=1)
+        b.limb(f"{group}.grip", hand - d * 0.15, hand + d * 0.15, 0.05, 0.05, pal["leather"], 6)
+        b.ellipsoid(f"{group}.pommel", hand - d * 0.21, (0.085,) * 3, pal["brass"], detail=1)
         # A broad cross-guard whose ends turn towards the blade.
         guard = hand + d * 0.19
-        b.box("weapon.guard", guard, (width * 2.6, 0.1, 0.08), pal["brass"], turn)
+        b.box(f"{group}.guard", guard, (width * 2.6, 0.1, 0.08), pal["brass"], turn)
         for sign in (1.0, -1.0):
             b.box(
-                f"weapon.guard_end_{'a' if sign > 0 else 'b'}",
+                f"{group}.guard_end_{'a' if sign > 0 else 'b'}",
                 guard + across * sign * width * 1.25 + d * 0.05,
                 (0.09, 0.1, 0.16),
                 pal["brass"],
@@ -36,12 +40,12 @@ def build_weapon(b: Builder, weapon: dict, hand: Vector, pal: Palette) -> None:
         base = hand + d * 0.23
         shoulder = hand + d * (0.23 + length * 0.82)
         tip = hand + d * (0.23 + length)
-        b.limb("weapon.blade", base, shoulder, width * 0.5, width * 0.44, pal["blade"], 4, 0.26, wide)
-        b.limb("weapon.blade_tip", shoulder, tip, width * 0.44, 0.0, pal["blade"], 4, 0.26, wide)
+        b.limb(f"{group}.blade", base, shoulder, width * 0.5, width * 0.44, pal["blade"], 4, 0.26, wide)
+        b.limb(f"{group}.blade_tip", shoulder, tip, width * 0.44, 0.0, pal["blade"], 4, 0.26, wide)
         # A darker groove down the middle of the blade, on both sides.
         for sign in (1.0, -1.0):
             b.box(
-                f"weapon.fuller_{'a' if sign > 0 else 'b'}",
+                f"{group}.fuller_{'a' if sign > 0 else 'b'}",
                 base.lerp(shoulder, 0.42) + thin * sign * width * 0.115,
                 (width * 0.22, 0.012, length * 0.6),
                 pal["steel_dark"],
@@ -49,11 +53,24 @@ def build_weapon(b: Builder, weapon: dict, hand: Vector, pal: Palette) -> None:
             )
     elif kind == "axe":
         top = hand + d * length
-        b.limb("weapon.haft", hand - d * 0.25, top, 0.05, 0.045, pal["wood"], 6)
+        b.limb(f"{group}.haft", hand - d * 0.25, top, 0.05, 0.045, pal["wood"], 6)
         head = top - d * 0.2 + across * 0.2
-        b.box("weapon.axe_head", head, (0.34, 0.07, 0.34), pal["blade"], turn)
-        b.box("weapon.axe_edge", head + across * 0.2, (0.07, 0.045, 0.5), pal["steel_dark"], turn)
-        b.limb("weapon.axe_spike", top, top + d * 0.18, 0.05, 0.0, pal["steel_dark"], 4)
+        b.box(f"{group}.axe_head", head, (0.34, 0.07, 0.34), pal["blade"], turn)
+        b.box(f"{group}.axe_edge", head + across * 0.2, (0.07, 0.045, 0.5), pal["steel_dark"], turn)
+        b.limb(f"{group}.axe_spike", top, top + d * 0.18, 0.05, 0.0, pal["steel_dark"], 4)
+    elif kind == "hammer":
+        # A mallet: a short haft with a block of iron across its end.
+        top = hand + d * length
+        b.limb(f"{group}.haft", hand - d * 0.2, top, 0.05, 0.045, pal["wood"], 6)
+        b.box(f"{group}.hammer_head", top - d * 0.09, (0.40, 0.19, 0.19), pal["steel_dark"], turn)
+        for sign in (1.0, -1.0):
+            b.box(
+                f"{group}.hammer_face_{'a' if sign > 0 else 'b'}",
+                top - d * 0.09 + across * sign * 0.2,
+                (0.04, 0.22, 0.22),
+                pal["steel"],
+                turn,
+            )
     else:
         raise ValueError(f"Unknown weapon type {kind!r}")
 

@@ -41,6 +41,7 @@ describe('separateUnits', () => {
         kind: 'gather',
         resource: 'wood',
         node: { x: 2, y: 1 },
+        place: null,
         phase: 'gathering',
         workTicks: 0,
         dropoffId: null,

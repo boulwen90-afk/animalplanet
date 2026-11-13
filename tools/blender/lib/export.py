@@ -74,6 +74,24 @@ def render_passes(scene, parts, ground, path, width: int, height: int, shadow: b
     return figure, mask, shade
 
 
+def render_layer(scene, layer_parts, other_parts, path, width: int, height: int) -> np.ndarray:
+    """
+    Renders some parts alone, as a picture to draw on top of the figure: the
+    rest of the figure hides them where it is in front, but is not in the
+    picture itself. The layer's parts are hidden again afterwards.
+    """
+    for part in layer_parts:
+        part.hide_render = False
+    for part in other_parts:
+        part.is_holdout = True
+    picture = render(scene, path, width, height)
+    for part in other_parts:
+        part.is_holdout = False
+    for part in layer_parts:
+        part.hide_render = True
+    return picture
+
+
 def read_png(path) -> np.ndarray:
     """Pixels as floats 0..1 in an array of shape (height, width, 4), top row first."""
     image = bpy.data.images.load(str(path), check_existing=False)

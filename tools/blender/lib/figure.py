@@ -74,6 +74,13 @@ def build_figure(
         side = "r" if weapon.get("hand", "right") == "right" else "l"
         builder.attach(f"hand_{side}")
         build_weapon(builder, weapon, joints[f"hand_{side}"], palette)
+    # Other things the figure can hold in the same hand. They follow the hand
+    # exactly as the weapon does, and the build shows one of them at a time.
+    for tool in unit.get("tool", []):
+        side = "r" if tool.get("hand", "right") == "right" else "l"
+        builder.attach(f"hand_{side}")
+        held = {**tool, "direction": stance["weapon_dir"], "flat_axis": stance["weapon_flat"]}
+        build_weapon(builder, held, joints[f"hand_{side}"], palette, f"tool.{tool['name']}")
     shield = unit.get("shield")
     if shield:
         side = "l" if shield.get("arm", "left") == "left" else "r"
