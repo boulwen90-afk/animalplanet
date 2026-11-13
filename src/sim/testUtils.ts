@@ -1,13 +1,13 @@
-import { START_CONFIG } from '../data/setup';
 import type { Terrain } from '../data/terrain';
-import { emptyState } from './game';
+import { emptyState, newPlayer } from './game';
 import type { Cave } from './map/grid';
 import { initialResourceAmounts } from './resources';
 import type { GameState } from './state';
 
 /**
  * Builds a small game state for unit tests from rows of characters:
- * '.' grass, 'T' tree, 'B' berries, 'R' rock, 'W' water. No entities.
+ * '.' grass, 'T' tree, 'B' berries, 'R' rock, 'W' water. No entities, and
+ * no fog of war.
  */
 export function stateFromRows(rows: string[]): GameState {
   const legend: Record<string, Terrain> = {
@@ -35,9 +35,11 @@ export function stateFromRows(rows: string[]): GameState {
       startPositions: [],
       caves: [],
     },
+    // Fog of war is off in test maps unless a test turns it on.
+    false,
   );
   // Two sides, as in a real game, although the test map has no start positions.
-  state.players = [0, 1].map(() => ({ resources: { ...START_CONFIG.resources } }));
+  state.players = [0, 1].map(() => newPlayer(state.map));
   return state;
 }
 

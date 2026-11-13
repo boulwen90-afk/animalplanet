@@ -12,6 +12,8 @@ export interface UnitDef {
   hp: number;
   /** Movement speed in tiles per second. */
   speed: number;
+  /** How far the unit sees, in tiles. */
+  sight: number;
   /** Most resource units carried at once. 0 for units that cannot gather. */
   carryCapacity: number;
   /** Resource units gathered per second. */
@@ -39,6 +41,7 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     trainTime: 12,
     hp: 40,
     speed: 2.5,
+    sight: 6,
     carryCapacity: 10,
     gatherRate: 1,
     builds: ['visthus', 'krigshall'],
@@ -53,6 +56,7 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     trainTime: 18,
     hp: 100,
     speed: 2.2,
+    sight: 7,
     carryCapacity: 0,
     gatherRate: 0,
     builds: [],

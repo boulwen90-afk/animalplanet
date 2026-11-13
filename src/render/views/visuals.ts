@@ -62,6 +62,17 @@ export const CAVE_COLORS = { rock: 0x5b5f66, opening: 0x15171a } as const;
 /** Size of a cave as drawn, in pixels. */
 export const CAVE_VISUAL = { width: 58, height: 40 } as const;
 
+/**
+ * The fog of war: its colour, and how dark it makes tiles that have been
+ * seen before but are out of sight now.
+ */
+export const FOG_VISUAL = {
+  color: 0x05070a,
+  exploredAlpha: 0.5,
+  /** How many pixels each fog diamond reaches past its tile, to close the gaps between them. */
+  bleed: 1,
+} as const;
+
 /** Colour of the mark on a unit that carries a resource. */
 export const RESOURCE_COLORS: Record<ResourceType, number> = {
   food: 0xe8384f,

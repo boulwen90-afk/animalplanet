@@ -19,6 +19,7 @@ import type { Point } from '../map/iso';
 import { canStep, findPath, type PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
 import type { Building, GameState, PlayerId, Unit } from '../state';
+import { isTileExplored } from './visibility';
 
 /** Work, in worker-steps, needed to finish a building. */
 export function buildWorkFor(type: BuildingType): number {
@@ -39,13 +40,15 @@ export function buildFraction(building: Building): number {
 /**
  * True if a building of this type may be placed with its footprint's
  * lowest corner on tile (x, y): every tile must be on the map, walkable
- * ground, free of buildings, resources and units, and not on or next to a cave.
+ * ground, free of buildings, resources and units, and not on or next to a
+ * cave. If `player` is given, that side must also have explored every tile.
  */
 export function canPlaceBuilding(
   state: GameState,
   type: BuildingType,
   x: number,
   y: number,
+  player?: PlayerId,
 ): boolean {
   const size = BUILDING_DEFS[type].size;
   const inFootprint = (tx: number, ty: number) =>
@@ -55,6 +58,8 @@ export function canPlaceBuilding(
     for (let tx = x; tx < x + size; tx++) {
       // Walkable terrain excludes trees, berries, rocks and water.
       if (!inBounds(tx, ty, state.map) || !isWalkable(state.map, tx, ty)) return false;
+      // A side can only build on ground it has seen.
+      if (player !== undefined && !isTileExplored(state, player, tx, ty)) return false;
     }
   }
   // Nothing may be built on a cave or right next to one, so its entrance stays open.
@@ -97,7 +102,9 @@ export function placeBuilding(
   if (!stock || builders.length === 0 || !Number.isInteger(x) || !Number.isInteger(y)) {
     return { ok: false, reason: 'invalid' };
   }
-  if (!canPlaceBuilding(state, type, x, y)) return { ok: false, reason: 'invalidPlacement' };
+  if (!canPlaceBuilding(state, type, x, y, player)) {
+    return { ok: false, reason: 'invalidPlacement' };
+  }
   const missing = missingResources(stock, BUILDING_DEFS[type].cost);
   if (missing.length > 0) return { ok: false, reason: 'insufficientResources', missing };
 

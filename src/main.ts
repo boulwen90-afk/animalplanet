@@ -8,7 +8,10 @@ const params = new URLSearchParams(window.location.search);
 const testMode = params.get('test') === '1';
 const seed = parseSeed(params.get('seed'), MAP_GEN_CONFIG.defaultSeed);
 
-const gameScene = new GameScene({ testMode, seed });
+// The fog of war can only be turned off in test mode.
+const fog = !(testMode && params.get('fog') === '0');
+
+const gameScene = new GameScene({ testMode, seed, fog });
 
 new Game({
   type: AUTO,

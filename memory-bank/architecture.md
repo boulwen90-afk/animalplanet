@@ -4,7 +4,7 @@ Beskriver hur koden **faktiskt** är uppbyggd. Uppdateras efter varje
 avslutad fas. Planerad arkitektur står i `tech-stack.md`; det här dokumentet
 beskriver bara det som finns i repot.
 
-Senast uppdaterad: fas 7.
+Senast uppdaterad: fas 8.
 
 ## Översikt
 
@@ -20,8 +20,8 @@ ESLint stoppar import av Phaser, `render/` och `testing/` i `src/sim/`, liksom
 Efter fas 7 går en hel match att spela: enheter och byggnader, vägsökning,
 förflyttning, resursinsamling, produktion, byggande, strid, kapitulation
 till grottor samt vinst och förlust. Gränssnittet har markering, paneler,
-resursrad, byggplacering, varningstext och slutskärm. Motståndaren är
-passiv; krigsdimma och AI saknas ännu.
+resursrad, byggplacering, varningstext och slutskärm. Krigsdimman döljer
+det spelaren inte ser. Motståndaren är passiv; AI saknas ännu.
 
 Allt som ändrar spelet går via `applyCommand`. Markeringen (vilka enheter
 som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
@@ -55,6 +55,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/systems/construction.ts` | `constructBuildings` (byggande), `canPlaceBuilding`, `placeBuilding`, `assistConstruction` | 6, 7 |
 | `src/sim/systems/combat.ts` | `resolveCombat` (upptäcka, förfölja, slå), `orderAttack`, skadeformeln, raserade byggnader och vinnare | 7 |
 | `src/sim/systems/surrender.ts` | `surrender` (kapitulation och val av grotta) och `resolveSurrenders` (gå in i grottan) | 7 |
+| `src/sim/systems/visibility.ts` | `updateVisibility` (synfält per sida) och frågor om vad en sida ser | 8 |
 | `src/sim/pathfinding/approach.ts` | `approachPath`: väg till en ruta intill ett mål, spridd mellan flera enheter | 7 |
 | `src/sim/resources.ts` | Resurskällor på kartan: slå upp, ta från, startmängder | 4 |
 | `src/sim/systems/gathering.ts` | `gatherResources` (insamlingsloopen) och `startGathering` | 4 |
@@ -73,7 +74,8 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/render/views/EntityView.ts` | Ritar enheter och byggnader, interpolerar rörelse, ritar markeringar, livstaplar, vita flaggor och stridseffekter | 3, 4, 6, 7 |
 | `src/render/views/SelectionView.ts` | Ritar dragrutan och orderringar | 3 |
 | `src/render/views/PlacementView.ts` | Ritar konturen av en byggnad som placeras | 6 |
-| `src/render/views/CaveView.ts` | Ritar grottorna och antalet djur i dem | 7 |
+| `src/render/views/CaveView.ts` | Ritar grottorna och antalet djur i dem | 7, 8 |
+| `src/render/views/FogView.ts` | Ritar krigsdimman | 8 |
 | `src/render/views/visuals.ts` | Platshållargrafikens mått och färger, delade av ritning och klickträffar | 3 |
 | `src/render/input/CameraController.ts` | Kamerapanorering med tangenter, skärmkant, mittenknapp och finger | 1 |
 | `src/render/input/SelectionController.ts` | Mus och tangentbord: markering, dragruta, order (flytta, samla, hjälpa till att bygga) | 3, 4, 6 |
@@ -92,6 +94,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `tests/e2e/phase5-training.spec.ts` | Webbläsartester för fas 5 | 5 |
 | `tests/e2e/phase6-building.spec.ts` | Webbläsartester för fas 6 | 6 |
 | `tests/e2e/phase7-combat.spec.ts` | Webbläsartester för fas 7 | 7 |
+| `tests/e2e/phase8-fog.spec.ts` | Webbläsartester för fas 8 | 8 |
 | `.github/workflows/ci.yml` | Lint, Vitest, bygge och Playwright på pull requests | 1 |
 | `.github/workflows/deploy.yml` | Lint, Vitest, bygge och publicering till GitHub Pages vid push till `main` | 1 |
 
@@ -122,7 +125,8 @@ Definieras i `src/sim/map/iso.ts`.
 | `tick` | Antal körda simuleringssteg |
 | `rng` | Slumpgeneratorns tillstånd (`{ s }`) |
 | `map` | `GameMap`: `width`, `height`, `terrain` (rad för rad, index `y · width + x`), `resourceAmount` (enheter kvar i varje rutas källa, samma index), `startPositions` (0 = spelaren, 1 = motståndaren) |
-| `players` | En `PlayerState` per sida: `resources` (`food`, `wood`) |
+| `players` | En `PlayerState` per sida: `resources` (`food`, `wood`) och `visibility` (vad sidan vet om varje ruta, samma index som `terrain`) |
+| `fogEnabled` | Om krigsdimman är på. Av betyder att alla ser allt |
 | `entities` | Alla enheter och byggnader, i den ordning de skapades |
 | `nextEntityId` | Id för nästa entitet. Id:n återanvänds aldrig |
 | `winner` | Sidan som har vunnit, eller `null`. När den är satt står simuleringen still |
@@ -160,8 +164,8 @@ Terrängtyper: `grass` (gångbar), `tree`, `berries`, `rock`, `water` (blockerar
 
 - `tick(state)` kör ett steg: tömmer `events`, sedan `produceUnits`,
   `constructBuildings`, `gatherResources`, `resolveCombat`,
-  `resolveSurrenders`, `moveUnits`, och till sist ökas `state.tick`. När
-  `winner` är satt gör `tick` ingenting.
+  `resolveSurrenders`, `moveUnits`, `updateVisibility`, och till sist ökas
+  `state.tick`. När `winner` är satt gör `tick` ingenting.
 - `consumeSteps(clock, elapsedMs, stepMs, maxSteps)` samlar bildrutetid och
   ger antalet steg som ska köras. Resten sparas till nästa bildruta. Fler än
   `maxTicksPerFrame` (5) steg per bildruta körs aldrig; överskjutande tid
@@ -284,6 +288,29 @@ motsvarande längre tid.
   frö jämfört med före fas 7.
 - Ingenting får byggas på en grotta eller på rutorna intill
   (`CAVE_CONFIG.noBuildDistance`).
+
+### Krigsdimma
+
+- Varje ruta har för varje sida ett av tre lägen: `UNEXPLORED` (0),
+  `EXPLORED` (1) eller `VISIBLE` (2).
+- `updateVisibility` körs sist i varje steg och när spelet skapas: alla
+  synliga rutor blir utforskade, och sedan blir varje ruta synlig vars
+  mittpunkt ligger inom synfältet för någon av sidans enheter eller
+  byggnader. Terräng skymmer inte.
+- Synfält: Samlare 6, Ramkrigare 7, Storide 9, Visthus 5, Krigshall 6, bygge
+  under uppförande 2. Enheter mäter från sin rutas mitt, byggnader från
+  fotavtryckets mitt. En kapitulerad enhet ser inte åt sin sida.
+- `isEntityVisibleTo(state, player, entity)`: egna alltid; andras enheter
+  när deras ruta är synlig; andras byggnader när någon av deras rutor är
+  synlig. `visibleEntities` ger alla sådana.
+- Dimman påverkar spelreglerna på två ställen: ett mål som inte syns kan
+  inte anfallas (`isAttackable`), så en anfallare ger upp när målet
+  försvinner ur sikte; och `canPlaceBuilding` kräver att sidan har utforskat
+  alla rutor i fotavtrycket.
+- Vägsökningen bryr sig inte om dimman. Enheter hittar runt hinder som
+  spelaren aldrig har sett.
+- Med `fogEnabled: false` räknas allt som synligt. Testkartor från
+  `testUtils` har dimman av; `createGame` har den på om inget annat sägs.
 
 ### Händelser
 
@@ -432,7 +459,19 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - En enhet som lämnar kartan (går in i en grotta eller försvinner) tonas
     bort på 300 ms där den stod. En raserad byggnad tas bort direkt.
 - **`CaveView`** ritar varje grotta som en kulle med mörk öppning och en
-  kant i sidans färg, med antalet djur ovanför, t.ex. `3/12`.
+  kant i sidans färg, med antalet djur ovanför, t.ex. `3/12`. Grottan ritas
+  när spelaren har utforskat dess ruta. Antalet visas alltid för egna
+  grottor, och för andras bara medan de är i sikte.
+- **`FogView`** ritar dimman som en mörk romb per ruta, på djup över allt på
+  kartan men under livstaplar och andra markeringar: heltäckande över
+  outforskade rutor, 50 % genomskinlig över utforskade, ingenting över
+  synliga. Bara rutor som har ändrats ritas om. Romberna överlappar en pixel
+  så att rutnätet inte lyser igenom i skarvarna. Vyn skapas inte när dimman
+  är av.
+- **Det spelaren inte ser ritas inte:** `EntityView` döljer andras enheter
+  och byggnader utanför synliga rutor, med livstaplar och flaggor.
+  `MapView` döljer träd, bärsnår och klippor på outforskade rutor, eftersom
+  de är högre än en ruta och annars sticker upp ur dimman.
 - **`PlacementController`** styr byggplaceringen. Medan den är aktiv följer
   en kontur av fotavtrycket musen, med byggnadens mitt under pekaren: grön
   där byggnaden får stå, röd annars. Vänsterklick på giltig plats skickar
@@ -459,6 +498,9 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     högre än en ruta, så `pickResourceTile` räknar på trädets ritade yta.
   - Markeringen ändras när knappen släpps. Pekskärm hanteras inte här än.
   - Medan en byggnad placeras hör musen och Esc till placeringen.
+  - Klick och dragruta räknar bara med det spelaren ser
+    (`visibleEntities`). En markerad fiende avmarkeras när den försvinner
+    in i dimman. En resurskälla på outforskad mark går inte att ge order om.
   - Reglerna ligger som rena funktioner i `selection.ts` och `picking.ts`.
     En markering är antingen ett antal egna enheter, eller en enda annan
     sak (byggnad, fiendeenhet eller kapitulerad enhet) som bara kan
@@ -508,6 +550,8 @@ URL-parametrar:
 - `?test=1` – exponerar `window.__TEST__`. Utan parametern finns det inte.
 - `?seed=N` – frö för all slump, heltal 0–4294967295. Saknas det eller är
   ogiltigt används `MAP_GEN_CONFIG.defaultSeed` (1).
+- `?fog=0` – stänger av krigsdimman. Fungerar bara tillsammans med
+  `?test=1`.
 
 `window.__TEST__`:
 | Fält | Innehåll |
@@ -517,7 +561,7 @@ URL-parametrar:
 | `camera.width`, `camera.height` | Bildens storlek i pixlar |
 | `camera.centerTile` | Rutkoordinat (decimal) för punkten mitt i bilden |
 | `elapsedMs` | Summan av all bildrutetid spelet har bearbetat (varje bildruta högst 100 ms). Går långsammare än väggklockan på en långsam maskin |
-| `getState()` | En kopia av hela `GameState` |
+| `getState()` | En kopia av hela `GameState`, även det spelaren inte ser. Vad spelaren ser står i `players[0].visibility` |
 | `advance(n)` | Kör `n` simuleringssteg direkt |
 | `spawnUnit(type, owner, x, y)` | Skapar en enhet på en ruta och ger dess id. Genväg för tester; spelet gör aldrig så |
 | `getAlert()` | Varningstexten överst; tom när ingen visas |
@@ -614,3 +658,6 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | 7 | Platsen i grottan reserveras när enheten kapitulerar | Annars kan flera enheter på väg mot samma grotta överfylla den. |
 | 7 | Soldater anfaller självmant bara enheter, inte byggnader | Annars vandrar sysslolösa soldater iväg mot närmaste fiendebyggnad. Byggnader anfalls på order. |
 | 7 | `approachPath` är en ny, delad funktion; insamlingens egen motsvarighet är orörd | Samma idé (sprid enheter runt ett mål) behövdes för strid och grottor. Att lägga om insamlingen till den vore en refaktorering utanför fasen. |
+| 8 | Synligheten ligger i `GameState` och räknas om varje steg | Den styr spelregler (anfall, byggplacering), inte bara ritningen, och AI:n kommer att behöva samma frågor. Omräkningen är billig på en 64×64-karta. |
+| 8 | Dimman har en av/på-flagga i tillståndet | Enhetstester av andra saker och `?fog=0` behöver ett läge där alla ser allt, utan särfall utspridda i koden. |
+| 8 | Dimman ritas som en romb per ruta i en Blitter | Ett ritanrop för hela dimman, och bara ändrade rutor uppdateras. |

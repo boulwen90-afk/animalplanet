@@ -18,6 +18,7 @@ import type { PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
 import type { Building, Entity, GameState, PlayerId, Unit } from '../state';
 import { surrender } from './surrender';
+import { isEntityVisibleTo } from './visibility';
 
 /** Simulation steps between two strikes by a unit. */
 export function strikeTicks(unit: Unit): number {
@@ -30,10 +31,15 @@ export function strikeDamage(attacker: Unit, target: Entity): number {
   return Math.max(1, UNIT_DEFS[attacker.type].damage - armor);
 }
 
-/** True if `player`'s units may attack this entity. */
-export function isAttackable(entity: Entity, player: PlayerId): boolean {
+/**
+ * True if `player`'s units may attack this entity: it belongs to the other
+ * side, has not surrendered, and is in sight. A target that slips into the
+ * fog of war is lost.
+ */
+export function isAttackable(state: GameState, entity: Entity, player: PlayerId): boolean {
   if (entity.owner === player) return false;
-  return !isUnit(entity) || !hasSurrendered(entity);
+  if (isUnit(entity) && hasSurrendered(entity)) return false;
+  return isEntityVisibleTo(state, player, entity);
 }
 
 /** The walkable tiles, built when first needed and rebuilt after a building collapses. */
@@ -74,7 +80,7 @@ export function orderAttack(
 ): CommandResult {
   const target = state.entities.find((entity) => entity.id === targetId);
   const fighters = units.filter((unit) => UNIT_DEFS[unit.type].damage > 0);
-  if (!target || !isAttackable(target, player) || fighters.length === 0) {
+  if (!target || !isAttackable(state, target, player) || fighters.length === 0) {
     return { ok: false, reason: 'invalid' };
   }
   for (const unit of fighters) {
@@ -94,7 +100,7 @@ function acquireTarget(state: GameState, unit: Unit): void {
   let nearest: Unit | undefined;
   let nearestDistance = Infinity;
   for (const other of state.entities) {
-    if (!isUnit(other) || !isAttackable(other, unit.owner)) continue;
+    if (!isUnit(other) || !isAttackable(state, other, unit.owner)) continue;
     const distance = tileDistance(unit.x, unit.y, other.x, other.y);
     if (distance <= radius && distance < nearestDistance) {
       nearest = other;
@@ -116,7 +122,7 @@ function pursueOrStrike(state: GameState, unit: Unit, grids: GridCache): void {
   const task = unit.task;
   if (task.kind !== 'attack') return;
   const target = state.entities.find((entity) => entity.id === task.targetId);
-  if (!target || !isAttackable(target, unit.owner)) {
+  if (!target || !isAttackable(state, target, unit.owner)) {
     unit.task = { kind: 'idle' };
     unit.path = [];
     return;

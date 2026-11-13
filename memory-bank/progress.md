@@ -4,9 +4,10 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 7 – klar i kod, pull request öppen mot `main`
-- **Nästa steg:** merge av fas 7, därefter fas 8 (krigsdimma) när den
-  beställs
+- **Aktuell fas:** Fas 8 – klar i kod, pull request öppen mot `main`
+- **Nästa steg:** användaren har gett klartecken (2026-11-13) att köra fas 9
+  och sedan fas 10 utan nytt godkännande, så länge allt fungerar. Varje fas
+  mergas när CI är grön
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -22,8 +23,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 4 | Resurser och insamling | Mergad | [#4](https://github.com/boulwen90-afk/animalplanet/pull/4) |
 | 5 | Träna arbetare | Mergad | [#5](https://github.com/boulwen90-afk/animalplanet/pull/5) |
 | 6 | Bygga Visthus och Krigshall | Mergad | [#6](https://github.com/boulwen90-afk/animalplanet/pull/6) |
-| 7 | Soldater, strid, kapitulation, vinst och förlust | Klar, väntar på merge | [#7](https://github.com/boulwen90-afk/animalplanet/pull/7) |
-| 8 | Krigsdimma | Ej påbörjad | – |
+| 7 | Soldater, strid, kapitulation, vinst och förlust | Mergad | [#7](https://github.com/boulwen90-afk/animalplanet/pull/7) |
+| 8 | Krigsdimma | Klar, väntar på merge | [#8](https://github.com/boulwen90-afk/animalplanet/pull/8) |
 | 9 | AI-motståndare | Ej påbörjad | – |
 | 10 | Pekstyrning, balans, MVP-avstämning | Ej påbörjad | – |
 
@@ -52,6 +53,73 @@ Mall – kopiera för varje avslutad fas:
 **Beslut och lärdomar**
 - …
 -->
+
+### Fas 8 – Krigsdimma (2026-11-13)
+
+**Skärmdumpar:** `docs/screenshots/fas-8-tre-lagen.png` (alla tre lägen:
+full sikt vid basen och spejaren, nedtonad mark där spejaren har gått, svart
+där ingen har varit), `docs/screenshots/fas-8-start.png` (vid start)
+
+**Avstämning mot planen**
+
+| Punkt i planen | Status | Kommentar |
+|---|---|---|
+| 1. Synlighetsrutnät per spelare: outforskad, utforskad, synlig | Klar | |
+| 2. Uppdatering från alla egna enheters och byggnaders synfält | Klar | Varje steg. Byggen under uppförande ser 2 rutor |
+| 3. Rendering: svart, nedtonad terräng respektive full sikt; fiendens enheter och byggnader döljs utanför synliga rutor | Klar | |
+| 4. Byggplacering kräver utforskade rutor; order mot ett mål som försvinner ur sikte avbryts | Klar | Kravet som saknades i fas 6 är nu uppfyllt |
+| 5. `?fog=0` i testläge stänger av dimman | Klar | Utan `?test=1` har parametern ingen verkan |
+
+| Test i planen | Resultat |
+|---|---|
+| Vitest: en enhet med synfält 6 gör rätt rutor synliga | Godkänt (alla 900 rutor på testkartan kontrolleras) |
+| Vitest: när den går vidare blir rutorna utforskade, inte outforskade | Godkänt |
+| Vitest: en fiende utanför synfältet finns inte i spelarens synliga entiteter | Godkänt |
+| Vitest: byggplacering på outforskad ruta nekas | Godkänt, även delvis outforskad plats |
+| Playwright: vid start är fiendens bas inte synlig enligt `getState()` | Godkänt |
+| Playwright: efter att en enhet gått dit är den det | Godkänt |
+| Skärmdump som visar alla tre dimlägen | Klar |
+
+Utöver planen testas även: byggnaders synfält, att terräng inte skymmer, att
+sidorna inte delar sikt, att kapitulerade enheter inte ser, att en anfallare
+ger upp när målet försvinner i dimman, att en dold fiende inte går att
+markera och att en markerad fiende avmarkeras när den försvinner, samt att
+`?fog=0` saknar verkan utanför testläge (genom att jämföra bilder).
+
+**Saknas eller avviker**
+- **Utforskad mark visar kartan som den är nu**, inte som den såg ut när
+  spelaren var där. Ett träd som fienden har huggit ned försvinner alltså
+  från spelarens bild även om ingen ser det.
+- **Enheter hittar vägen genom outforskad mark.** Vägsökningen känner hela
+  kartan, så en enhet som skickas in i det svarta går runt hinder spelaren
+  aldrig har sett.
+- **Träd i dimmans kant ritas delvis nedtonade.** Dimman ligger per ruta,
+  och ett träd är högre än sin ruta.
+- **Utforskad mark har ett mörkare rutnät.** Dimrutorna överlappar en
+  pixel för att täta skarvarna, och där två halvgenomskinliga rutor möts
+  blir det mörkare.
+- **Fiendens byggnader glöms så fort de är ur sikte.** Det följer GDD:t.
+- **Byggen under uppförande ser 2 rutor.** GDD:t anger bara synfält för
+  färdiga byggnader.
+- **Inga äldre tester behövde `?fog=0`.** Planen räknade med det; de gick
+  igenom med dimman på.
+- **AI:n ska enligt GDD:t inte påverkas av dimman.** Det hanteras i fas 9;
+  i nuläget gäller dimman lika för båda sidor.
+
+**Testresultat**
+- Vitest: 352 av 352
+- Playwright: 71 av 71, även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll: utan anmärkning
+- Konsolfel i headless-webbläsare: inga
+
+**Beslut och lärdomar**
+- Första versionen lät rutnätet lysa svagt genom skarvarna i det svarta,
+  vilket hade kunnat avslöja sjöar. Det syntes på skärmdumpen. Dimrutorna
+  överlappar nu en pixel.
+- Ett av de nya webbläsartesterna påstod sig kontrollera att `?fog=0` inte
+  verkar utanför testläge, men kontrollerade ingenting. Det jämför nu
+  andelen grön mark i bilden.
+- En byggnad som rasar dold i dimman skakar inte längre skärmen.
 
 ### Fas 7 – Soldater, strid, kapitulation, vinst och förlust (2026-11-12)
 

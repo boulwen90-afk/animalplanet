@@ -10,13 +10,16 @@ import { CAVE_COLORS, CAVE_VISUAL, PLAYER_COLORS } from './visuals';
  * colour, with the number of units inside written above it.
  */
 export class CaveView {
-  private readonly labels = new Map<number, { text: GameObjects.Text; shown: string }>();
+  private readonly caves = new Map<
+    number,
+    { image: GameObjects.Image; text: GameObjects.Text; shown: string }
+  >();
 
   constructor(scene: Scene, map: GameMap, size: TileSize) {
     for (const cave of map.caves) {
       const centre = tileCenterToWorld(cave.x, cave.y, size);
       const base = centre.y + size.tileHeight / 4;
-      scene.add
+      const image = scene.add
         .image(centre.x, base, caveTexture(scene, cave))
         .setOrigin(0.5, 1)
         .setDepth(centre.y);
@@ -31,20 +34,33 @@ export class CaveView {
         })
         .setOrigin(0.5, 1)
         .setDepth(centre.y + 0.01);
-      this.labels.set(cave.id, { text, shown: '' });
+      this.caves.set(cave.id, { image, text, shown: '' });
     }
-    this.update(map);
   }
 
-  /** Updates the numbers above the caves. */
-  update(map: GameMap): void {
+  /**
+   * Updates the numbers above the caves. A cave is drawn once the player has
+   * seen its tile; the number inside shows for the player's own caves and
+   * for other caves while they are in sight.
+   */
+  update(
+    map: GameMap,
+    viewer: number,
+    isExplored: (cave: Cave) => boolean,
+    isVisible: (cave: Cave) => boolean,
+  ): void {
     for (const cave of map.caves) {
-      const label = this.labels.get(cave.id);
-      if (!label) continue;
+      const drawn = this.caves.get(cave.id);
+      if (!drawn) continue;
+      const explored = isExplored(cave);
+      if (drawn.image.visible !== explored) drawn.image.setVisible(explored);
+      const showCount = cave.owner === viewer ? explored : isVisible(cave);
+      if (drawn.text.visible !== showCount) drawn.text.setVisible(showCount);
+
       const next = STRINGS.hud.caveCount(cave.occupants.length, CAVE_CONFIG.capacity);
-      if (next === label.shown) continue;
-      label.text.setText(next);
-      label.shown = next;
+      if (next === drawn.shown) continue;
+      drawn.text.setText(next);
+      drawn.shown = next;
     }
   }
 }

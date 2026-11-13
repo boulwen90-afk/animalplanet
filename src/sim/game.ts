@@ -7,33 +7,45 @@ import type { MapSize } from './map/iso';
 import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
 import type { GameMap } from './map/grid';
 import { createRng, type RngState } from './rng';
-import type { GameState, PlayerId } from './state';
+import { UNEXPLORED, type GameState, type PlayerId, type PlayerState } from './state';
+import { updateVisibility } from './systems/visibility';
 
 /** Creates a new game. The same seed always gives the same game. */
 export function createGame(
   seed: number,
   mapSize: MapSize = MAP_CONFIG,
   mapGen: MapGenConfig = MAP_GEN_CONFIG,
+  options: { fog?: boolean } = {},
 ): GameState {
   const rng = createRng(seed);
   const map = generateMap(rng, mapSize, mapGen);
-  const state = emptyState(seed, rng, map);
+  const state = emptyState(seed, rng, map, options.fog ?? true);
   placeStartingEntities(state);
+  updateVisibility(state);
   return state;
 }
 
 /** A game state with a map and each side's starting stock, but no units or buildings. */
-export function emptyState(seed: number, rng: RngState, map: GameMap): GameState {
+export function emptyState(seed: number, rng: RngState, map: GameMap, fog = true): GameState {
   return {
     seed,
     tick: 0,
     rng,
     map,
-    players: map.startPositions.map(() => ({ resources: { ...START_CONFIG.resources } })),
+    players: map.startPositions.map(() => newPlayer(map)),
     entities: [],
     nextEntityId: 1,
+    fogEnabled: fog,
     winner: null,
     events: [],
+  };
+}
+
+/** A side with its starting stock, knowing nothing of the map yet. */
+export function newPlayer(map: GameMap): PlayerState {
+  return {
+    resources: { ...START_CONFIG.resources },
+    visibility: new Array<number>(map.width * map.height).fill(UNEXPLORED),
   };
 }
 
