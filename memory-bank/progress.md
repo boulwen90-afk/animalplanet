@@ -818,7 +818,7 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
 
 ### Figurgrafik: skelett, animationer, spritesheets och björnkrigaren i spelet (2026-11-13)
 
-**PR:** PR_LINK
+**PR:** https://github.com/boulwen90-afk/animalplanet/pull/11
 
 **Skärmdumpar:** `docs/screenshots/figurer-gar.png` (två lag går mot
 varandra), `figurer-slass.png` (fem dueller) och `figurer-besegrad.png`
