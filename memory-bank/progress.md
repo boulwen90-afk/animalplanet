@@ -4,8 +4,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 10 – klar i kod, pull request öppen mot `main`.
-  Det är MVP:ns sista fas
+- **Aktuell fas:** ingen. Fas 10 var MVP:ns sista fas, och alla tio faser
+  är genomförda
 - **Nästa steg:** användaren speltestar MVP:n på
   https://boulwen90-afk.github.io/animalplanet/ och bestämmer vad som ska
   byggas efter MVP:n. Avstämningen av hela MVP:n mot GDD:t står under
@@ -28,7 +28,7 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 7 | Soldater, strid, kapitulation, vinst och förlust | Mergad | [#7](https://github.com/boulwen90-afk/animalplanet/pull/7) |
 | 8 | Krigsdimma | Mergad | [#8](https://github.com/boulwen90-afk/animalplanet/pull/8) |
 | 9 | AI-motståndare | Mergad | [#9](https://github.com/boulwen90-afk/animalplanet/pull/9) |
-| 10 | Pekstyrning, balans, MVP-avstämning | Klar, väntar på merge | [#10](https://github.com/boulwen90-afk/animalplanet/pull/10) |
+| 10 | Pekstyrning, balans, MVP-avstämning | Klar | [#10](https://github.com/boulwen90-afk/animalplanet/pull/10) |
 
 ## Fasloggar
 
