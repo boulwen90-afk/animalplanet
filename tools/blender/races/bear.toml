@@ -1,0 +1,43 @@
+# Bears, "Järnramarna": heavy, broad and short-legged, with a big head.
+# Lengths are in Blender units. The figure stands on z = 0 and faces -Y.
+name = "bear"
+
+[proportions]
+hip_height = 0.58
+torso_length = 0.80
+chest_forward = 0.04          # how far the chest leans forward
+shoulder_half_width = 0.52
+shoulder_drop = 0.14          # shoulders below the top of the torso
+hip_half_width = 0.26
+upper_arm = 0.38
+forearm = 0.36
+thigh = 0.28
+shin = 0.24
+chest_radii = [0.54, 0.42, 0.44]
+belly_radii = [0.50, 0.44, 0.42]
+neck_radius = 0.27
+head_radii = [0.40, 0.38, 0.35]
+head_forward = 0.12
+arm_radius = [0.19, 0.16]     # at the shoulder and at the wrist
+leg_radius = [0.22, 0.16]     # at the hip and at the ankle
+hand_radius = 0.18
+foot_size = [0.18, 0.27, 0.10]
+
+[features]
+muzzle_radii = [0.18, 0.21, 0.15]
+muzzle_drop = 0.09
+ear = "round"                 # "round" or "pointed"
+ear_radius = 0.18
+ear_spread = 0.90             # how far out on the head the ears sit, 0..1
+ear_height = 0.74             # how high on the head, 0..1
+hump = 0.12                   # the bear's shoulder hump; 0 for none
+tail = "stub"                 # "stub", "long" or "none"
+tail_size = 0.10
+
+[colors]
+fur = "#8a5a32"
+fur_dark = "#4d3220"
+fur_light = "#c49a66"
+nose = "#1b1310"
+eye = "#120c08"
+claw = "#e9dfc6"

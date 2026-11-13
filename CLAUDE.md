@@ -43,6 +43,8 @@ src/render/           Phaser: scener, vyer, inmatning
 src/testing/          window.__TEST__
 tests/e2e/            Playwright-tester
 docs/screenshots/     Skärmdump per fas
+tools/blender/        Figurpipelinen (Blender via bpy), se architecture.md
+assets/               Genererade figurer och förhandsbilder
 ```
 
 Enhetstester ligger bredvid koden (`src/sim/**/*.test.ts`).

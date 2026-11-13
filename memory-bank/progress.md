@@ -4,15 +4,15 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** ingen. Fas 10 var MVP:ns sista fas, och alla tio faser
-  är genomförda
-- **Nästa steg:** användaren speltestar MVP:n på
-  https://boulwen90-afk.github.io/animalplanet/ och bestämmer vad som ska
-  byggas efter MVP:n. Avstämningen av hela MVP:n mot GDD:t står under
-  "MVP-avstämning" nedan
-- **Publicering:** sidan uppdateras vid varje merge till `main`. Att den
-  visar spelet är inte kontrollerat från Claudes session, som inte når
-  github.io
+- **MVP:n är klar.** Alla tio faser är mergade till `main`
+- **Pågår:** riktig figurgrafik, byggd med kod i Blender. Steg 0–2 är
+  gjorda (pipeline och en björnkrigare i statisk pose). Arbetet väntar på
+  att användaren godkänner stilen. Se "Efter MVP:n" nedan
+- **Nästa steg efter godkännande:** skelett, animationer och spritesheets,
+  och därefter att spelet ritar figurerna i stället för platshållarna
+- **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
+  vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
+  från Claudes session, som inte når github.io
 
 ## Fasstatus
 
@@ -811,6 +811,66 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   Testerna mäter nu fart mot spelets egen tid (`__TEST__.elapsedMs`).
   Tester i kommande faser ska stega simuleringen i stället för att vänta
   på verklig tid.
+
+## Efter MVP:n
+
+### Figurgrafik, steg 0–2: pipeline och en björnkrigare (2026-11-13)
+
+**Förhandsbilder:** `assets/previews/bear_warrior/` (`overview.png` visar
+allt på ett ark)
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| Steg 0: kontrollera renderingsteknik | Klar | Phaser 3.90 i 2D-isometri, inte Three.js. Slutprodukten blir spritesheets |
+| Steg 0: installera Blender utan fönster | Klar | `pip install bpy` gav Blender 5.3.0 för Python 3.13 |
+| Steg 1: `tools/blender/lib/`, `races/`, `units/`, `build.py` | Klar | |
+| Steg 1: `assets/characters/` och `assets/previews/` | Klar | `assets/characters/` är tom tills stilen är godkänd |
+| Steg 1: pipelinen dokumenterad i `architecture.md` | Klar | Avsnittet "Figurpipeline" |
+| Steg 2: björnkrigare med kraftig kropp, ringbrynja och plåt, rundsköld, svärd | Klar | Statisk pose, inget skelett |
+| Steg 2: bilder framifrån, från sidan och i spelets kameravinkel | Klar | Även bakifrån |
+| Steg 2: en bild i verklig storlek | Klar | `ingame_1x.png`, på spelets mark |
+| Steg 2: två lagfärgsvarianter | Klar | Blå och röd, samma färger som i spelet |
+| Stilregel: gemensam ledstruktur för alla raser | Klar | Ledernas namn och lägen finns; skelettet byggs senare |
+| Stilregel: rustning, sköld och vapen är separata och utbytbara | Klar | Provat med yxa, utan mantel och med hjälm utan nässkydd |
+| Stilregel: separat lagfärgsmaterial | Klar | Mantel, vapenrock och sköldens fält |
+| Stilregel: parametriskt och deterministiskt | Klar | Två byggen ger identiska filer |
+| Ingen ändring i spelkoden | Klar | Bara `.gitignore`, `.prettierignore` och `eslint.config.js` har fått undantag för den virtuella miljön och `assets/` |
+
+**Saknas eller avviker**
+- **Cycles används i stället för EEVEE.** EEVEE kräver grafikkort, och
+  molnmiljön saknar `libEGL.so.1`. Cycles är Blenders egen renderare och
+  kör på processorn; ett bygge med alla bilder tar cirka 20 sekunder.
+- **Ringbrynjan är en slät mörkgrå yta**, utan ringmönster. Ett mönster
+  skulle inte synas i spelstorlek.
+- **Figuren har inget skelett**, enligt uppdraget. Posen är byggd direkt
+  från ledernas lägen.
+- **`assets/characters/` är tom.** Spritesheets byggs när stilen är
+  godkänd.
+- **Konturen läggs på efter renderingen**, med en bildoperation i
+  `lib/export.py`, inte i Blender.
+- **Lagfärgen byts genom att rendera om.** Hur spelet ska färga om (ett
+  spritesheet per lag, eller en mask som färgas i spelet) är inte bestämt.
+- **Figuren är cirka 48 pixlar hög i spelet**, större än platshållaren
+  (22 pixlar). Byggnaderna är fortfarande platshållare och ser små ut
+  bredvid.
+- **Att samma konfig ger samma bild är bara kontrollerat på en maskin.**
+  En annan Blender-version kan ge andra pixlar.
+- **Bara björnen är byggd.** Att rustningen passar andra raser är inte
+  provat.
+- **Två bilder utöver uppdraget:** `back.png` och `overview.png`.
+
+**Testresultat**
+- Bygget kör utan fel, och två körningar ger identiska kontrollsummor
+- Lint: utan anmärkning. Spelets tester är inte berörda
+
+**Beslut och lärdomar**
+- Första renderingen hade utfrätt vitt stål, en hjälm som dolde ögonen och
+  en mantel som såg ut som en skiva. Det syntes först på bilderna.
+- I verklig storlek försvann björnen i allt stål. Kortare brynjeärmar som
+  visar päls, större öron och en skarpare rendering gjorde mest nytta.
+- `bpy` måste importeras före Blenders egna moduler (`addon_utils`).
 
 ## MVP-avstämning mot GDD:t (fas 10, 2026-11-13)
 

@@ -4,7 +4,7 @@ Beskriver hur koden **faktiskt** är uppbyggd. Uppdateras efter varje
 avslutad fas. Planerad arkitektur står i `tech-stack.md`; det här dokumentet
 beskriver bara det som finns i repot.
 
-Senast uppdaterad: fas 10.
+Senast uppdaterad: figurpipelinen, steg 0–2 (efter MVP:n).
 
 ## Översikt
 
@@ -104,6 +104,9 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `tests/e2e/phase9-ai.spec.ts` | Webbläsartester för fas 9 | 9 |
 | `tests/e2e/phase10-touch-start.spec.ts` | Webbläsartester för fas 10: startskärm, hela flödet, basknapp, pekstyrning, telefonskärm | 10 |
 | `src/sim/balance.test.ts` | Balansmålen som enhetstester: matchlängd AI mot AI, försvar mot första vågen | 10 |
+| `tools/blender/` | Figurpipelinen: bygger figurer i Blender och renderar dem. Se "Figurpipeline" | Efter MVP |
+| `assets/previews/` | Förhandsbilder av figurer, för granskning | Efter MVP |
+| `assets/characters/` | Genererade spritesheets (tom tills stilen är godkänd) | Efter MVP |
 | `.github/workflows/ci.yml` | Lint, Vitest, bygge och Playwright på pull requests | 1 |
 | `.github/workflows/deploy.yml` | Lint, Vitest, bygge och publicering till GitHub Pages vid push till `main` | 1 |
 
@@ -619,6 +622,87 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
 - Phaser-inställningar: `Scale.RESIZE` (spelytan följer fönstret),
   `AUTO`-renderare, ljud avstängt.
 
+## Figurpipeline (`tools/blender/`)
+
+Figurerna byggs helt med kod i Blender, utan fönster och utan externa
+tjänster. Spelet ritas med Phaser i 2D, så slutprodukten blir spritesheets
+(PNG + JSON-atlas). **Hittills finns bara steg 0–2:** pipelinen, en
+björnkrigare i statisk pose och förhandsbilder. Spelkoden använder inte
+figurerna än.
+
+**Körning**
+
+```
+python3.13 -m venv tools/blender/.venv
+tools/blender/.venv/bin/pip install -r tools/blender/requirements.txt
+tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior
+```
+
+- Blender körs som Python-modulen `bpy` 5.3.0 (kräver Python 3.13). Den
+  virtuella miljön checkas inte in.
+- Renderingen görs med **Cycles på processorn**. EEVEE går inte att använda
+  utan grafikkort (`libEGL.so.1` saknas i molnmiljön).
+- CI kör inte pipelinen. Genererade bilder checkas in.
+
+**Filer**
+
+| Fil | Ansvar |
+|---|---|
+| `build.py` | Bygger en figur (`--race`, `--unit`) och renderar förhandsbilderna till `assets/previews/<ras>_<enhet>/` (`--out` väljer annan mapp) |
+| `game.toml` | Gemensamt för alla figurer: rutstorlek, kameravinkel (30°), pixlar per Blender-enhet (22), bildruta (64 px), kontur, ljus och lagfärger |
+| `races/<ras>.toml` | En ras: proportioner, drag (nos, öron, puckel, svans) och pälsfärger |
+| `units/<enhet>.toml` | En enhetstyp: rustningsdelar, vapen, sköld, färger och pose |
+| `lib/config.py` | Läser konfigfilerna |
+| `lib/materials.py` | Matta lågpolymaterial från hexfärger; lagfärgsmaterialet `team_color` |
+| `lib/mesh.py` | `Builder` med grundformerna: `ellipsoid` (även kupol), `limb` (avsmalnande cylinder mellan två punkter), `box`, `sheet` (tyg) |
+| `lib/skeleton.py` | De gemensamma lederna (`JOINTS`) och var de hamnar för en ras och en pose |
+| `lib/body.py` | Kroppen: bål, puckel, huvud, nos, ögon, öron, armar, ben, tassar, klor, svans |
+| `lib/armor.py` | Rustningsdelar: ringbrynja, bröstplåt, axelskydd, armskenor, benskenor, bälte, vapenrock, hjälm, mantel |
+| `lib/weapons.py` | Svärd, yxa och rundsköld |
+| `lib/figure.py` | Sätter ihop kropp, rustning, vapen och sköld till en figur |
+| `lib/camera.py` | Ortografisk kamera och ljus |
+| `lib/export.py` | Cycles-inställningar, rendering till PNG och bildoperationer (kontur, bakgrund, förstoring, spelets mark) |
+
+**Hur en figur byggs**
+
+1. `posed_joints` räknar ut ledernas lägen från rasens proportioner och
+   enhetens pose. Alla raser har samma leder med samma namn (`hips`,
+   `chest`, `neck`, `head`, `shoulder_l`, `elbow_l`, `hand_l`, `hip_l`,
+   `knee_l`, `foot_l` och motsvarande `_r`), så att animationer kan delas
+   när figurerna får skelett. Än finns inget skelett, bara ledernas lägen.
+2. Kroppen byggs led för led av enkla, plant skuggade former. Figuren står
+   på z = 0 och tittar mot −Y; dess vänstra sida är +X.
+3. Rustningen läggs utanpå och får sina mått från rasens proportioner, så
+   samma enhetskonfig passar en annan ras. Varje del slås av eller på i
+   enhetens konfig.
+4. Vapen sätts i en hand och skölden på en underarm.
+5. Varje del är ett eget objekt med namn efter grupp: `body.*`, `armor.*`,
+   `weapon.*`, `shield.*`.
+
+**Lagfärg.** Mantel, vapenrock och sköldens fält använder materialet
+`team_color`. `export.set_team_color` byter dess färg mellan renderingar.
+Färgerna i `game.toml` är samma som `PLAYER_COLORS` i spelet.
+
+**Skala.** En Blender-enhet är 22 pixlar i spelet. Björnen är cirka 2,2
+enheter hög med öron, alltså runt 48 pixlar, på en ruta som är 64×32.
+Kameran ser ned i 30°, vilket ger spelets rutform (dubbelt så bred som
+hög). Figuren vrids för olika vyer; kameran och ljuset står still, så att
+ljuset alltid kommer från samma håll i bilden.
+
+**Kontur.** Bilder i spelstorlek får en mörk kant på en pixel
+(`add_outline`), så att figuren syns mot marken.
+
+**Deterministiskt.** Ingen slump används när figuren byggs. Cycles kör med
+fast frö, fast antal strålar och utan brusreducering. Två byggen efter
+varandra ger identiska filer (kontrollerat med kontrollsummor). Det är
+bara kontrollerat på samma maskin och samma Blender-version.
+
+**Förhandsbilder** (`assets/previews/bear_warrior/`): `front.png`,
+`side.png`, `back.png`, `game_blue.png` och `game_red.png` (spelets
+kameravinkel, en per lagfärg), `ingame_1x.png` (verklig storlek på spelets
+mark), `ingame_4x.png` (samma bild förstorad fyra gånger utan utjämning)
+och `overview.png` (allt på ett ark).
+
 ## Data (`src/data/`)
 
 | Fil | Styr |
@@ -785,3 +869,6 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | 10 | Byggplacering på pekskärm sker i två tryck | Ett finger ger ingen förhandsvisning som muspekaren gör. Med ett enda tryck skulle spelaren betala för en plats den inte har sett konturen på. |
 | 10 | Startskärmen hoppas över efter "Spela igen" via sessionslagring | Omladdning är det enklaste sättet att börja om från ett rent tillstånd. Utan markeringen skulle spelaren få trycka "Starta" inför varje ny match. |
 | 10 | Balansmålen är enhetstester (`balance.test.ts`) | En ändring i `src/data/` som bryter matchlängden eller försvaret mot första vågen syns direkt, utan att någon behöver spela. |
+| Efter MVP | Figurerna byggs med kod i Blender och blir spritesheets | Spelet är 2D i Phaser. Kod i stället för handritade bilder gör figurerna parametriska: en ny ras eller enhet är en ny konfigfil. |
+| Efter MVP | Cycles på processorn, inte EEVEE | EEVEE kräver grafikkort, som molnmiljön saknar. Cycles ger dessutom samma pixlar varje gång med fast frö. |
+| Efter MVP | Konfigfilerna är TOML | Går att kommentera, och Python läser dem utan extra paket. |

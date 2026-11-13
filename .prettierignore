@@ -5,3 +5,5 @@ playwright-report/
 package-lock.json
 memory-bank/
 CLAUDE.md
+tools/blender/.venv/
+assets/
