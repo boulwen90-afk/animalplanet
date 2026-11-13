@@ -84,7 +84,8 @@ async function spawnArmyAtEnemyBase(page: Page, owner: 0 | 1): Promise<number[]>
 test.describe('phase 7: combat, surrender, victory and defeat', () => {
   test('soldiers ordered onto the enemy Storide with the mouse bring victory', async ({ page }) => {
     const errors = trackConsoleErrors(page);
-    await openGame(page);
+    // A passive opponent: this test is about the mechanics, not the computer player.
+    await openGame(page, '&ai=0');
     const state = await getState(page);
     const enemyStoride = storideOf(state, 1);
     // Eight soldiers near the enemy base, but too far from its workers to go for them unasked.
@@ -200,7 +201,8 @@ test.describe('phase 7: combat, surrender, victory and defeat', () => {
 
   test("a beaten unit surrenders, walks to its side's cave and goes in", async ({ page }) => {
     const errors = trackConsoleErrors(page);
-    await openGame(page);
+    // A passive opponent: this test is about the mechanics, not the computer player.
+    await openGame(page, '&ai=0');
     const state = await getState(page);
     const victim = state.entities.find((e): e is Unit => e.kind === 'unit' && e.owner === 1)!;
     // One soldier on the open tile beside the enemy worker's Storide.
@@ -244,7 +246,8 @@ test.describe('phase 7: combat, surrender, victory and defeat', () => {
   });
 
   test('right-clicking an enemy unit orders an attack', async ({ page }) => {
-    await openGame(page);
+    // A passive opponent: this test is about the mechanics, not the computer player.
+    await openGame(page, '&ai=0');
     const start = (await getState(page)).map.startPositions[0]!;
     // Both on tiles map generation keeps clear, seven tiles apart: too far for
     // the soldier to notice the worker by itself.

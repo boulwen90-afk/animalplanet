@@ -10,16 +10,29 @@ import { createRng, type RngState } from './rng';
 import { UNEXPLORED, type GameState, type PlayerId, type PlayerState } from './state';
 import { updateVisibility } from './systems/visibility';
 
+export interface GameOptions {
+  /** Whether the fog of war is on. Default: on. */
+  fog?: boolean;
+  /** The sides played by the computer. Default: the opponent, side 1. */
+  ai?: readonly PlayerId[];
+}
+
+const DEFAULT_AI_PLAYERS: readonly PlayerId[] = [1];
+
 /** Creates a new game. The same seed always gives the same game. */
 export function createGame(
   seed: number,
   mapSize: MapSize = MAP_CONFIG,
   mapGen: MapGenConfig = MAP_GEN_CONFIG,
-  options: { fog?: boolean } = {},
+  options: GameOptions = {},
 ): GameState {
   const rng = createRng(seed);
   const map = generateMap(rng, mapSize, mapGen);
   const state = emptyState(seed, rng, map, options.fog ?? true);
+  for (const player of options.ai ?? DEFAULT_AI_PLAYERS) {
+    const side = state.players[player];
+    if (side) side.ai = { attackers: [], waveTicks: [] };
+  }
   placeStartingEntities(state);
   updateVisibility(state);
   return state;
@@ -46,6 +59,7 @@ export function newPlayer(map: GameMap): PlayerState {
   return {
     resources: { ...START_CONFIG.resources },
     visibility: new Array<number>(map.width * map.height).fill(UNEXPLORED),
+    ai: null,
   };
 }
 

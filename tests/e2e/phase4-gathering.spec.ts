@@ -50,7 +50,8 @@ const resourceBar = (page: Page) => page.evaluate(() => window.__TEST__!.getReso
 test.describe('phase 4: resources and gathering', () => {
   test('the resource bar shows the starting stock and population', async ({ page }) => {
     const errors = trackConsoleErrors(page);
-    await openGame(page);
+    // A passive opponent: this test is about the mechanics, not the computer player.
+    await openGame(page, '&ai=0');
 
     expect(await resourceBar(page)).toEqual({
       food: `Mat ${START.food}`,

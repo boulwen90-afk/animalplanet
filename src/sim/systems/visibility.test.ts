@@ -285,7 +285,8 @@ describe('fog of war and orders', () => {
 
 describe('fog of war in a real game', () => {
   it('is on from the start, and each side sees its own base but not the other', () => {
-    const state = createGame(1);
+    // Two sides played by people; a computer opponent is not bound by the fog.
+    const state = createGame(1, undefined, undefined, { ai: [] });
     expect(state.fogEnabled).toBe(true);
     const [mine, theirs] = state.map.startPositions as [
       { x: number; y: number },

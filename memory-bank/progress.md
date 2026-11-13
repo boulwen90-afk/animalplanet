@@ -4,10 +4,10 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 ## Nuläge
 
-- **Aktuell fas:** Fas 8 – klar i kod, pull request öppen mot `main`
-- **Nästa steg:** användaren har gett klartecken (2026-11-13) att köra fas 9
-  och sedan fas 10 utan nytt godkännande, så länge allt fungerar. Varje fas
-  mergas när CI är grön
+- **Aktuell fas:** Fas 9 – klar i kod, pull request öppen mot `main`
+- **Nästa steg:** fas 10 (pekstyrning, balans, MVP-avstämning). Användaren
+  har gett klartecken (2026-11-13) att köra fas 9 och 10 utan nytt
+  godkännande, så länge allt fungerar. Varje fas mergas när CI är grön
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -24,8 +24,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 5 | Träna arbetare | Mergad | [#5](https://github.com/boulwen90-afk/animalplanet/pull/5) |
 | 6 | Bygga Visthus och Krigshall | Mergad | [#6](https://github.com/boulwen90-afk/animalplanet/pull/6) |
 | 7 | Soldater, strid, kapitulation, vinst och förlust | Mergad | [#7](https://github.com/boulwen90-afk/animalplanet/pull/7) |
-| 8 | Krigsdimma | Klar, väntar på merge | [#8](https://github.com/boulwen90-afk/animalplanet/pull/8) |
-| 9 | AI-motståndare | Ej påbörjad | – |
+| 8 | Krigsdimma | Mergad | [#8](https://github.com/boulwen90-afk/animalplanet/pull/8) |
+| 9 | AI-motståndare | Klar, väntar på merge | [#9](https://github.com/boulwen90-afk/animalplanet/pull/9) |
 | 10 | Pekstyrning, balans, MVP-avstämning | Ej påbörjad | – |
 
 ## Fasloggar
@@ -53,6 +53,70 @@ Mall – kopiera för varje avslutad fas:
 **Beslut och lärdomar**
 - …
 -->
+
+### Fas 9 – AI-motståndare (2026-11-13)
+
+**Skärmdumpar:** `docs/screenshots/fas-9-anfallsvag.png` (första vågen når
+spelarens bas efter 4,5 minuter), `docs/screenshots/fas-9-motstandarens-bas.png`
+(motståndarens bas efter 3 minuter, sedd utan dimma: Krigshall, Visthus,
+arbetare som samlar och sex soldater)
+
+**Avstämning mot planen**
+
+| Punkt i planen | Status | Kommentar |
+|---|---|---|
+| 1. AI i `src/sim/ai/` som bara agerar via samma kommandon som spelaren och betalar samma kostnader | Klar | |
+| 2. Beteende enligt GDD avsnitt 10: arbetare till 8, Krigshall, Visthus, kontinuerlig soldatträning, anfallsvågor, basförsvar | Klar | |
+| 3. Vågornas storlek och tidpunkter i `src/data/ai.ts` | Klar | Med tidsfönster per våg |
+| 4. AI:n fattar beslut en gång per sekund, inte varje steg | Klar | |
+
+| Test i planen | Resultat |
+|---|---|
+| Vitest: efter 3 min har AI:n minst 6 Samlare och en Krigshall | Godkänt för 3 frön (den har 8 Samlare och även ett Visthus) |
+| Vitest: första vågen skickas inom tidsfönstret i datafilen | Godkänt för 3 frön (går vid 4:00) |
+| Vitest: AI:ns lager blir aldrig negativt | Godkänt (kontrolleras varje steg i 6 minuter) |
+| Vitest: mot en spelare som inte gör något vinner AI:n inom 15 min | Godkänt för 3 frön (vinner efter drygt 5 minuter) |
+| Vitest: AI mot AI med samma frö ger samma vinnare och samma slutsteg två körningar i rad | Godkänt (hela sluttillståndet är identiskt) |
+| Playwright: spelet startar med AI utan konsolfel och AI:n har fler Samlare efter 2 min | Godkänt |
+| Skärmdump av en AI-våg som anfaller | Klar |
+
+Utöver planen testas även: att den slutar vid 8 arbetare, håller dem
+sysselsatta på både mat och trä, betalar för det den tränar, aldrig går över
+befolkningstaket, lämnar en personstyrd sida i fred, inte hindras av dimman,
+försvarar basen, får sin Krigshall färdig även om byggaren försvinner, att
+`?ai=0` ger en stillastående motståndare, och att motståndaren är dold i
+dimman för spelaren.
+
+**Saknas eller avviker**
+- **Mot en spelare som inte försvarar sig är matchen över på drygt 5
+  minuter.** Balansen justeras i fas 10; GDD:ts mål är 10–20 minuter.
+- **AI:n samlar mer trä än den använder.** Efter 5 minuter har den över
+  500 trä men ont om mat. Det justeras i fas 10.
+- **Soldater i en våg bryr sig bara om fiendens soldater och huvudbyggnad.**
+  De går förbi arbetare och andra byggnader.
+- **AI:n bygger bara en Krigshall och ett Visthus**, och expanderar inte.
+- **AI:ns arbetare flyr inte** när basen anfalls, och bara soldater som är
+  hemma försvarar.
+- **Den har ett tak på 20 soldater.** Det står inte i GDD:t.
+- **Vågorna har ett tidsfönster.** GDD:t nämner bara en tidigaste tid.
+- **Ny URL-parameter `?ai=0`** för tester, utöver planen.
+- **Fem äldre webbläsartester körs nu med `?ai=0`.** De skrevs för en
+  stillastående motståndare och prövar annat än AI:n.
+- **AI-testerna tar runt 35 sekunder**, eftersom de spelar hela matcher.
+  Övriga enhetstester tar ett par sekunder.
+
+**Testresultat**
+- Vitest: 371 av 371
+- Playwright: 76 av 76, även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll: utan anmärkning
+- Konsolfel i headless-webbläsare: inga
+
+**Beslut och lärdomar**
+- Innan testerna skrevs kördes hela matcher med utskrift var 30:e sekund,
+  för att se vad AI:n faktiskt gjorde. Det visade träöverskottet direkt.
+- Ett test tittade på vågen vid en tidpunkt då AI:n redan hade vunnit
+  matchen. Tester som stegar fram långt måste räkna med att matchen kan vara
+  slut.
 
 ### Fas 8 – Krigsdimma (2026-11-13)
 

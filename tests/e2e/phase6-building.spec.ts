@@ -249,7 +249,8 @@ test.describe('phase 6: building', () => {
   });
 
   test('a finished Krigshall can be selected and trains Ramkrigare', async ({ page }) => {
-    await openGame(page);
+    // A passive opponent: this test is about the mechanics, not the computer player.
+    await openGame(page, '&ai=0');
     // Gather wood first: the three workers bring home enough for a Krigshall.
     const state = await getState(page);
     const workers = playerUnits(state);

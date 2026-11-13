@@ -4,7 +4,7 @@ Beskriver hur koden **faktiskt** är uppbyggd. Uppdateras efter varje
 avslutad fas. Planerad arkitektur står i `tech-stack.md`; det här dokumentet
 beskriver bara det som finns i repot.
 
-Senast uppdaterad: fas 8.
+Senast uppdaterad: fas 9.
 
 ## Översikt
 
@@ -21,7 +21,7 @@ Efter fas 7 går en hel match att spela: enheter och byggnader, vägsökning,
 förflyttning, resursinsamling, produktion, byggande, strid, kapitulation
 till grottor samt vinst och förlust. Gränssnittet har markering, paneler,
 resursrad, byggplacering, varningstext och slutskärm. Krigsdimman döljer
-det spelaren inte ser. Motståndaren är passiv; AI saknas ännu.
+det spelaren inte ser, och motståndaren spelas av en regelstyrd AI.
 
 Allt som ändrar spelet går via `applyCommand`. Markeringen (vilka enheter
 som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
@@ -43,6 +43,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/data/buildings.ts` | `BUILDING_DEFS`: byggnadstyper (vad de tränar, HP, storlek, avlämningsplats, kostnad, byggtid). `CONSTRUCTION_CONFIG` (start-HP, extra arbetares takt) | 3, 4, 5, 6 |
 | `src/data/production.ts` | `PRODUCTION_CONFIG`: längsta produktionskö | 5 |
 | `src/data/setup.ts` | `START_CONFIG`: startbyggnad, startenheter, startresurser, befolkningstak | 3, 4 |
+| `src/data/ai.ts` | `AI_CONFIG`: beslutstakt, antal arbetare, andel på trä, flest soldater, försvarsradie, anfallsvågor | 9 |
 | `src/data/ui.ts` | `UI_CONFIG`: dragtröskel, orderring, blinktid vid nekad order, träffblink, utfall, bortoning, skärmskakning, varningstid | 3, 5, 7 |
 | `src/data/strings.ts` | `STRINGS`: all speltext | 3 |
 | `src/sim/state.ts` | Typerna `GameState`, `PlayerState`, `Unit`, `UnitTask`, `Building`, `Entity`, `PlayerId`, `SimEvent` | 2, 3, 4, 7 |
@@ -55,7 +56,8 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/systems/construction.ts` | `constructBuildings` (byggande), `canPlaceBuilding`, `placeBuilding`, `assistConstruction` | 6, 7 |
 | `src/sim/systems/combat.ts` | `resolveCombat` (upptäcka, förfölja, slå), `orderAttack`, skadeformeln, raserade byggnader och vinnare | 7 |
 | `src/sim/systems/surrender.ts` | `surrender` (kapitulation och val av grotta) och `resolveSurrenders` (gå in i grottan) | 7 |
-| `src/sim/systems/visibility.ts` | `updateVisibility` (synfält per sida) och frågor om vad en sida ser | 8 |
+| `src/sim/systems/visibility.ts` | `updateVisibility` (synfält per sida) och frågor om vad en sida ser | 8, 9 |
+| `src/sim/ai/ai.ts` | `runAi`: datormotståndarens beslut, en gång per sekund | 9 |
 | `src/sim/pathfinding/approach.ts` | `approachPath`: väg till en ruta intill ett mål, spridd mellan flera enheter | 7 |
 | `src/sim/resources.ts` | Resurskällor på kartan: slå upp, ta från, startmängder | 4 |
 | `src/sim/systems/gathering.ts` | `gatherResources` (insamlingsloopen) och `startGathering` | 4 |
@@ -95,6 +97,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `tests/e2e/phase6-building.spec.ts` | Webbläsartester för fas 6 | 6 |
 | `tests/e2e/phase7-combat.spec.ts` | Webbläsartester för fas 7 | 7 |
 | `tests/e2e/phase8-fog.spec.ts` | Webbläsartester för fas 8 | 8 |
+| `tests/e2e/phase9-ai.spec.ts` | Webbläsartester för fas 9 | 9 |
 | `.github/workflows/ci.yml` | Lint, Vitest, bygge och Playwright på pull requests | 1 |
 | `.github/workflows/deploy.yml` | Lint, Vitest, bygge och publicering till GitHub Pages vid push till `main` | 1 |
 
@@ -125,7 +128,7 @@ Definieras i `src/sim/map/iso.ts`.
 | `tick` | Antal körda simuleringssteg |
 | `rng` | Slumpgeneratorns tillstånd (`{ s }`) |
 | `map` | `GameMap`: `width`, `height`, `terrain` (rad för rad, index `y · width + x`), `resourceAmount` (enheter kvar i varje rutas källa, samma index), `startPositions` (0 = spelaren, 1 = motståndaren) |
-| `players` | En `PlayerState` per sida: `resources` (`food`, `wood`) och `visibility` (vad sidan vet om varje ruta, samma index som `terrain`) |
+| `players` | En `PlayerState` per sida: `resources` (`food`, `wood`), `visibility` (vad sidan vet om varje ruta, samma index som `terrain`) och `ai` (datormotståndarens minne, eller `null` för en sida som spelas av en person) |
 | `fogEnabled` | Om krigsdimman är på. Av betyder att alla ser allt |
 | `entities` | Alla enheter och byggnader, i den ordning de skapades |
 | `nextEntityId` | Id för nästa entitet. Id:n återanvänds aldrig |
@@ -162,7 +165,7 @@ Terrängtyper: `grass` (gångbar), `tree`, `berries`, `rock`, `water` (blockerar
 
 ### Tidssteg
 
-- `tick(state)` kör ett steg: tömmer `events`, sedan `produceUnits`,
+- `tick(state)` kör ett steg: tömmer `events`, sedan `runAi`, `produceUnits`,
   `constructBuildings`, `gatherResources`, `resolveCombat`,
   `resolveSurrenders`, `moveUnits`, `updateVisibility`, och till sist ökas
   `state.tick`. När `winner` är satt gör `tick` ingenting.
@@ -288,6 +291,38 @@ motsvarande längre tid.
   frö jämfört med före fas 7.
 - Ingenting får byggas på en grotta eller på rutorna intill
   (`CAVE_CONFIG.noBuildDistance`).
+
+### Datormotståndaren
+
+- `createGame` tar `options.ai`, en lista över sidor som datorn spelar.
+  Standard är `[1]`. En sådan sida får `players[i].ai = { attackers,
+  waveTicks }`.
+- `runAi` körs först i varje steg men gör bara något var 20:e steg (en gång
+  per sekund). Allt den gör går via `applyCommand`, och den betalar samma
+  kostnader som spelaren.
+- Dess enda fördel: krigsdimman gäller inte för en sida med `ai` satt
+  (`visibilityAt` och `isEntityVisibleTo` ger alltid synligt).
+- Varje beslut går igenom samma lista, i den här ordningen:
+  1. **Arbetare:** träna en i taget tills den har 8.
+  2. **Byggen:** ett bygge utan byggare får närmaste lediga arbetare. Saknas
+     kasern byggs en vid basen; därefter ett förråd vid närmaste skog.
+     Platsen ska ha en ruta fri mark runt om, så att inget stängs in.
+  3. **Sysslolösa arbetare** skickas att samla vid källan närmast basen.
+     Hälften hålls på trä och resten på mat (`woodShare`).
+  4. **Soldater:** träna en i taget i varje färdig kasern, upp till 20.
+  5. **Försvar:** hemmavarande soldater anfaller fiendeenheter inom 12 rutor
+     från huvudbyggnaden.
+  6. **Anfallsvåg:** när vågens tidigaste tid är inne och tillräckligt många
+     soldater är hemma går vågen mot fiendens huvudbyggnad. Passeras den
+     senaste tiden går den med de soldater som finns.
+  7. **Soldater i en våg** anfaller fiendesoldater inom sin upptäcktsradie
+     och annars huvudbyggnaden.
+- Vågorna står i `AI_CONFIG.waves`: 4 soldater vid 4:00–5:30, 6 vid
+  7:00–8:30, 8 vid 10:00–11:30, och därefter 10 soldater var 150:e sekund.
+- AI:n läser vilka byggnader som är kasern och förråd ur `BUILDING_DEFS`
+  (tränar soldater, respektive bara avlämningsplats), inte ur namnen.
+- Uppmätt: mot en spelare som inte gör något vinner den efter drygt 5
+  minuter. Två datorstyrda sidor avgör en match på 11–16 minuter.
 
 ### Krigsdimma
 
@@ -552,6 +587,8 @@ URL-parametrar:
   ogiltigt används `MAP_GEN_CONFIG.defaultSeed` (1).
 - `?fog=0` – stänger av krigsdimman. Fungerar bara tillsammans med
   `?test=1`.
+- `?ai=0` – ingen datormotståndare; den andra sidan står still. Fungerar
+  bara tillsammans med `?test=1`.
 
 `window.__TEST__`:
 | Fält | Innehåll |
@@ -588,6 +625,12 @@ behöver utrymme att panorera anropar först `centerCameraOnMapMiddle`.
 Enheter rör sig i realtid även i testläge. Ett test som ska klicka på en
 enhet måste läsa dess läge precis innan, eller klicka innan enheten får en
 order.
+
+Datormotståndaren är på som standard. Den tränar, bygger och flyttar sina
+enheter, och skickar sin första våg efter 4 minuter speltid. Tester av
+annat än AI:n som behöver en stillastående motståndare, eller som stegar
+fram längre än så, ska öppna spelet med `&ai=0`. I enhetstester:
+`createGame(seed, undefined, undefined, { ai: [] })`.
 
 Sysslolösa Ramkrigare anfaller fiendeenheter inom 6 rutor på eget
 initiativ. Ett test som vill ha stillastående soldater måste ställa dem
@@ -661,3 +704,6 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | 8 | Synligheten ligger i `GameState` och räknas om varje steg | Den styr spelregler (anfall, byggplacering), inte bara ritningen, och AI:n kommer att behöva samma frågor. Omräkningen är billig på en 64×64-karta. |
 | 8 | Dimman har en av/på-flagga i tillståndet | Enhetstester av andra saker och `?fog=0` behöver ett läge där alla ser allt, utan särfall utspridda i koden. |
 | 8 | Dimman ritas som en romb per ruta i en Blitter | Ett ritanrop för hela dimman, och bara ändrade rutor uppdateras. |
+| 9 | AI:n är en funktion som körs från `tick`, med sitt minne i `GameState` | Den blir deterministisk och följer med när tillståndet kopieras, och hela matcher kan köras i enhetstester utan webbläsare. |
+| 9 | AI:n slipper krigsdimman genom ett villkor i synlighetsfrågorna | GDD:t säger att den inte påverkas av dimman. Ett ställe i koden räcker, och anfall och byggplacering fungerar utan särfall. |
+| 9 | Vågorna har ett tidsfönster, inte bara en tidpunkt | Med bara en tidigaste tid kan en våg vänta för alltid på soldater som aldrig kommer. Efter fönstrets slut går den med vad som finns. |
