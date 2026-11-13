@@ -27,6 +27,15 @@ describe('moveUnits', () => {
     expect(unit.y).toBe(1.5);
   });
 
+  it('a unit that gets an order is on its way within 100 ms', () => {
+    // GDD section 11: an order shows on the unit within 100 ms, which is two steps.
+    const state = openState(12, 3);
+    const unit = createUnit(state, 'ramkrigare', 0, 0, 1);
+    applyCommand(state, { type: 'move', player: 0, unitIds: [unit.id], x: 10, y: 1 });
+    advance(state, (100 / 1000) * SIM_CONFIG.ticksPerSecond);
+    expect(unit.x).toBeGreaterThan(0.5);
+  });
+
   it('stands on the target tile after exactly the expected number of steps', () => {
     // 10 tiles straight at 2.5 tiles/s is 4 s, which is 80 steps.
     const state = openState(12, 3);

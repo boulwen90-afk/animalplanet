@@ -9,7 +9,16 @@ import {
   type CommandPanelInfo,
   type CommandPanelLayout,
 } from '../ui/commandPanel';
-import { outcomeLayout, rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout';
+import {
+  alertTop,
+  hudButtonRects,
+  outcomeLayout,
+  rectContains,
+  resourceBarRect,
+  selectionPanelRect,
+  startScreenLayout,
+  type ScreenRect,
+} from '../ui/layout';
 import type { SelectionInfo } from '../ui/selectionInfo';
 
 /** The numbers shown in the resource bar. */
@@ -18,6 +27,14 @@ export interface ResourceBarInfo {
   wood: number;
   population: number;
   populationCap: number;
+}
+
+export type HudButtonId = 'base' | 'deselect';
+
+/** A button under the resource bar. */
+export interface HudButton {
+  id: HudButtonId;
+  label: string;
 }
 
 /** Where the interface gets what it shows, and where its buttons send their orders. */
@@ -38,6 +55,32 @@ export interface HudSource {
   getOutcome(): 'victory' | 'defeat' | undefined;
   /** Starts a new game. */
   restart(): void;
+  /** False while the match waits behind the start screen. */
+  isStarted(): boolean;
+  /** Leaves the start screen and begins the match. */
+  start(): void;
+  /** The buttons to show under the resource bar; the first is drawn rightmost. */
+  getHudButtons(): HudButton[];
+  /** Presses one of those buttons. */
+  pressHudButton(id: HudButtonId): void;
+}
+
+/** What the start screen shows, with the screen position of the button's centre. */
+export interface StartScreenDisplay {
+  visible: boolean;
+  title: string;
+  help: string;
+  button: { label: string; x: number; y: number };
+}
+
+/** A button under the resource bar as it is drawn: its centre and its size. */
+export interface HudButtonDisplay {
+  id: HudButtonId;
+  label: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
 }
 
 /** What the end-of-game screen shows, with the screen position of the button's centre. */
@@ -122,6 +165,17 @@ export class UiScene extends Scene {
   private outcomeButton!: GameObjects.Text;
   private outcomeShown: 'victory' | 'defeat' | undefined;
 
+  private hudButtons!: GameObjects.Graphics;
+  private readonly hudButtonTexts: GameObjects.Text[] = [];
+  private hudButtonsShown: HudButton[] = [];
+
+  private startScreen!: GameObjects.Graphics;
+  private startTitle!: GameObjects.Text;
+  private startHelp!: GameObjects.Text;
+  private startButton!: GameObjects.Text;
+  private startShown = false;
+  private startButtonRect: ScreenRect = { x: 0, y: 0, width: 0, height: 0 };
+
   constructor(private readonly source: HudSource) {
     super({ key: 'Ui', active: true });
   }
@@ -172,6 +226,43 @@ export class UiScene extends Scene {
       .setOrigin(0.5, 0)
       .setVisible(false);
 
+    this.hudButtons = this.add.graphics();
+
+    // The start screen lies on top of everything else, like the end-of-game screen.
+    this.startShown = !this.source.isStarted();
+    this.startScreen = this.add.graphics().setDepth(100).setVisible(this.startShown);
+    this.startTitle = this.add
+      .text(0, 0, STRINGS.start.title, {
+        fontFamily: 'sans-serif',
+        fontSize: '48px',
+        fontStyle: 'bold',
+        color: TEXT_COLOR,
+      })
+      .setOrigin(0.5)
+      .setDepth(101)
+      .setVisible(this.startShown);
+    this.startHelp = this.add
+      .text(0, 0, STRINGS.start.help, {
+        fontFamily: 'sans-serif',
+        fontSize: '16px',
+        color: '#e2e8f0',
+        align: 'center',
+        lineSpacing: 4,
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(101)
+      .setVisible(this.startShown);
+    this.startButton = this.add
+      .text(0, 0, STRINGS.start.button, {
+        fontFamily: 'sans-serif',
+        fontSize: '22px',
+        fontStyle: 'bold',
+        color: TEXT_COLOR,
+      })
+      .setOrigin(0.5)
+      .setDepth(101)
+      .setVisible(this.startShown);
+
     // The end-of-game screen lies on top of everything else.
     this.outcome = this.add.graphics().setDepth(100).setVisible(false);
     this.outcomeTitle = this.add
@@ -205,6 +296,7 @@ export class UiScene extends Scene {
     this.now = time;
     this.updateResourceBar();
     this.updateCommandPanel();
+    this.updateHudButtons();
     this.updateAlert();
     this.updateOutcome();
 
@@ -280,6 +372,87 @@ export class UiScene extends Scene {
     };
   }
 
+  /** What the start screen shows right now. */
+  getStartScreenDisplay(): StartScreenDisplay {
+    const button = this.startButtonRect;
+    return {
+      visible: this.startShown,
+      title: STRINGS.start.title,
+      help: STRINGS.start.help,
+      button: {
+        label: STRINGS.start.button,
+        x: button.x + button.width / 2,
+        y: button.y + button.height / 2,
+      },
+    };
+  }
+
+  /** The buttons under the resource bar as they are drawn right now. */
+  getHudButtonsDisplay(): HudButtonDisplay[] {
+    if (this.startShown) return [];
+    const rects = hudButtonRects(this.scale.width, this.hudButtonsShown.length);
+    return this.hudButtonsShown.map((button, i) => {
+      const rect = rects[i] as ScreenRect;
+      return {
+        ...button,
+        x: rect.x + rect.width / 2,
+        y: rect.y + rect.height / 2,
+        width: rect.width,
+        height: rect.height,
+      };
+    });
+  }
+
+  private updateHudButtons(): void {
+    const next = this.startShown ? [] : this.source.getHudButtons();
+    const shown = this.hudButtonsShown;
+    const same =
+      next.length === shown.length &&
+      next.every((button, i) => button.id === shown[i]?.id && button.label === shown[i]?.label);
+    if (same) return;
+    this.hudButtonsShown = next;
+    this.drawHudButtons();
+  }
+
+  private drawHudButtons(): void {
+    const buttons = this.hudButtonsShown;
+    const rects = hudButtonRects(this.scale.width, buttons.length);
+    const g = this.hudButtons;
+    g.clear();
+    buttons.forEach((button, i) => {
+      const rect = rects[i] as ScreenRect;
+      g.fillStyle(BUTTON_COLOR, 0.92);
+      g.fillRoundedRect(rect.x, rect.y, rect.width, rect.height, 4);
+      g.lineStyle(1, PANEL_EDGE, 1);
+      g.strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 4);
+      let text = this.hudButtonTexts[i];
+      if (!text) {
+        text = this.add
+          .text(0, 0, '', {
+            fontFamily: 'sans-serif',
+            fontSize: '15px',
+            fontStyle: 'bold',
+            color: TEXT_COLOR,
+          })
+          .setOrigin(0.5);
+        this.hudButtonTexts[i] = text;
+      }
+      text
+        .setVisible(true)
+        .setText(button.label)
+        .setPosition(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    });
+    this.hudButtonTexts.slice(buttons.length).forEach((text) => text.setVisible(false));
+  }
+
+  private hideStartScreen(): void {
+    this.startShown = false;
+    this.startScreen.setVisible(false);
+    this.startTitle.setVisible(false);
+    this.startHelp.setVisible(false);
+    this.startButton.setVisible(false);
+  }
+
   private updateAlert(): void {
     const next = this.source.getAlert() ?? '';
     if (next === this.alertShown) return;
@@ -299,20 +472,43 @@ export class UiScene extends Scene {
   }
 
   private onPointerDown(pointer: Input.Pointer): void {
+    const pressed = pointer.wasTouch || pointer.leftButtonDown();
+
+    // On the start screen only the "start" button responds.
+    if (this.startShown) {
+      if (pressed && rectContains(this.startButtonRect, pointer.x, pointer.y)) {
+        this.claimPress();
+        this.hideStartScreen();
+        this.source.start();
+      }
+      return;
+    }
+
     // Once the game is over only the "play again" button responds.
     if (this.outcomeShown !== undefined) {
       const { button } = outcomeLayout(this.scale.width, this.scale.height);
-      const pressed = pointer.wasTouch || pointer.leftButtonDown();
       if (pressed && rectContains(button, pointer.x, pointer.y)) this.source.restart();
       return;
+    }
+
+    if (pressed) {
+      const rects = hudButtonRects(this.scale.width, this.hudButtonsShown.length);
+      const index = rects.findIndex((rect) => rectContains(rect, pointer.x, pointer.y));
+      const button = this.hudButtonsShown[index];
+      if (button) {
+        this.claimPress();
+        this.source.pressHudButton(button.id);
+        return;
+      }
     }
 
     const info = this.commandInfo;
     const layout = this.commandLayout;
     if (!info || !layout) return;
-    if (!pointer.wasTouch && !pointer.leftButtonDown()) return;
+    if (!pressed) return;
     const hit = commandPanelHit(layout, pointer.x, pointer.y);
     if (!hit) return;
+    this.claimPress();
 
     if (hit.kind === 'button') {
       if (hit.index < info.buttons.length) {
@@ -321,6 +517,15 @@ export class UiScene extends Scene {
     } else if (hit.index < (info.queue?.length ?? 0)) {
       this.source.cancelQueuedUnit(hit.index);
     }
+  }
+
+  /**
+   * Keeps a press the interface acts on away from the map. Acting on it can
+   * take the pressed button off the screen, and the game scene, which sees
+   * the press afterwards, would then take it for a press on the ground.
+   */
+  private claimPress(): void {
+    this.input.stopPropagation();
   }
 
   /** Flashes the resource bar texts that explain why an order was refused. */
@@ -481,7 +686,9 @@ export class UiScene extends Scene {
     this.title.setPosition(rect.x + 12, rect.y + 10);
     this.detail.setPosition(rect.x + 12, rect.y + 36);
 
-    this.alert.setPosition(this.scale.width / 2, bar.height + 10);
+    this.alert.setPosition(this.scale.width / 2, alertTop(this.scale.width));
+    this.drawHudButtons();
+    this.layoutStartScreen();
 
     const end = outcomeLayout(this.scale.width, this.scale.height);
     this.outcome.clear();
@@ -508,5 +715,28 @@ export class UiScene extends Scene {
       end.button.x + end.button.width / 2,
       end.button.y + end.button.height / 2,
     );
+  }
+
+  private layoutStartScreen(): void {
+    const { width, height } = this.scale;
+    // The text is wrapped first, because the button goes below however many lines that gives.
+    const wrapWidth = startScreenLayout(width, height, 0).body.width;
+    this.startHelp.setWordWrapWidth(wrapWidth);
+    const layout = startScreenLayout(width, height, this.startHelp.height);
+    this.startButtonRect = layout.button;
+
+    this.startTitle.setFontSize(layout.title.size).setPosition(layout.title.x, layout.title.y);
+    this.startHelp.setPosition(layout.body.x, layout.body.y);
+    const { button } = layout;
+    this.startButton.setPosition(button.x + button.width / 2, button.y + button.height / 2);
+
+    const g = this.startScreen;
+    g.clear();
+    g.fillStyle(PANEL_COLOR, 0.8);
+    g.fillRect(0, 0, width, height);
+    g.fillStyle(BUTTON_COLOR, 1);
+    g.fillRoundedRect(button.x, button.y, button.width, button.height, 6);
+    g.lineStyle(2, PANEL_EDGE, 1);
+    g.strokeRoundedRect(button.x, button.y, button.width, button.height, 6);
   }
 }

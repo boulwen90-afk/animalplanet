@@ -26,12 +26,13 @@ import { CameraController } from '../input/CameraController';
 import { PlacementController } from '../input/PlacementController';
 import { builderUnitIds } from '../input/selection';
 import { SelectionController } from '../input/SelectionController';
+import { TouchController } from '../input/TouchController';
 import {
   commandPanelLayout,
   describeCommandPanel,
   type CommandPanelInfo,
 } from '../ui/commandPanel';
-import { rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout';
+import { hudButtonRects, rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout';
 import { describeSelection, type SelectionInfo } from '../ui/selectionInfo';
 import { CaveView } from '../views/CaveView';
 import { EntityView } from '../views/EntityView';
@@ -39,7 +40,8 @@ import { FogView } from '../views/FogView';
 import { MapView } from '../views/MapView';
 import { PlacementView } from '../views/PlacementView';
 import { SelectionView } from '../views/SelectionView';
-import type { HudSource, ResourceBarInfo, UiScene } from './UiScene';
+import { restartGame } from '../session';
+import type { HudButton, HudButtonId, HudSource, ResourceBarInfo, UiScene } from './UiScene';
 
 export interface GameSceneOptions {
   /** Expose window.__TEST__ (enabled with ?test=1). */
@@ -50,6 +52,8 @@ export interface GameSceneOptions {
   fog: boolean;
   /** Whether the computer plays the opponent. Off only with ?ai=0 in test mode. */
   ai: boolean;
+  /** Whether the game waits behind the start screen until the player presses "start". */
+  startScreen: boolean;
 }
 
 /** The side the person at the screen plays. */
@@ -63,6 +67,9 @@ export class GameScene extends Scene implements HudSource {
   private cameraController!: CameraController;
   private selectionController!: SelectionController;
   private placementController!: PlacementController;
+  private touchController!: TouchController;
+  /** False while the start screen is showing; the match has not begun. */
+  private started: boolean;
   private mapView!: MapView;
   private caveView!: CaveView;
   /** Undefined when the fog of war is off. */
@@ -82,6 +89,7 @@ export class GameScene extends Scene implements HudSource {
 
   constructor(private readonly options: GameSceneOptions) {
     super('Game');
+    this.started = !options.startScreen;
   }
 
   create(): void {
@@ -125,6 +133,20 @@ export class GameScene extends Scene implements HudSource {
       view: new PlacementView(this, MAP_CONFIG),
     });
 
+    this.touchController = new TouchController(this, {
+      isOverHud: (x, y) => this.isOverHud(x, y),
+      canBox: () => !this.placementController.active,
+      pan: (dx, dy) => this.cameraController.panBy(dx, dy),
+      tap: (x, y) => {
+        if (this.placementController.active) this.placementController.tapAt(x, y);
+        else this.selectionController.tapAt(x, y);
+      },
+      box: (start, end) => this.selectionController.selectBox(start, end),
+      view: this.selectionView,
+    });
+
+    this.input.keyboard?.on('keydown-H', () => this.jumpToBase());
+
     if (this.options.testMode) this.installTestApi(state);
   }
 
@@ -142,13 +164,16 @@ export class GameScene extends Scene implements HudSource {
     this.lastFrameTime = time;
     this.elapsedTotal += elapsed;
 
-    // The simulation runs in fixed steps, however long the frame took.
-    this.runSteps(
-      state,
-      consumeSteps(this.stepClock, elapsed, TICK_MS, SIM_CONFIG.maxTicksPerFrame),
-    );
-
-    this.cameraController.update(elapsed);
+    // Behind the start screen the match stands still.
+    if (this.started) {
+      // The simulation runs in fixed steps, however long the frame took.
+      this.runSteps(
+        state,
+        consumeSteps(this.stepClock, elapsed, TICK_MS, SIM_CONFIG.maxTicksPerFrame),
+      );
+      this.cameraController.update(elapsed);
+      this.touchController.update(elapsed);
+    }
     this.selectionController.update();
     this.placementController.update();
 
@@ -239,7 +264,43 @@ export class GameScene extends Scene implements HudSource {
   }
 
   restart(): void {
-    window.location.reload();
+    restartGame();
+  }
+
+  isStarted(): boolean {
+    return this.started;
+  }
+
+  start(): void {
+    this.started = true;
+  }
+
+  getHudButtons(): HudButton[] {
+    if (!this.state) return [];
+    const buttons: HudButton[] = [{ id: 'base', label: STRINGS.hud.toBase }];
+    if (this.placementController.active) {
+      buttons.push({ id: 'deselect', label: STRINGS.hud.cancelPlacement });
+    } else if (this.selectionController.selection.size > 0) {
+      buttons.push({ id: 'deselect', label: STRINGS.hud.deselect });
+    }
+    return buttons;
+  }
+
+  pressHudButton(id: HudButtonId): void {
+    if (id === 'base') {
+      this.jumpToBase();
+    } else if (this.placementController.active) {
+      // While a building is being placed the button cancels that instead.
+      this.placementController.cancel();
+    } else {
+      this.selectionController.clear();
+    }
+  }
+
+  /** Centres the view on the player's main building. */
+  private jumpToBase(): void {
+    if (!this.state || !this.started) return;
+    this.centerCameraOnTile(...this.playerStartTile(this.state));
   }
 
   getSelectionInfo(): SelectionInfo | undefined {
@@ -315,10 +376,12 @@ export class GameScene extends Scene implements HudSource {
 
   /** True if a screen position is on the resource bar, or on a panel that is showing. */
   private isOverHud(x: number, y: number): boolean {
-    // The end-of-game screen covers everything.
-    if (this.state?.winner !== null) return true;
+    // The start screen and the end-of-game screen cover everything.
+    if (!this.started || this.state?.winner !== null) return true;
     const { width, height } = this.scale;
     if (rectContains(resourceBarRect(width), x, y)) return true;
+    const buttons = hudButtonRects(width, this.getHudButtons().length);
+    if (buttons.some((rect) => rectContains(rect, x, y))) return true;
     if (this.selectionController.selection.size === 0) return false;
     if (rectContains(selectionPanelRect(width, height), x, y)) return true;
     const command = this.getCommandPanelInfo();
@@ -347,6 +410,9 @@ export class GameScene extends Scene implements HudSource {
       },
       getAlert: () => (this.scene.get('Ui') as UiScene).getAlertDisplay(),
       getOutcome: () => (this.scene.get('Ui') as UiScene).getOutcomeDisplay(),
+      getStartScreen: () => (this.scene.get('Ui') as UiScene).getStartScreenDisplay(),
+      getHudButtons: () => (this.scene.get('Ui') as UiScene).getHudButtonsDisplay(),
+      getTouchMode: () => this.touchController.mode,
       getShakeCount: () => this.shakeCount,
       command: (command) => applyCommand(state, command),
       getSelection: () => [...this.selectionController.selection],

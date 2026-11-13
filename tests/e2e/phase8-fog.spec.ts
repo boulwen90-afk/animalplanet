@@ -174,9 +174,16 @@ test.describe('phase 8: fog of war', () => {
   test('?fog=0 has no effect outside test mode', async ({ page }) => {
     // Without ?test=1 there is no test interface to ask, so the picture has to
     // tell: with the fog on, far less of the screen shows the green ground.
+    // The start screen dims the map. Its button sits in the same place in and
+    // out of test mode, so test mode can say where to press.
+    await openGame(page, '', { startScreen: true });
+    const start = (await page.evaluate(() => window.__TEST__!.getStartScreen())).button;
+
     const greenShare = async (url: string): Promise<number> => {
       await page.goto(url);
       await expect(page.locator('#game canvas')).toBeVisible();
+      await page.waitForTimeout(400);
+      await page.mouse.click(start.x, start.y);
       await page.waitForTimeout(800);
       const shot = await page.screenshot();
       return page.evaluate(async (base64) => {

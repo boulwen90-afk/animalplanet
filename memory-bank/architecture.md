@@ -4,7 +4,7 @@ Beskriver hur koden **faktiskt** är uppbyggd. Uppdateras efter varje
 avslutad fas. Planerad arkitektur står i `tech-stack.md`; det här dokumentet
 beskriver bara det som finns i repot.
 
-Senast uppdaterad: fas 9.
+Senast uppdaterad: fas 10.
 
 ## Översikt
 
@@ -21,7 +21,8 @@ Efter fas 7 går en hel match att spela: enheter och byggnader, vägsökning,
 förflyttning, resursinsamling, produktion, byggande, strid, kapitulation
 till grottor samt vinst och förlust. Gränssnittet har markering, paneler,
 resursrad, byggplacering, varningstext och slutskärm. Krigsdimman döljer
-det spelaren inte ser, och motståndaren spelas av en regelstyrd AI.
+det spelaren inte ser, och motståndaren spelas av en regelstyrd AI. Efter
+fas 10 börjar spelet bakom en startskärm och går att spela med pekskärm.
 
 Allt som ändrar spelet går via `applyCommand`. Markeringen (vilka enheter
 som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
@@ -32,7 +33,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | Fil | Ansvar | Fas |
 |---|---|---|
 | `index.html` | Sida med `#game`-behållare i helskärm | 1 |
-| `src/main.ts` | Läser `?test=1` och `?seed=N`, startar Phaser med `GameScene` | 1, 2 |
+| `src/main.ts` | Läser URL-parametrarna, avgör om startskärmen ska visas och startar Phaser med `GameScene` och `UiScene` | 1, 2, 10 |
 | `src/data/map.ts` | `MAP_CONFIG` (kartstorlek, rutstorlek), `MAP_GEN_CONFIG` (kartgenerering, standardfrö, grottornas placering) och `CAVE_CONFIG` (platser per grotta, byggförbud) | 1, 2, 7 |
 | `src/data/camera.ts` | `CAMERA_CONFIG`: panoreringsfart, kantmarginal, längsta bildrutetid | 1 |
 | `src/data/sim.ts` | `SIM_CONFIG`: steg per sekund, flest steg per bildruta. `TICK_MS` | 2 |
@@ -44,7 +45,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/data/production.ts` | `PRODUCTION_CONFIG`: längsta produktionskö | 5 |
 | `src/data/setup.ts` | `START_CONFIG`: startbyggnad, startenheter, startresurser, befolkningstak | 3, 4 |
 | `src/data/ai.ts` | `AI_CONFIG`: beslutstakt, antal arbetare, andel på trä, flest soldater, försvarsradie, anfallsvågor | 9 |
-| `src/data/ui.ts` | `UI_CONFIG`: dragtröskel, orderring, blinktid vid nekad order, träffblink, utfall, bortoning, skärmskakning, varningstid | 3, 5, 7 |
+| `src/data/ui.ts` | `UI_CONFIG`: dragtröskel, orderring, blinktid vid nekad order, träffblink, utfall, bortoning, skärmskakning, varningstid, pekstyrningens tröskel, hålltid och ring | 3, 5, 7, 10 |
 | `src/data/strings.ts` | `STRINGS`: all speltext | 3 |
 | `src/sim/state.ts` | Typerna `GameState`, `PlayerState`, `Unit`, `UnitTask`, `Building`, `Entity`, `PlayerId`, `SimEvent` | 2, 3, 4, 7 |
 | `src/sim/game.ts` | `createGame(seed)`: skapar ett nytt speltillstånd med karta, Storide och Samlare per sida | 2, 3 |
@@ -71,21 +72,24 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/map/grid.ts` | Typerna `GameMap` och `Cave`, rutuppslag, gångbarhet, spegling, avstånd, `isReachable` | 2, 7 |
 | `src/sim/map/mapgen.ts` | `generateMap`: kartgenerering, inklusive grottor | 2, 7 |
 | `src/render/scenes/GameScene.ts` | Skapar spelet, vyerna och styrningen, driver simuleringen, registrerar testgränssnittet | 1, 2, 3 |
-| `src/render/scenes/UiScene.ts` | Gränssnittet ovanpå spelet: resursraden, markeringspanelen och kommandopanelen | 3, 4, 5 |
+| `src/render/scenes/UiScene.ts` | Gränssnittet ovanpå spelet: resursraden, markeringspanelen, kommandopanelen, knapparna "Bas" och "Avmarkera", varningstext, startskärm och slutskärm | 3, 4, 5, 7, 10 |
+| `src/render/session.ts` | "Spela igen": laddar om sidan och låter den nya sidan hoppa över startskärmen | 10 |
 | `src/render/views/MapView.ts` | Ritar mark, träd, bärsnår och klippor; tar bort tömda källor | 1, 2, 4 |
 | `src/render/views/EntityView.ts` | Ritar enheter och byggnader, interpolerar rörelse, ritar markeringar, livstaplar, vita flaggor och stridseffekter | 3, 4, 6, 7 |
-| `src/render/views/SelectionView.ts` | Ritar dragrutan och orderringar | 3 |
+| `src/render/views/SelectionView.ts` | Ritar dragrutan, orderringar och ringen under ett finger som hållits kvar | 3, 10 |
 | `src/render/views/PlacementView.ts` | Ritar konturen av en byggnad som placeras | 6 |
 | `src/render/views/CaveView.ts` | Ritar grottorna och antalet djur i dem | 7, 8 |
 | `src/render/views/FogView.ts` | Ritar krigsdimman | 8 |
 | `src/render/views/visuals.ts` | Platshållargrafikens mått och färger, delade av ritning och klickträffar | 3 |
-| `src/render/input/CameraController.ts` | Kamerapanorering med tangenter, skärmkant, mittenknapp och finger | 1 |
-| `src/render/input/SelectionController.ts` | Mus och tangentbord: markering, dragruta, order (flytta, samla, hjälpa till att bygga) | 3, 4, 6 |
-| `src/render/input/PlacementController.ts` | Byggplacering: kontur som följer musen, klick placerar, högerklick och Esc avbryter | 6 |
+| `src/render/input/CameraController.ts` | Kamerapanorering med tangenter, skärmkant och mittenknapp; `panBy` för fingret | 1, 10 |
+| `src/render/input/SelectionController.ts` | Markering, dragruta och order (flytta, samla, anfalla, hjälpa till att bygga) med mus och tangentbord; `tapAt` och `selectBox` för fingret | 3, 4, 6, 7, 10 |
+| `src/render/input/PlacementController.ts` | Byggplacering: kontur som följer musen, klick placerar, högerklick och Esc avbryter. På pekskärm: tryck flyttar konturen, tryck på konturen bygger | 6, 10 |
+| `src/render/input/TouchController.ts` | Ett finger på kartan: tryck, dra (kamera) eller håll och dra (dragruta) | 10 |
+| `src/render/input/touchGesture.ts` | Fingrets lägen som rena funktioner: väntar, hållet, panorerar, dragruta | 10 |
 | `src/render/input/selection.ts` | Markeringsregler som rena funktioner | 3 |
 | `src/render/input/picking.ts` | Vilken enhet, byggnad eller resurskälla som ligger under en punkt eller i en ruta | 3, 4 |
 | `src/render/ui/selectionInfo.ts` | Texten i markeringspanelen | 3 |
-| `src/render/ui/layout.ts` | Var resursraden och markeringspanelen ligger på skärmen | 3, 4 |
+| `src/render/ui/layout.ts` | Var resursraden, markeringspanelen, HUD-knapparna, varningstexten, startskärmen och slutskärmen ligger på skärmen | 3, 4, 7, 10 |
 | `src/render/ui/commandPanel.ts` | Kommandopanelens innehåll, placering och klickträffar | 5 |
 | `src/testing/testHooks.ts` | Typer för och installation av `window.__TEST__` | 1, 2, 3 |
 | `tests/e2e/helpers.ts` | Hjälpfunktioner för Playwright | 1, 2, 3 |
@@ -98,6 +102,8 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `tests/e2e/phase7-combat.spec.ts` | Webbläsartester för fas 7 | 7 |
 | `tests/e2e/phase8-fog.spec.ts` | Webbläsartester för fas 8 | 8 |
 | `tests/e2e/phase9-ai.spec.ts` | Webbläsartester för fas 9 | 9 |
+| `tests/e2e/phase10-touch-start.spec.ts` | Webbläsartester för fas 10: startskärm, hela flödet, basknapp, pekstyrning, telefonskärm | 10 |
+| `src/sim/balance.test.ts` | Balansmålen som enhetstester: matchlängd AI mot AI, försvar mot första vågen | 10 |
 | `.github/workflows/ci.yml` | Lint, Vitest, bygge och Playwright på pull requests | 1 |
 | `.github/workflows/deploy.yml` | Lint, Vitest, bygge och publicering till GitHub Pages vid push till `main` | 1 |
 
@@ -308,7 +314,7 @@ motsvarande längre tid.
      kasern byggs en vid basen; därefter ett förråd vid närmaste skog.
      Platsen ska ha en ruta fri mark runt om, så att inget stängs in.
   3. **Sysslolösa arbetare** skickas att samla vid källan närmast basen.
-     Hälften hålls på trä och resten på mat (`woodShare`).
+     Tre av åtta hålls på trä och resten på mat (`woodShare` 0,375).
   4. **Soldater:** träna en i taget i varje färdig kasern, upp till 20.
   5. **Försvar:** hemmavarande soldater anfaller fiendeenheter inom 12 rutor
      från huvudbyggnaden.
@@ -438,7 +444,14 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     → varningstext (3 s, högst en gång per 10 s speltid), raserad byggnad i
     bild → skärmskakning (150 ms, 4 px).
   - När någon har vunnit visas slutskärmen och alla klick på kartan
-    blockeras. "Spela igen" laddar om sidan, med samma frö.
+    blockeras. "Spela igen" laddar om sidan, med samma frö. En markering i
+    webbläsarens sessionslagring (`session.ts`) gör att den omladdade sidan
+    hoppar över startskärmen.
+  - Bakom startskärmen står matchen still: inga simuleringssteg körs,
+    kameran går inte att flytta och alla tryck på kartan blockeras
+    (`started` är falsk tills `start()` anropas).
+  - Tangenten H och knappen "Bas" centrerar kameran på spelarens
+    startplats (`jumpToBase`).
 - **`UiScene`** ligger ovanpå `GameScene` med egen kamera, så att
   gränssnittet står still när kartan rullar. Den hämtar sitt innehåll från
   `GameScene` via gränssnittet `HudSource`.
@@ -466,7 +479,26 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     `HudSource.cancelQueuedUnit`. `GameScene` gör om en träningsknapp till
     ett kommando. En byggknapp startar byggplaceringen, om spelaren har råd;
     annars blinkar resurssiffran.
-  - Varningstexten ("Din bas anfalls!") visas mitt under resursraden.
+  - Under resursradens högra ände ligger en rad knappar, 110×44 px:
+    "Bas" (alltid) och till vänster om den "Avmarkera" (när något är
+    markerat) eller "Avbryt" (medan en byggnad placeras, och avbryter då
+    bara placeringen). Vilka knappar som visas bestämmer
+    `HudSource.getHudButtons`; tryck går via `pressHudButton`.
+  - Varningstexten ("Din bas anfalls!") visas mitt under resursraden. På
+    skärmar smalare än 700 px flyttas den ned under knapparna (`alertTop`).
+  - På smala skärmar krymper kommandopanelens knappar för att dela på
+    bredden (aldrig under 44 px), och kön läggs på en egen rad under
+    knapparna när en rad inte räcker.
+  - Startskärmen tonar ned spelet och visar titel, en kort beskrivning av
+    mål och kontroller, och knappen "Starta". Texten radbryts efter
+    skärmens bredd, och knappen placeras under texten hur många rader den
+    än blir (`startScreenLayout`).
+  - **Ett tryck som gränssnittet agerar på når aldrig kartan.** `UiScene`
+    ligger överst och får trycket först. När den agerar på det anropar den
+    `input.stopPropagation()`, så att `GameScene` aldrig ser det. Att bara
+    fråga "ligger trycket på gränssnittet?" efteråt räcker inte: trycket
+    kan ha tagit bort knappen (t.ex. "Avmarkera" eller "Starta"), och
+    spelscenen skulle då ta det för ett tryck på marken.
   - Slutskärmen tonar ned spelet och visar "Seger" eller "Nederlag" och
     knappen "Spela igen". Medan den visas reagerar bara den knappen.
   - Klick på resursraden eller en panel når inte kartan.
@@ -531,7 +563,12 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - högerklick på ett träd eller bärsnår ger egna markerade Samlare en
     insamlingsorder; annars en flyttorder. Båda visar en ring. Träd är
     högre än en ruta, så `pickResourceTile` räknar på trädets ritade yta.
-  - Markeringen ändras när knappen släpps. Pekskärm hanteras inte här än.
+  - Markeringen ändras när knappen släpps.
+  - `tapAt` är fingrets motsvarighet. Med egna enheter markerade ger ett
+    tryck dem samma order som ett högerklick. Undantag: ett tryck på en
+    egen enhet eller byggnad markerar den i stället, utom på ett ofärdigt
+    bygge när någon som kan bygga det är markerad. Utan egna enheter
+    markerade fungerar trycket som ett vänsterklick.
   - Medan en byggnad placeras hör musen och Esc till placeringen.
   - Klick och dragruta räknar bara med det spelaren ser
     (`visibleEntities`). En markerad fiende avmarkeras när den försvinner
@@ -542,6 +579,25 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     betraktas. Kapitulerade enheter kommer inte med i en dragruta.
   - Klickträffar räknas på simuleringens läge, inte det interpolerade.
     Enheter går före byggnader, även när de står dolda bakom en byggnad.
+- **`TouchController`** tolkar ett finger på kartan (`touchGesture.ts`):
+  - Fingret börjar som *väntande*. Rör det sig minst 10 px direkt blir det
+    *panorering*: kartan följer fingret 1:1.
+  - Har det legat still i 300 ms blir det *hållet*, och en grön ring med
+    28 px radie visas under det. Dras det sedan blir det en *dragruta*,
+    som markerar egna enheter när fingret lyfts.
+  - Lyfts fingret utan att ha rört sig är det ett *tryck*, oavsett hur
+    länge det låg kvar. Trycket går till byggplaceringen om en byggnad
+    placeras, annars till `SelectionController.tapAt`.
+  - Hålltiden räknas i spelets egen tid (samma klocka som `elapsedMs`), så
+    att tester kan vänta på läget i stället för på väggklockan.
+  - Ett finger som sätts ned på gränssnittet hanteras inte här. Medan en
+    byggnad placeras blir fingret aldrig hållet, så dragrutan är avstängd.
+  - Bara ett finger följs åt gången. Nyp-zoom finns inte.
+- **Byggplacering på pekskärm:** ett finger kan inte sväva över kartan
+  som en muspekare. Konturen börjar därför mitt i bilden och ligger kvar på
+  sina rutor när kameran flyttas. Ett tryck utanför konturen flyttar den
+  dit; ett tryck på konturen bygger, om platsen är giltig. "Avbryt"
+  avslutar placeringen.
 - **`MapView`** ritar kartan en gång, från `state.map`:
   - Marken: en Blitter per marktextur (gräs, vatten), ett ritanrop var,
     på djup −1.
@@ -555,7 +611,8 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - muspekaren inom 20 px från skärmkanten, 900 px/s. Aktiveras först när
     musen har rörts, så att det aldrig sker på pekskärm, och bara när
     pekaren är över spelytan.
-  - dra med mittenknappen eller ett finger: kartan följer pekaren 1:1
+  - dra med mittenknappen: kartan följer pekaren 1:1. Ett finger flyttar
+    kameran genom `panBy`, som `TouchController` anropar
   - vänsterknappen flyttar inte kameran (reserverad för markering i fas 3)
   - **Begränsning:** bildens mittpunkt hålls inom kartromben
     (`clampWorldToMap`). Vid en kant glider kameran längs kanten.
@@ -575,7 +632,8 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
 | `buildings.ts` | Vilka enheter en byggnad tränar, dess HP, storlek, kostnad, byggtid och om den är avlämningsplats. Start-HP för byggen och extra arbetares takt |
 | `resources.ts` | Mängd per källa, sökradie när en källa tar slut |
 | `setup.ts` | Startbyggnad, startenheter, startresurser och befolkningstak |
-| `ui.ts` | Dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order |
+| `ui.ts` | Dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order, träffblink, utfall, skakning, varningstid, samt för pekskärm: hur långt ett finger får röra sig och ändå räknas som ett tryck (10 px), hålltid för dragruta (300 ms) och ringens radie |
+| `ai.ts` | Datormotståndarens beslutstakt, antal arbetare, andel arbetare på trä, flest soldater, försvarsradie och anfallsvågor |
 | `production.ts` | Längsta produktionskö |
 | `strings.ts` | All speltext (svenska) |
 
@@ -589,6 +647,10 @@ URL-parametrar:
   `?test=1`.
 - `?ai=0` – ingen datormotståndare; den andra sidan står still. Fungerar
   bara tillsammans med `?test=1`.
+- `?start=0` – ingen startskärm; matchen börjar direkt. Fungerar bara
+  tillsammans med `?test=1`. `openGame` i `tests/e2e/helpers.ts` lägger
+  till den om testet inte ber om startskärmen
+  (`openGame(page, '', { startScreen: true })`).
 
 `window.__TEST__`:
 | Fält | Innehåll |
@@ -603,6 +665,9 @@ URL-parametrar:
 | `spawnUnit(type, owner, x, y)` | Skapar en enhet på en ruta och ger dess id. Genväg för tester; spelet gör aldrig så |
 | `getAlert()` | Varningstexten överst; tom när ingen visas |
 | `getOutcome()` | Slutskärmen: `visible`, `title`, `button` (`label`, mittpunkt `x`/`y`) |
+| `getStartScreen()` | Startskärmen: `visible`, `title`, `help`, `button` (`label`, mittpunkt `x`/`y`) |
+| `getHudButtons()` | Knapparna under resursraden: `id` (`base` eller `deselect`), `label`, mittpunkt `x`/`y`, `width`, `height`. Tom medan startskärmen visas |
+| `getTouchMode()` | Vad fingret på kartan gör: `pending`, `held`, `pan`, `box`, eller `none` utan finger |
 | `getShakeCount()` | Antal skärmskakningar hittills |
 | `command(cmd)` | Skickar ett kommando till simuleringen och ger tillbaka dess `CommandResult` |
 | `getSelection()` | Id för markerade entiteter |
@@ -651,6 +716,14 @@ något om rutor längre bort (`openTileNearBase` i fas 3-testerna). En 2×2-plat
 ryms inom det området bredvid Storiden (`freeVisthusOrigin`), men ingen
 3×3-plats gör det. Tester som behöver en större plats letar upp en i det
 aktuella tillståndet (`freeOriginNear` i fas 6-testerna).
+
+Pekstyrning testas med ett emulerat finger (`finger(page)` i
+`tests/e2e/helpers.ts`, som skickar pekhändelser via Chromes
+utvecklarprotokoll; testet behöver `test.use({ hasTouch: true })`). Ett
+finger som ska flytta kameran måste röra sig innan 300 ms speltid har
+gått. Skicka därför nedsättningen och första rörelsen tillsammans
+(`Promise.all([touch.down(…), touch.move(…)])`). Ett test som ska rita en
+dragruta väntar med `expect.poll` på att `getTouchMode()` ger `held`.
 
 Webbläsartester som mäter fart jämför mot `elapsedMs`, inte mot verklig tid
 (`measurePanSpeed` i `tests/e2e/helpers.ts`). Då beror resultatet inte på
@@ -707,3 +780,8 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | 9 | AI:n är en funktion som körs från `tick`, med sitt minne i `GameState` | Den blir deterministisk och följer med när tillståndet kopieras, och hela matcher kan köras i enhetstester utan webbläsare. |
 | 9 | AI:n slipper krigsdimman genom ett villkor i synlighetsfrågorna | GDD:t säger att den inte påverkas av dimman. Ett ställe i koden räcker, och anfall och byggplacering fungerar utan särfall. |
 | 9 | Vågorna har ett tidsfönster, inte bara en tidpunkt | Med bara en tidigaste tid kan en våg vänta för alltid på soldater som aldrig kommer. Efter fönstrets slut går den med vad som finns. |
+| 10 | Fingrets hålltid räknas i spelets tid och läget syns i testgränssnittet | Tester kan vänta på att fingret blivit "hållet" i stället för att sova en viss tid, och en långsam maskin kan inte göra om en dragning till en dragruta mitt i ett test. |
+| 10 | Gränssnittet stoppar tryck det agerar på (`stopPropagation`) | Ett tryck på "Avmarkera" tog bort knappen innan spelscenen frågade om trycket låg på gränssnittet. Fingret började då flytta kameran. Samma fel fanns för "Starta". |
+| 10 | Byggplacering på pekskärm sker i två tryck | Ett finger ger ingen förhandsvisning som muspekaren gör. Med ett enda tryck skulle spelaren betala för en plats den inte har sett konturen på. |
+| 10 | Startskärmen hoppas över efter "Spela igen" via sessionslagring | Omladdning är det enklaste sättet att börja om från ett rent tillstånd. Utan markeringen skulle spelaren få trycka "Starta" inför varje ny match. |
+| 10 | Balansmålen är enhetstester (`balance.test.ts`) | En ändring i `src/data/` som bryter matchlängden eller försvaret mot första vågen syns direkt, utan att någon behöver spela. |

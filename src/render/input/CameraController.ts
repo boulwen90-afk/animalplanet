@@ -5,9 +5,10 @@ import { clampWorldToMap, type MapSize, type TileSize } from '../../sim/map/iso'
 type PanKeys = Record<'up' | 'down' | 'left' | 'right' | 'w' | 'a' | 's' | 'd', Input.Keyboard.Key>;
 
 /**
- * Moves the main camera: arrow keys / WASD, mouse at the screen edge,
- * middle-button drag and one-finger touch drag. The centre of the view always
- * stays on the map, so the map can never be scrolled out of sight.
+ * Moves the main camera: arrow keys / WASD, mouse at the screen edge and
+ * middle-button drag. A finger pans through `panBy`, called by the
+ * TouchController. The centre of the view always stays on the map, so the
+ * map can never be scrolled out of sight.
  */
 export class CameraController {
   private readonly camera: Cameras.Scene2D.Camera;
@@ -46,6 +47,11 @@ export class CameraController {
   /** Centres the view on a world position (clamped to the map). */
   centerOn(worldX: number, worldY: number): void {
     this.setScroll(worldX - this.camera.width / 2, worldY - this.camera.height / 2);
+  }
+
+  /** Moves the view by a number of pixels (clamped to the map). */
+  panBy(dx: number, dy: number): void {
+    this.setScroll(this.camera.scrollX + dx, this.camera.scrollY + dy);
   }
 
   update(deltaMs: number): void {
@@ -88,7 +94,7 @@ export class CameraController {
 
   private onPointerDown(pointer: Input.Pointer): void {
     if (this.dragPointerId !== undefined) return;
-    if (pointer.wasTouch || pointer.middleButtonDown()) {
+    if (!pointer.wasTouch && pointer.middleButtonDown()) {
       this.dragPointerId = pointer.id;
       this.dragLastX = pointer.x;
       this.dragLastY = pointer.y;

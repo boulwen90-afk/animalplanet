@@ -1,9 +1,12 @@
 import type { UnitType } from '../data/units';
+import type { TouchMode } from '../render/input/touchGesture';
 import type {
   CommandPanelDisplay,
+  HudButtonDisplay,
   HudDisplay,
   OutcomeDisplay,
   ResourceBarDisplay,
+  StartScreenDisplay,
 } from '../render/scenes/UiScene';
 import type { Placement } from '../render/views/PlacementView';
 import type { Command, CommandResult } from '../sim/commands';
@@ -36,6 +39,9 @@ export interface TestApiSource {
   spawnUnit(type: UnitType, owner: PlayerId, tileX: number, tileY: number): number;
   getAlert(): string;
   getOutcome(): OutcomeDisplay;
+  getStartScreen(): StartScreenDisplay;
+  getHudButtons(): HudButtonDisplay[];
+  getTouchMode(): TouchMode | 'none';
   getShakeCount(): number;
   command(command: Command): CommandResult;
   getSelection(): number[];
@@ -73,6 +79,15 @@ export interface TestApi {
   getAlert(): string;
   /** The end-of-game screen: whether it shows, its title, and where its button is. */
   getOutcome(): OutcomeDisplay;
+  /** The start screen: whether it shows, its title and text, and where its button is. */
+  getStartScreen(): StartScreenDisplay;
+  /** The buttons under the resource bar, with the screen position and size of each. */
+  getHudButtons(): HudButtonDisplay[];
+  /**
+   * What the finger on the map is doing: 'pending' until it has moved or
+   * rested long enough, then 'pan', 'held' or 'box'; 'none' without a finger.
+   */
+  getTouchMode(): TouchMode | 'none';
   /** How many times the screen has shaken because a building collapsed in view. */
   getShakeCount(): number;
   /** Sends a command to the simulation, exactly as player input and the AI do, and returns its result. */
@@ -120,6 +135,9 @@ export function installTestApi(source: TestApiSource): TestApi {
     spawnUnit: (type, owner, tileX, tileY) => source.spawnUnit(type, owner, tileX, tileY),
     getAlert: () => source.getAlert(),
     getOutcome: () => source.getOutcome(),
+    getStartScreen: () => source.getStartScreen(),
+    getHudButtons: () => source.getHudButtons(),
+    getTouchMode: () => source.getTouchMode(),
     getShakeCount: () => source.getShakeCount(),
     command: (command) => source.command(command),
     getSelection: () => source.getSelection(),

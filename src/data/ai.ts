@@ -4,8 +4,12 @@ export const AI_CONFIG = {
   decisionInterval: 1,
   /** It trains workers until it has this many. */
   targetWorkers: 8,
-  /** The share of its workers it keeps on wood; the rest gather food. */
-  woodShare: 0.5,
+  /**
+   * The share of its workers it keeps on wood; the rest gather food. With 8
+   * workers this puts 3 on wood, which matches what its soldiers cost. At 0.5
+   * it had 1200 unused wood after ten minutes and no food.
+   */
+  woodShare: 0.375,
   /** It stops training soldiers at this many. */
   maxSoldiers: 20,
   /** Soldiers at home go for enemy units that come this close to the main building, in tiles. */
