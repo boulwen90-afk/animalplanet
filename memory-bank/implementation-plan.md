@@ -289,3 +289,40 @@ Innehåll:
   intervallet; 6 Ramkrigare vid basen slår tillbaka första vågen).
 - Avstämningslistan finns i `progress.md`.
 - Skärmdumpar från dator- och mobilvy.
+
+# Efter MVP:n
+
+Punkter som är beslutade men inte påbörjade. De genomförs en i taget, när
+användaren ber om det.
+
+## Skarp rendering i skärmens verkliga upplösning
+
+**Mål:** spelet är lika skarpt på en telefon som på en vanlig datorskärm.
+
+**Bakgrund:** spelet ritar i dag på en yta med en bildpunkt per CSS-pixel.
+På en telefon, där varje CSS-pixel är två till tre fysiska pixlar,
+förstorar webbläsaren hela bilden, och allt blir suddigt. Figurerna kan
+redan renderas i dubbel upplösning (`atlas_scale` i `tools/blender/game.toml`),
+men det syns inte förrän spelet ritar i skärmens upplösning.
+
+Innehåll:
+1. Spelytan får lika många bildpunkter som skärmen har fysiska pixlar
+   (`devicePixelRatio`, högst 3), och visas i samma storlek som nu.
+2. Världens kamera zoomas med samma faktor, så att lika mycket av kartan
+   syns som i dag. Gränssnittet ritas i samma storlek som i dag.
+3. All inmatning räknas om: klick, dragrutor, pekgester, kantpanorering och
+   träffytor i gränssnittet ska fungera i CSS-pixlar oavsett skärm.
+4. Text och paneler ritas i skärmens upplösning.
+5. Figurernas atlas byggs om med `atlas_scale = 2`. Väg samtidigt
+   filstorleken (cirka 8 MB i stället för 2 MB) mot ett mindre format,
+   färre bildrutor eller en laddningsindikator.
+6. Testgränssnittet (`tileToScreen`, `camera`) fortsätter att ge
+   CSS-pixlar, så att befintliga tester gäller oförändrade.
+
+**Test:**
+- Hela Playwright-sviten går igenom oförändrad med `deviceScaleFactor` 1,
+  2 och 3.
+- Ett nytt test jämför spelytans storlek i bildpunkter med fönstrets
+  storlek gånger `devicePixelRatio`.
+- Skärmdumpar i telefonstorlek före och efter, i fysisk upplösning.
+- Prestanda mäts igen med 120 enheter, eftersom fler bildpunkter ritas.

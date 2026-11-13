@@ -34,6 +34,10 @@ class Animation:
     fps: float
     loop: bool
     pose: Callable[[float, Context], Pose]
+    # For an animation of moving along the ground: how far the figure travels
+    # in one loop, in Blender units, when its feet do not slide. The game
+    # plays the animation at the pace the unit really moves.
+    distance: Callable[[Context], float] | None = None
 
     def phase(self, index: int) -> float:
         """Where in the animation a frame is. A loop never shows its end, which equals its start."""

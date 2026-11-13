@@ -117,6 +117,28 @@ function isInReach(unit: Unit, target: Entity): boolean {
   return Math.max(Math.abs(here.x - there.x), Math.abs(here.y - there.y)) <= 1;
 }
 
+/**
+ * True if the tile the unit is on belongs to somebody else: another unit
+ * stands still there, or, for a unit on the move, another unit is on its way
+ * there. Of two units that both stand on a tile, the one that came into the
+ * game first keeps it, so that they do not both leave.
+ */
+function standsOnTakenTile(state: GameState, unit: Unit): boolean {
+  const here = unitTile(unit);
+  const moving = unit.path.length > 0;
+  for (const other of state.entities) {
+    if (!isUnit(other) || other === unit || hasSurrendered(other)) continue;
+    const there = other.path.length > 0 ? other.path.at(-1) : unitTile(other);
+    if (!there || there.x !== here.x || there.y !== here.y) continue;
+    if (other.path.length > 0) {
+      if (moving) return true;
+    } else if (moving || other.id < unit.id) {
+      return true;
+    }
+  }
+  return false;
+}
+
 /** Strikes the target if it is within reach, and otherwise walks towards it. */
 function pursueOrStrike(state: GameState, unit: Unit, grids: GridCache): void {
   const task = unit.task;
@@ -128,15 +150,18 @@ function pursueOrStrike(state: GameState, unit: Unit, grids: GridCache): void {
     return;
   }
 
-  if (isInReach(unit, target)) {
+  // In reach, it stops and strikes. But not on a tile where somebody else
+  // already stands: then it goes on to a place of its own.
+  if (isInReach(unit, target) && !standsOnTakenTile(state, unit)) {
     unit.path = [];
     if (unit.attackCooldown === 0) strike(state, unit, target, grids);
     return;
   }
 
-  // The target may be moving, so the path is renewed now and then.
+  // The target may be moving, so the path is renewed now and then. A unit
+  // that waits for a place by the target looks again at the same pace.
   task.repathTicks--;
-  if (unit.path.length > 0 && task.repathTicks > 0) return;
+  if ((unit.path.length > 0 || task.waiting) && task.repathTicks > 0) return;
   const tiles = isBuilding(target) ? buildingTiles(target) : [unitTile(target)];
   const path = approachPath(state, grids.get(), unit, tiles);
   if (!path) {
@@ -146,6 +171,7 @@ function pursueOrStrike(state: GameState, unit: Unit, grids: GridCache): void {
     return;
   }
   unit.path = path;
+  task.waiting = path.length === 0;
   task.repathTicks = Math.max(
     1,
     Math.round(COMBAT_CONFIG.repathInterval * SIM_CONFIG.ticksPerSecond),

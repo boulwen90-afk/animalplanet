@@ -8,6 +8,7 @@ import {
   facingOf,
   frameAt,
   frameName,
+  travelFrame,
   type AnimationInfo,
 } from './animation';
 
@@ -92,6 +93,40 @@ describe('frameAt', () => {
     expect(frameAt(defeat, 0)).toBe(0);
     expect(frameAt(defeat, 350)).toBe(3);
     expect(frameAt(defeat, 5000)).toBe(6);
+  });
+});
+
+describe('travelFrame', () => {
+  // One loop of eight frames covers 0.8 tiles: a new frame every tenth of a tile.
+  const run: AnimationInfo = { frames: 8, fps: 16, loop: true, distance: 0.8 };
+
+  it('steps one frame for each share of the loop the unit has travelled', () => {
+    expect(travelFrame(run, 0)).toBe(0);
+    expect(travelFrame(run, 0.09)).toBe(0);
+    expect(travelFrame(run, 0.11)).toBe(1);
+    expect(travelFrame(run, 0.79)).toBe(7);
+    expect(travelFrame(run, 0.81)).toBe(0);
+    expect(travelFrame(run, 8.25)).toBe(2);
+  });
+
+  it('does not depend on time: the same distance gives the same frame at any speed', () => {
+    // A unit at 2.2 tiles a second and one at 5 tiles a second, both 1.5 tiles along.
+    const slow = travelFrame(run, 2.2 * (1.5 / 2.2));
+    const fast = travelFrame(run, 5 * (1.5 / 5));
+    expect(slow).toBe(fast);
+  });
+
+  it('stands still when the unit does', () => {
+    expect(travelFrame(run, 3.33)).toBe(travelFrame(run, 3.33));
+  });
+
+  it('shifts the loop by whole frames', () => {
+    expect(travelFrame(run, 0, 3)).toBe(3);
+    expect(travelFrame(run, 0.75, 3)).toBe(2);
+  });
+
+  it('falls back to one frame for an animation without a distance', () => {
+    expect(travelFrame({ frames: 8, fps: 16, loop: true }, 5)).toBe(0);
   });
 });
 

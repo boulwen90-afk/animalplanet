@@ -15,12 +15,16 @@ METALS = ("steel", "steel_dark", "blade", "brass", "mail")
 class Figure:
     """A built figure: its parts, the skeleton they hang on, and what it was built from."""
 
-    def __init__(self, builder: Builder, rig: Rig, race: dict, unit: dict, stance: dict) -> None:
+    def __init__(
+        self, builder: Builder, rig: Rig, race: dict, unit: dict, stance: dict, scale: float
+    ) -> None:
         self.builder = builder
         self.parts = builder.parts
         self.rig = rig
         self.race = race
         self.unit = unit
+        # How much the whole figure is scaled to fit the size standard.
+        self.scale = scale
         # The pose the figure was built in. Animations start from it.
         self.stance = stance
 
@@ -38,9 +42,18 @@ def stance_of(unit: dict) -> dict:
 
 
 def build_figure(
-    race: dict, unit: dict, team_color: str, style: dict | None = None, emblem_color: str = "#ece2c8"
+    race: dict,
+    unit: dict,
+    team_color: str,
+    style: dict | None = None,
+    emblem_color: str = "#ece2c8",
+    scale: float = 1.0,
 ) -> Figure:
-    """Builds one figure at the origin, standing on z = 0 and facing -Y, bound to its skeleton."""
+    """
+    Builds one figure at the origin, standing on z = 0 and facing -Y, bound to
+    its skeleton. It is built in its race's own proportions and then scaled as
+    a whole by `scale`, which comes from the size standard (lib/scale.py).
+    """
     palette = Palette(team_color)
     palette.add_all(race["colors"])
     palette.add_all(unit["colors"], metal=METALS)
@@ -77,4 +90,5 @@ def build_figure(
         )
 
     rig = Rig(name, rest, builder.parts, builder.bone_of)
-    return Figure(builder, rig, race, unit, stance)
+    rig.object.scale = (scale, scale, scale)
+    return Figure(builder, rig, race, unit, stance, scale)

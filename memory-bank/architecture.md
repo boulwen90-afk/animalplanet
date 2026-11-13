@@ -4,7 +4,7 @@ Beskriver hur koden **faktiskt** är uppbyggd. Uppdateras efter varje
 avslutad fas. Planerad arkitektur står i `tech-stack.md`; det här dokumentet
 beskriver bara det som finns i repot.
 
-Senast uppdaterad: figurer med skelett och animationer i spelet (efter MVP:n).
+Senast uppdaterad: storleksstandard, kollisionsradie och gång i takt med farten (efter MVP:n).
 
 ## Översikt
 
@@ -57,6 +57,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/systems/construction.ts` | `constructBuildings` (byggande), `canPlaceBuilding`, `placeBuilding`, `assistConstruction` | 6, 7 |
 | `src/sim/systems/combat.ts` | `resolveCombat` (upptäcka, förfölja, slå), `orderAttack`, skadeformeln, raserade byggnader och vinnare | 7 |
 | `src/sim/systems/surrender.ts` | `surrender` (kapitulation och val av grotta) och `resolveSurrenders` (gå in i grottan) | 7 |
+| `src/sim/systems/separation.ts` | `separateUnits` (knuffar isär enheter som är för nära) och `settleUnits` (flyttar sysslolösa enheter från upptagna rutor) | Efter MVP |
 | `src/sim/systems/visibility.ts` | `updateVisibility` (synfält per sida) och frågor om vad en sida ser | 8, 9 |
 | `src/sim/ai/ai.ts` | `runAi`: datormotståndarens beslut, en gång per sekund | 9 |
 | `src/sim/pathfinding/approach.ts` | `approachPath`: väg till en ruta intill ett mål, spridd mellan flera enheter | 7 |
@@ -108,6 +109,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/render/characters/CharacterLibrary.ts` | Laddar figurernas atlaser och färgar en kopia per spelare | Efter MVP |
 | `src/render/characters/recolor.ts` | Lagfärgen: räknar om atlasens pixlar via masken | Efter MVP |
 | `src/render/characters/animation.ts` | Väljer animation, riktning och bildruta för en enhet | Efter MVP |
+| `src/render/characters/atlas.test.ts` | Kontrollerar den incheckade atlasen mot storleksstandarden och mot spelets mått | Efter MVP |
 | `tests/e2e/characters.spec.ts` | Webbläsartester för figurerna | Efter MVP |
 | `tools/blender/` | Figurpipelinen: bygger figurer i Blender och renderar dem. Se "Figurpipeline" | Efter MVP |
 | `assets/previews/` | Förhandsbilder av figurer, för granskning | Efter MVP |
@@ -181,8 +183,8 @@ Terrängtyper: `grass` (gångbar), `tree`, `berries`, `rock`, `water` (blockerar
 
 - `tick(state)` kör ett steg: tömmer `events`, sedan `runAi`, `produceUnits`,
   `constructBuildings`, `gatherResources`, `resolveCombat`,
-  `resolveSurrenders`, `moveUnits`, `updateVisibility`, och till sist ökas
-  `state.tick`. När `winner` är satt gör `tick` ingenting.
+  `resolveSurrenders`, `moveUnits`, `separateUnits`, `settleUnits`,
+  `updateVisibility`, och till sist ökas `state.tick`. När `winner` är satt gör `tick` ingenting.
 - `consumeSteps(clock, elapsedMs, stepMs, maxSteps)` samlar bildrutetid och
   ger antalet steg som ska köras. Resten sparas till nästa bildruta. Fler än
   `maxTicksPerFrame` (5) steg per bildruta körs aldrig; överskjutande tid
@@ -276,13 +278,58 @@ motsvarande längre tid.
   Ramkrigare; byggnader väljs aldrig självmant); och låter en enhet med
   anfallsuppgift slå om målet är inom räckhåll, annars gå mot det.
 - Förföljelse: vägen räknas om var 10:e steg (0,5 s) eller när den tar slut.
-  `approachPath` väljer en ruta intill målet, helst en där ingen annan står
-  eller är på väg, så att anfallare sprider sig runt målet.
+  `approachPath` väljer en ruta intill målet där ingen annan står eller är
+  på väg, så att anfallare sprider sig runt målet.
+- **Fullt runt målet:** är varje ruta intill målet tagen får enheten en väg
+  till närmaste lediga ruta längre ut och väntar där (`task.waiting`). Den
+  tittar efter en plats igen var 10:e steg och går in när en blir ledig.
+- **Ingen stannar på en upptagen ruta:** en enhet som är inom räckhåll men
+  står på en ruta som någon annan står på, eller är på väg till, går vidare
+  till en egen plats innan den slår (`standsOnTakenTile`). Av två som står
+  på samma ruta behåller den med lägst id rutan.
 - Målet blir ogiltigt när det är borta, har kapitulerat eller inte går att
   nå. Enheten blir då sysslolös, och en Ramkrigare letar nästa fiende själv.
 - En byggnad vars liv når 0 rasar: den tas bort och rutorna blir fria. Är
   det huvudbyggnaden (`START_CONFIG.building`) sätts `winner` till andra
   sidan.
+
+### Kollision mellan enheter
+
+Varje enhetstyp har en `radius` i rutor (`UNIT_DEFS`): Ramkrigare 0,45,
+Samlare 0,36. Två enheter ska hålla mittpunkterna minst summan av sina
+radier isär. Radien är alltid under 0,5, så två enheter som står mitt på
+var sin grannruta rör aldrig varandra, och allt som räknar i rutor
+(räckvidd, insamling, byggande, väntplatser) fortsätter att gälla.
+
+- **`separateUnits`** körs efter förflyttningen. För varje par som är för
+  nära knuffas de isär längs linjen mellan dem, hälften av överlappet per
+  steg, dock högst 1,2 rutor/s (`COLLISION_CONFIG`). Det är långsammare än
+  någon enhet går, så en enhet kan alltid tränga sig igenom och ingen
+  fastnar, hur många som än trängs.
+  - En enhet som går väjer för en som står still; två i samma läge delar
+    på knuffen.
+  - En stillastående enhet knuffas aldrig utanför sin ruta.
+  - En gående enhet knuffas aldrig ut på mark den inte kan gå på.
+  - Kapitulerade enheter är inte i vägen för någon.
+  - Två enheter på exakt samma punkt får en riktning ur sina id:n, så att
+    samma match alltid spelas likadant.
+- **`settleUnits`** körs därefter. En sysslolös enhet som har stannat på
+  en ruta där någon redan står (en enhet stannar där den är när målet
+  försvinner) får en väg till närmaste lediga ruta. Enheter som samlar
+  eller bygger får stå kvar; de knuffas bara isär inom rutan.
+- **Uppställning:** en grupp som får en flyttorder ställer sig på varannan
+  ruta runt målet, som de mörka rutorna på ett schackbräde
+  (`groupTiles` i `commands.ts`). Närmaste grannar står då 1,4 rutor isär:
+  64 pixlar i sidled eller 32 i höjdled på skärmen. Där marken inte räcker
+  används även rutorna emellan. En ensam enhet går till själva målrutan.
+- **I strid** står anfallare på rutorna intill sitt mål, alltså en ruta
+  från målet och från varandra. Tätare än så blir det aldrig, men så tätt
+  blir det i en närstrid.
+- **Mjuk, inte hård:** enheter som går kan passera genom varandra under
+  ett ögonblick. Två som går samma väg håller sig ungefär en halv ruta
+  isär. Sidoglidning runt den man möter provades och togs bort: en enhet
+  på väg till en punkt där någon redan står hamnade i omlopp runt den.
+- Kostnad: enheterna sorteras per ruta, så bara grannar jämförs.
 
 ### Kapitulation och grottor
 
@@ -625,9 +672,10 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     hugget träffar i samma ögonblick som skadan delas ut).
   - `EntityView.updateCharacter` ritar figuren med fötterna på enhetens
     markpunkt. Den vänder sig åt det håll den går, eller mot sitt mål när
-    den slåss, och behåller riktningen när den stannar. Gång och tomgång
-    går på spelets klocka, förskjutna per enhet så att inte alla rör sig
-    i takt.
+    den slåss, och behåller riktningen när den stannar. Tomgången går på
+    spelets klocka. Gången stegas efter tillryggalagd sträcka, så att
+    fötterna inte glider. Båda är förskjutna per enhet, så att inte alla
+    rör sig i takt.
   - **Besegrad:** när en enhet kapitulerar spelas `defeat` en gång (0,7 s)
     på platsen där den föll. Därefter springer bilden i kapp enhetens
     verkliga läge på 0,6 s och fortsätter med gånganimationen och vit
@@ -703,6 +751,7 @@ alla figurer från konfigfilerna. Björnkrigarens atlas tar cirka 1,5 minut.
 | `figures.toml` | Listan över figurer som spelet använder |
 | `animations/` | Det gemensamma animationsbiblioteket: `base.py` (byggstenar), `idle.py`, `walk.py`, `attack.py`, `gather.py`, `defeat.py` |
 | `lib/atlas.py` | Packar bildrutorna till en atlas och skriver JSON-filen |
+| `lib/scale.py` | Storleksstandarden: räknar ut hur mycket en figur skalas, och kontrollerar bredden |
 | `game.toml` | Gemensamt för alla figurer: rutstorlek, kameravinkel, skala, bildruta, kontur, skugga, kantmjukhet per delgrupp, ljus, lagfärger och sigillens färg |
 | `races/<ras>.toml` | En ras: proportioner, drag (nos, kinder, ögonbryn, huggtänder, öron, puckel, svans), pälsfärger och vilket sigill den bär |
 | `units/<enhet>.toml` | En enhetstyp: rustningsdelar, vapen, sköld, färger och pose |
@@ -738,6 +787,46 @@ alla figurer från konfigfilerna. Björnkrigarens atlas tar cirka 1,5 minut.
    vid sitt ben. Delarna böjs alltså inte; lederna täcks av kulor i
    armbågar, knän och axlar.
 
+**Storleksstandard.** Alla storlekar anges i **rutbredder**: bredden av en
+markruta på skärmen (64 pixlar). En figurs höjd mäts på skärmen, från
+marken till hjässan när figuren står rak. Hjälmkam, öron, vapen och sköld
+kommer utöver det.
+
+| Klass | Höjd i rutbredder | Pixlar | Jämfört med krigare |
+|---|---|---|---|
+| Arbetare (`worker`) | 0,46 | 29 | 0,84 |
+| Krigare (`warrior`) | 0,55 | 35 | 1 |
+| Ledare (`leader`, senare) | 0,66 | 42 | 1,2 |
+| Liten byggnad, 2×2 rutor (`small`) | minst 1,0 | 64 | 1,8 |
+| Stor byggnad, 3×3 rutor (`large`) | minst 1,4 | 90 | 2,5 |
+| Huvudbyggnad (`main`) | minst 1,8 | 115 | 3,3 |
+
+- **Mot rutan:** en krigare är drygt en halv rutbredd hög, och högst 0,62
+  rutbredder (40 pixlar) bred över axlarna med rustning. Två enheter som
+  står en ruta isär är 32 pixlar isär i sidled på skärmen och 16 i höjdled,
+  så deras kroppar överlappar med högst en femtedel. Det är ungefär
+  förhållandet i klassiska strategispel med samma vy. Första försöket,
+  0,62 rutbredder hög och 0,72 bred, gav en klump när en grupp stod
+  tillsammans; det syntes först på skärmdumparna.
+- **Mellan klasser:** en arbetare är en sjättedel lägre än en krigare. Även
+  den minsta byggnaden är nästan dubbelt så hög som en krigare, och
+  huvudbyggnaden drygt tre gånger så hög.
+- **Mellan raser:** en ras får ändra höjden med högst ±15 % (`stature` i
+  rasens konfig; björnen är 1,0 och måttstock).
+- **Så följs den automatiskt:** ingen figur anger sin egen storlek. Rasens
+  konfig beskriver proportioner, och enhetens konfig anger bara klass
+  (`size_class`). `lib/scale.py` räknar ut en skalfaktor så att höjden
+  blir klassens, och `build_figure` skalar hela figuren med den. Kamera och
+  pixlar per Blender-enhet är desamma för allt som renderas. Är kroppen
+  bredare än standarden tillåter stoppas bygget med ett felmeddelande.
+- Atlasens JSON-fil anger klass, höjd och skalfaktor (`meta.figure`), och
+  ett enhetstest (`atlas.test.ts`) kontrollerar att den incheckade atlasen
+  följer standarden och stämmer med spelets mått (`CHARACTER_VISUALS`).
+- Värdena står under `[scale]` i `tools/blender/game.toml`.
+- **Byggnaderna i spelet är fortfarande platshållare och följer inte
+  standarden än** (väggarna är 22–36 pixlar höga). Byggnadsmåtten gäller
+  när byggnaderna byggs i pipelinen; `building_height_px` ger dem.
+
 **Skelett.** Alla raser har samma 17 ben med samma namn och samma
 föräldrar: `root` → `hips` → `chest` → `head`, `cape`, `upper_arm_l/r` →
 `forearm_l/r` → `hand_l/r`, samt `hips` → `thigh_l/r` → `shin_l/r` →
@@ -767,7 +856,7 @@ använder (`[animations] list`).
 | Animation | Bildrutor | Takt | Loop | Innehåll |
 |---|---|---|---|---|
 | `idle` | 6 | 4/s | Ja | Andning, vapnet vajar, huvudet vrids lite åt sidorna |
-| `walk` | 8 | 16/s | Ja | Lunk: fötterna sätts i marken, höfterna gungar, armarna pendlar mot benen, manteln fladdrar |
+| `walk` | 8 | efter sträcka | Ja | Löpning: en fot i taget är i marken, däremellan är figuren i luften. Höfterna gungar, armarna pendlar mot benen, manteln fladdrar |
 | `attack` | 10 | 10/s | Ja | Hugg ovanifrån. Loopen börjar när hugget träffar och slutar med uppladdningen inför nästa |
 | `gather` | 8 | 8/s | Ja | Arbete: ett redskap svingas ned från axeln. Används inte av krigaren |
 | `defeat` | 7 | 10/s | Nej | Vacklar bakåt och går ned på knä med sänkt vapen och böjt huvud |
@@ -776,6 +865,16 @@ Loopar är sömlösa av konstruktion: periodiska rörelser använder hela
 varv av sinus, och nyckelposer upprepar första posen vid fas 1. En loop
 visar aldrig sin sista fas, som är lika med den första. Ingen dör i
 spelet, så det som i uppdraget hette "dö" är `defeat`: figuren ger upp.
+
+**Gång i takt med farten.** I `walk` står en fot stilla på marken medan
+kroppen passerar över den: foten rör sig bakåt under kroppen i jämn takt.
+Animationen anger hur långt kroppen färdas på ett varv (`distance`), och
+cykeln är dimensionerad efter benens längd, så den passar alla raser.
+Atlasen anger sträckan i rutor (0,79 för björnkrigaren). Spelet stegar
+bildrutorna efter **hur långt enheten har rört sig**, inte efter tid
+(`travelFrame`). Fötterna står därför stilla mot marken vid vilken fart
+som helst; en snabbare enhet springer igenom varvet fortare. Bygget
+kontrollerar att ingen fot glider medan den är i marken (`check_feet`).
 
 Varje animation bakas till en Blender-action med en nyckelbild per ben
 och bildruta (`Rig.bake`).
@@ -798,8 +897,8 @@ mask) och får sin kontur. Björnkrigaren blir 248 bildrutor.
   bild nästan dubbelt så stor. Spelet ritar en mjuk skugga under varje
   figur i stället.
 - **Storlek.** Atlasen renderas i `atlas_scale` gånger spelets pixlar.
-  Med 1 är björnkrigarens atlas 2048×676 pixlar och 2,6 MB (bas och mask).
-  Med 2 blir den 4096×1300 och 8,3 MB. Förhandsbilderna renderas i
+  Med 1 är björnkrigarens atlas 1024×881 pixlar och 1,8 MB (bas och mask).
+  Med 2 blir den ungefär fyra gånger så stor. Förhandsbilderna renderas i
   `render_scale` (2).
 - En bildruta där figuren når kanten stoppar bygget med ett felmeddelande
   (`sprite.frame` i `game.toml` är då för liten).
@@ -838,9 +937,10 @@ direkt rendering i lagfärgen skiljer resultatet i snitt 2–3 % per pixel
 (`--check-mask`). Med vit grundfärg var felet dubbelt så stort, eftersom
 vitt studsar mer ljus mellan ytorna än en riktig färg.
 
-**Skala och upplösning.** En Blender-enhet är 24 spelpixlar. Björnen är
-cirka 2,4 enheter till hjälmens topp, alltså runt 50 pixlar hög på en ruta
-som är 64×32, och drygt 60 med höjt svärd. En bildruta är 184×184
+**Skala och upplösning.** En Blender-enhet är 24 spelpixlar för allt som
+renderas. Figurens storlek kommer ur storleksstandarden: björnkrigaren
+skalas med 0,79 och blir 35 pixlar hög till hjässan, cirka 41 med hjälm
+och kam, och runt 50 med höjt svärd. En bildruta är 184×184
 spelpixlar, så att ett svärd som svingas på rak arm ryms åt alla håll; den
 tomma ytan trimmas bort i atlasen. Kameran ser ned i 30°, vilket
 ger spelets rutform. Figuren vrids för olika vyer; kameran och ljuset står
@@ -1048,3 +1148,8 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | Efter MVP | Lagfärgen läggs på när spelet startar, som en färgad atlas per spelare | Phaser kan tona en bild, men en toning multiplicerar hela bilden. Att rita ett tonat lager ovanpå varje enhet ger två bilder per enhet och en ljus kant där lagren möts. En färdig atlas per spelare ger en bild per enhet, exakt färg och ingen kostnad per bildruta. Priset är minne: en textur per spelare. |
 | Efter MVP | Attackanimationen följer enhetens nedkylning i stället för en egen klocka | Simuleringen delar ut skadan i samma steg som hugget beslutas. Animationen börjar därför där hugget träffar och laddar upp inför nästa, så bild och skada hänger ihop utan att simuleringen ändras. |
 | Efter MVP | Spelets atlas är i enkel upplösning och utan inbakad skugga | Dubbel upplösning med skugga gav 11 MB att ladda före startskärmen. Spelet ritar ännu i skärmens grova pixlar, så dubbel upplösning syns inte. `atlas_scale` höjs när spelet ritar i skärmens verkliga upplösning. |
+| Efter MVP | En grupp ställer upp sig på varannan ruta | På en ruta som är 64×32 pixlar står grannar på angränsande rutor bara 16 pixlar isär i höjdled. Varannan ruta ger rader och led som går att läsa, utan att ändra hur enheter tar plats i strid. |
+| Efter MVP | Storlek anges per klass i rutbredder, och figuren skalas som helhet | En figur som anger sin egen storlek glider isär från de andra. Med klasser är förhållandet mellan arbetare, krigare och byggnader bestämt på ett ställe, och en ny figur kan inte bli fel. |
+| Efter MVP | Kollisionen är mjuk och bygger vidare på rutorna | Enheter står redan på var sin ruta när de stannar. Radier under en halv ruta gör att rutlogiken står kvar orörd, och en knuff som är långsammare än gångfart kan aldrig låsa en trängsel. |
+| Efter MVP | Anfallare som inte får plats väntar längre ut | Förut ställde de sig på samma ruta som en annan anfallare. Med kollision skulle de knuffas därifrån, hamna utom räckhåll, gå tillbaka och knuffas igen. |
+| Efter MVP | Gångens bildrutor stegas efter sträcka, inte tid | En fast takt passar bara en fart. Efter sträcka står fötterna stilla mot marken för alla raser och farter, utan att något behöver ställas in per enhet. |

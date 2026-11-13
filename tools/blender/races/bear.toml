@@ -1,6 +1,7 @@
 # Bears, "Järnramarna": heavy and broad, with huge shoulders and arms.
 # Lengths are in Blender units. The figure stands on z = 0 and faces -Y.
 name = "bear"
+stature = 1.0                  # height against the size standard; the bear is the yardstick
 emblem = "bear"                # the sigil in emblems/, shown on shields and capes
 
 [proportions]

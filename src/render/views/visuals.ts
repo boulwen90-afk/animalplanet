@@ -32,7 +32,7 @@ export const CHARACTER_VISUALS: Partial<
   Record<
     UnitType,
     {
-      /** From the ground to the top of the head. */
+      /** From the ground to the top of the helmet: a little more than the figure's height in the size standard. */
       height: number;
       /** Half the width of the body; with `height` it is the area a click hits. */
       halfWidth: number;
@@ -41,7 +41,7 @@ export const CHARACTER_VISUALS: Partial<
     }
   >
 > = {
-  ramkrigare: { height: 52, halfWidth: 17, selectionWidth: 50 },
+  ramkrigare: { height: 41, halfWidth: 13, selectionWidth: 40 },
 };
 
 /**
@@ -50,9 +50,9 @@ export const CHARACTER_VISUALS: Partial<
  * upper left) and how dark it is.
  */
 export const CHARACTER_SHADOW = {
-  width: 54,
-  height: 24,
-  offsetX: 7,
+  width: 42,
+  height: 18,
+  offsetX: 5,
   offsetY: 1,
   alpha: 0.4,
   color: '12, 18, 10',

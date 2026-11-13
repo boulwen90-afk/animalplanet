@@ -27,5 +27,5 @@ export const AI_CONFIG = {
     { earliest: 600, latest: 690, size: 8 },
   ],
   /** After the listed waves, further waves follow at this spacing and of this size. */
-  repeat: { interval: 150, window: 90, size: 10 },
+  repeat: { interval: 120, window: 90, size: 10 },
 } as const;

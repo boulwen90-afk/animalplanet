@@ -43,6 +43,8 @@ export interface AttackTask {
   targetId: number;
   /** Simulation steps until the unit may look for a new path to a target that has moved. */
   repathTicks: number;
+  /** True while every place by the target is taken and the unit waits nearby for one. */
+  waiting?: boolean;
 }
 
 /**

@@ -14,6 +14,7 @@ import {
   facingOf,
   frameAt,
   frameName,
+  travelFrame,
   type CharacterAnimation,
 } from '../characters/animation';
 import type { CharacterLibrary, CharacterSheet } from '../characters/CharacterLibrary';
@@ -64,6 +65,10 @@ interface CharacterDrawing {
   frame: string;
   /** Whether the unit had surrendered at the last frame. */
   fleeing: boolean;
+  /** How far the unit has moved since it was first drawn, in tiles. It drives the walk animation. */
+  travelled: number;
+  /** Where the unit was at the last frame, in tiles. */
+  last?: Point;
   /** Where and when the unit was beaten, while it kneels there and then catches up with its real place. */
   defeat?: { x: number; y: number; since: number };
 }
@@ -300,6 +305,10 @@ export class EntityView {
     const tileY = unit.prevY + (unit.y - unit.prevY) * alpha;
     const ground = tileToWorld(tileX, tileY, this.size);
     let { x, y } = ground;
+    if (drawing.last) {
+      drawing.travelled += Math.hypot(tileX - drawing.last.x, tileY - drawing.last.y);
+    }
+    drawing.last = { x: tileX, y: tileY };
 
     // A unit that has just been beaten kneels where it stood before it leaves.
     const fleeing = hasSurrendered(unit);
@@ -327,7 +336,8 @@ export class EntityView {
       animation = activity;
       if (activity === 'walk') {
         drawing.direction = facingOf(unit.x - unit.prevX, unit.y - unit.prevY) ?? drawing.direction;
-        frame = frameAt(animations.walk, this.now, unit.id * 3);
+        // By distance, not by time, so that the feet do not slide on the ground.
+        frame = travelFrame(animations.walk, drawing.travelled, unit.id * 3);
       } else if (activity === 'attack' && unit.task.kind === 'attack') {
         const target = byId.get(unit.task.targetId);
         if (target) {
@@ -456,7 +466,14 @@ export class EntityView {
         shadow,
         kind: 'unit',
         flashing: false,
-        character: { sheet, direction: 0, animation: 'idle', frame, fleeing: false },
+        character: {
+          sheet,
+          direction: 0,
+          animation: 'idle',
+          frame,
+          fleeing: false,
+          travelled: 0,
+        },
       };
     }
 

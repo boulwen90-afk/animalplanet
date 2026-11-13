@@ -23,6 +23,7 @@ from lib.atlas import write_atlas  # noqa: E402
 from lib.config import load_figures, load_game, load_race, load_unit  # noqa: E402
 from lib.emblem import load_emblem, rasterize  # noqa: E402
 from lib.figure import build_figure  # noqa: E402
+from lib.scale import figure_height_px, figure_scale, tile_side_units  # noqa: E402
 from lib.skeleton import solve  # noqa: E402
 
 REPO = Path(__file__).resolve().parent.parent.parent
@@ -58,7 +59,14 @@ class Studio:
         self.scratch = scratch
         self.scene = export.new_scene(game["preview"]["samples"])
         make_lights(self.scene, game["lighting"])
-        self.figure = build_figure(race, unit, NEUTRAL, game.get("style"), game["emblem"]["color"])
+        self.figure = build_figure(
+            race,
+            unit,
+            NEUTRAL,
+            game.get("style"),
+            game["emblem"]["color"],
+            figure_scale(race, unit, game),
+        )
         self.ground = make_shadow_catcher(self.scene)
         self.camera = None
         self._actions: dict[str, object] = {}
@@ -72,13 +80,17 @@ class Studio:
             self.scene, elevation_deg, view_width, self.game["sprite"]["target_z"]
         )
 
+    def context(self) -> Context:
+        figure = self.figure
+        return Context(figure.stance, figure.race["proportions"], figure.rig.rest)
+
     def animate(self, name: str, index: int) -> None:
         """Puts the figure in one frame of an animation from the shared library."""
         figure = self.figure
         if name not in self._actions:
             animation = ANIMATIONS[name]
             proportions = figure.race["proportions"]
-            context = Context(figure.stance, proportions, figure.rig.rest)
+            context = self.context()
             poses = [
                 solve(proportions, animation.pose(animation.phase(i), context), figure.rig.rest)
                 for i in range(animation.frames)
@@ -132,6 +144,11 @@ def export_sprites(race: dict, unit: dict, game: dict, out: Path) -> None:
             "fps": animation.fps,
             "loop": animation.loop,
         }
+        if animation.distance:
+            # How many tiles the unit moves while the loop plays once without its feet sliding.
+            travelled = animation.distance(studio.context()) * studio.figure.scale
+            animations[animation_name]["distance"] = round(travelled / tile_side_units(game), 4)
+            check_feet(animation, studio)
         for direction, yaw in DIRECTIONS:
             for index in range(animation.frames):
                 studio.animate(animation_name, index)
@@ -159,6 +176,12 @@ def export_sprites(race: dict, unit: dict, game: dict, out: Path) -> None:
         meta={
             "scale": scale,
             "pixelsPerUnit": sprite["pixels_per_unit"],
+            "figure": {
+                "sizeClass": unit["size_class"],
+                # From the ground to the top of the head, in game pixels.
+                "height": round(figure_height_px(race, unit, game), 2),
+                "scale": round(studio.figure.scale, 4),
+            },
             "neutral": NEUTRAL,
             "directions": [direction for direction, _ in DIRECTIONS],
             "animations": animations,
@@ -166,6 +189,37 @@ def export_sprites(race: dict, unit: dict, game: dict, out: Path) -> None:
     )
     width, height = document["meta"]["size"]["w"], document["meta"]["size"]["h"]
     print(f"Wrote {len(frames)} pictures to {out} ({width} x {height} pixels)")
+
+
+def check_feet(animation, studio: Studio) -> None:
+    """
+    Makes sure the feet do not slide in an animation of moving along the
+    ground: while a foot is down, it must stay on one spot of the ground as
+    the body travels `distance` per loop.
+    """
+    figure = studio.figure
+    context = studio.context()
+    proportions = figure.race["proportions"]
+    travelled = animation.distance(context)
+    for side in ("l", "r"):
+        # Each foot stands at its own height in the stance, and that is its ground.
+        ground_z = figure.rig.rest.joints[f"foot_{side}"].z
+        spots = []
+        for i in range(200):
+            phase = i / 200
+            foot = solve(proportions, animation.pose(phase, context), figure.rig.rest).joints[f"foot_{side}"]
+            if foot.z <= ground_z + 1e-6:
+                # Forward is -Y: after `phase` of a loop the body is this far ahead.
+                at = foot.y - phase * travelled
+                # The loop repeats, so the same footprint comes back one loop's travel further on.
+                spots.append(at % travelled)
+        if not spots:
+            raise SystemExit(f"{animation.name}: the {side} foot never touches the ground")
+        spread = max(spots) - min(spots)
+        if spread > 0.01 and travelled - spread > 0.01:
+            raise SystemExit(
+                f"{animation.name}: the {side} foot slides {spread:.3f} units while it is on the ground"
+            )
 
 
 def render_animation_sheet(race: dict, unit: dict, game: dict, out: Path) -> None:

@@ -130,7 +130,16 @@ Stridsregler:
   eller försvinner in i krigsdimman.
 - En enhet vars liv når 0 kapitulerar (avsnitt 15). Den slåss inte längre
   och kan inte anfallas.
-- Enheter blockerar inte varandra (se avsnitt 10, förenklingar).
+- **Kollisionsradie (tillagt 2026-11-13):** varje enhet tar plats på marken:
+  Ramkrigare 0,45 rutor i radie, Samlare 0,36. Två enheter håller sina
+  mittpunkter minst summan av sina radier isär när de står still och när de
+  slåss. Kollisionen är mjuk: en enhet som går knuffas undan långsammare än
+  den går, så ingen fastnar i trängsel, men två enheter som möts kan
+  passera genom varandra under ett ögonblick.
+- En grupp som flyttas ställer upp sig på varannan ruta runt målpunkten.
+- Runt ett mål finns bara plats för så många anfallare som det finns rutor
+  intill. Övriga väntar på närmaste lediga ruta och går in när en plats
+  blir ledig.
 
 ## 8. Byggnader (MVP)
 
@@ -191,9 +200,14 @@ Förenkling: AI:n känner till spelarens startposition och påverkas inte av
 krigsdimman. En svårighetsgrad.
 
 ### Uttryckliga förenklingar i MVP:n
-- Enheter kolliderar inte med varandra. De kan stå på samma ruta, men sprids
-  ut till närliggande lediga rutor när de stannar.
+- **Ändrat 2026-11-13 på användarens begäran:** enheter har en
+  kollisionsradie och håller avstånd till varandra, se avsnitt 7. Den
+  ursprungliga förenklingen löd:
+- ~~Enheter kolliderar inte med varandra. De kan stå på samma ruta, men sprids
+  ut till närliggande lediga rutor när de stannar.~~
 - Ingen formation: en grupp som flyttas går till rutor runt målpunkten.
+  (Ändrat 2026-11-13: gruppen ställer sig på varannan ruta, så att det är
+  luft mellan enheterna.)
 - Terräng påverkar varken sikt eller fart.
 
 ## 11. Spelkänsla (konkreta mål)
@@ -237,7 +251,7 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 - Fler resurser än mat och trä
 - Riktig grafik, animationer, ljud och musik
 - Minikarta, kontrollgrupper (Ctrl+1 …), patrull/håll position, formationer
-- Kollision mellan enheter
+- ~~Kollision mellan enheter~~ (tillagt 2026-11-13, se avsnitt 7)
 - Rekrytering ur grottor, ledarrang och de 50 extra befolkningsplatserna
   (avsnitt 15)
 - Flerspelarläge, spara/ladda, kampanj, flera kartor, kartredigerare

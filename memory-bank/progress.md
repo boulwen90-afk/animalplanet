@@ -6,12 +6,13 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
 - **Pågår:** riktig figurgrafik, byggd med kod i Blender. Björnkrigaren
-  har skelett och animationer och ritas i spelet i stället för
-  Ramkrigarens platshållare. Arbetet väntar på att användaren ser
-  skärmdumparna. Se "Efter MVP:n" nedan
-- **Tänkbara nästa steg:** låta spelet rita i skärmens verkliga upplösning
-  (så att figurerna blir skarpa på telefoner), en figur för Samlaren, och
-  byggnader
+  ritas i spelet. Grunden är omgjord innan fler figurer byggs:
+  storleksstandard, kollisionsradie och gång i takt med farten. Arbetet
+  väntar på att användaren ser skärmdumparna. Se "Efter MVP:n" nedan
+- **Beslutat men inte påbörjat:** skarp rendering i skärmens verkliga
+  upplösning. Den står som egen punkt sist i `implementation-plan.md`
+- **Tänkbara nästa steg:** en figur för Samlaren, och byggnader enligt
+  storleksstandarden
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -815,6 +816,122 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Figurgrafik: grunden rättad – skala, kollision, gång och ett test (2026-11-13)
+
+Användaren bad om fyra saker innan fler figurer byggs. Ändringarna ligger
+i samma pull request som björnkrigaren.
+
+**Skärmdumpar:** `docs/screenshots/figurer-grupp.png` (en grupp uppställd
+på varannan ruta), `figurer-gar.png` (gruppen går), `figurer-slass.png`
+(närstrid mellan två lag) och `figurer-besegrad.png`
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| 1. Storleksregel föreslagen och dokumenterad i `architecture.md` | Klar | Avsnittet "Storleksstandard": höjd per klass i rutbredder, bredd, raser och byggnader |
+| 1. Regeln ligger i den gemensamma Blender-koden och följs automatiskt | Klar | `lib/scale.py`; en figur anger bara klass, och bygget stoppar om kroppen är för bred |
+| 2. Kollisionsradie så att enheter håller avstånd i strid och i grupp | Klar | Se avvikelserna om enheter som går och om närstrid |
+| 2. Fungerar när många trängs | Klar | Testat med 30 anfallare mot en byggnad och ett slag med 40 mot 40 |
+| 3. Gångens takt synkad med enhetens verkliga fart, även för andra farter | Klar | Bildrutorna stegas efter tillryggalagd sträcka |
+| 4. Det ändrade testet förklarat, och bekräftat att inget fel döljs | Klar | Se nedan |
+| Björnkrigaren omrenderad enligt standarden | Klar | 35 pixlar hög mot 45 förut |
+| Skärmdumpar: grupp som går och närstrid mellan två lag | Klar | |
+| Skarp rendering som egen punkt i `implementation-plan.md` | Klar | Inte påbörjad |
+
+**Storleksstandarden i korthet**
+
+| Klass | Höjd | Pixlar |
+|---|---|---|
+| Arbetare | 0,46 rutbredder | 29 |
+| Krigare | 0,55 | 35 |
+| Liten byggnad (2×2) | minst 1,0 | 64 |
+| Stor byggnad (3×3) | minst 1,4 | 90 |
+| Huvudbyggnad | minst 1,8 | 115 |
+
+**Det ändrade testet (punkt 4)**
+
+Testet från fas 3 beordrade som spelare en av motståndarens enheter att gå
+och kontrollerade sedan att enheten saknade väg. Det påståendet rymmer två
+saker: att ordern inte hade någon verkan, och att ingenting annat hade gett
+enheten en väg. Det andra var ett outtalat antagande, och det slutade
+stämma i fas 9: datormotståndaren ger sina arbetare order redan i första
+simuleringssteget. Testet gick ändå igenom i två faser, eftersom kontrollen
+hann göras innan första steget kördes. När figurernas texturer började
+laddas upp under första bildrutan hann steget köras, och testet föll.
+
+Att inget fel i simuleringen döljs är kontrollerat på tre sätt:
+
+- Vägen som testet såg slutade på ruta (56, 12), invid motståndarens bas,
+  inte på (30, 30) dit spelaren försökte skicka enheten.
+- Ett nytt enhetstest spelar två kopior av samma match mot
+  datormotståndaren. I den ena försöker spelaren flytta motståndarens enhet
+  en gång i sekunden. Efter 200 steg är de två matcherna identiska, värde
+  för värde.
+- Webbläsartestet är ersatt av två skarpare: med datormotståndaren igång är
+  enheten inte på väg till den ruta spelaren angav, och utan
+  datormotståndaren står den kvar på sin plats 20 steg senare.
+
+Lösningen från förra omgången, att bara slå av datormotståndaren i testet,
+var riktig men bevisade mindre än den här.
+
+**Saknas eller avviker**
+- **Krigaren blev mindre:** 35 pixlar hög mot 45. Första förslaget, 40
+  pixlar, gav fortfarande en klump när en grupp stod tillsammans.
+- **Enheter som går kan passera genom varandra under ett ögonblick.**
+  Kollisionen är mjuk för att ingen ska fastna. Avståndet hålls när de
+  står still och när de slåss. Två som går samma väg håller sig ungefär en
+  halv ruta isär.
+- **I närstrid står enheter en ruta från varandra**, inte glesare, och
+  figurerna överlappar då något på skärmen. Glesare går inte utan att
+  ändra hur närstrid fungerar.
+- **En grupp som flyttas ställer sig på varannan ruta.** Det stod inte i
+  uppdraget, men utan det stod gruppen för tätt för att läsas. Enheter
+  som har gått var för sig, eller som blir stående efter en strid, står
+  som förut.
+- **Fler anfallare än det finns plats för väntar längre ut.** Förut
+  ställde de sig på samma ruta. Runt en enhet ryms 8 anfallare, runt en
+  3×3-byggnad 16.
+- **Balansen ändrades**, eftersom strider går annorlunda. En justering i
+  `src/data/ai.ts`: motståndarens sena vågor kommer var 120:e sekund i
+  stället för var 150:e. Utan den tog en match dator mot dator upp till
+  20,3 minuter. Balanstesterna är oförändrade. Se tabellen.
+- **GDD:t är ändrat** på två ställen: förenklingen "enheter kolliderar
+  inte" är struken, och gruppens uppställning är inskriven.
+- **Löpcykeln är ny**: en fot i taget i marken och en svävfas emellan.
+  Med björnkrigarens fart blir det 22 bildrutor per sekund.
+- **Byggnaderna i spelet följer inte standarden än.** De är platshållare
+  med 22–36 pixlar höga väggar. Måtten gäller när byggnaderna byggs.
+- **Standarden är bara prövad på en figur.** Arbetarens och andra rasers
+  mått är satta men inte byggda.
+- **Sidoglidning runt den man möter provades och togs bort.** En enhet på
+  väg till en punkt där någon stod hamnade i omlopp runt den.
+
+**Balans efter ändringarna** (frön 1–6)
+
+| | Före kollision | Efter |
+|---|---|---|
+| Dator mot dator, matchlängd | 14,2–19,1 min | 13,2–18,3 min |
+| 6 Ramkrigare mot första vågen | Vinner, 5–6 kvar | Vinner, 5–6 kvar |
+| Storidens liv efter första vågen | 1490–1500 | 1480–1500 |
+| Spelare som inte gör något | Förlorar efter 5,3 min | Förlorar efter 5,3 min |
+
+**Testresultat**
+- Vitest: 444 av 444
+- Playwright: 94 av 94, även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll: utan anmärkning
+- Konsolfel i huvudlös webbläsare: inga
+
+**Beslut och lärdomar**
+- Skärmdumpen avgjorde storleken. Kollisionsradien var rätt i
+  simuleringen, men figurerna var bredare än avståndet mellan två rutor på
+  skärmen, så gruppen såg ändå ut som en klump.
+- Kollisionstesterna hittade två fel i första versionen: anfallare som
+  stannade på en upptagen ruta, och sysslolösa enheter som blev stående på
+  varandra när målet försvann.
+- Ett slagtest avgjordes aldrig. Orsaken var testet: de överlevande stod
+  längre isär än de 6 rutor en Ramkrigare upptäcker fiender på.
 
 ### Figurgrafik: skelett, animationer, spritesheets och björnkrigaren i spelet (2026-11-13)
 

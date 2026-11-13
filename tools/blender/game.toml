@@ -6,7 +6,8 @@ tile_width = 64
 tile_height = 32
 # The game looks down on the ground at 30 degrees: a square tile becomes twice as wide as high.
 camera_elevation_deg = 30.0
-# How many game pixels one Blender unit is. The bear is about 2.4 units to the top of its helmet.
+# How many game pixels one Blender unit is. It is the same for everything that
+# is rendered; figures get their size from the standard under [scale].
 pixels_per_unit = 24.0
 # Size of one picture of a figure, in game pixels. It has room for a sword swung
 # at arm's length in any direction. Empty space is trimmed away in the atlas.
@@ -28,6 +29,31 @@ outline_radius = 0.75
 shadow = "#0c120a"
 shadow_strength = 0.55
 samples = 64
+
+# The size standard. Every size is in tile widths: the width of a ground tile
+# on the screen (tile_width above). See "Storleksstandard" in architecture.md.
+[scale]
+# A race's build may change a figure's height by this much at most.
+stature_range = [0.85, 1.15]
+# The widest a body may be across the shoulders, armour included. Two figures
+# a tile apart are 0.5 tile widths apart sideways on the screen, so at this
+# width they overlap by a fifth at most.
+max_body_width = 0.62
+
+# How tall a figure of each size class is on the screen, from the ground to
+# the top of its head when it stands upright. Helmet crests, ears, weapons and
+# shields come on top of that.
+[scale.figure_height]
+worker = 0.46
+warrior = 0.55
+leader = 0.66
+
+# The lowest a building may be on the screen, from the ground to the top of
+# its roof, by size class. Even the smallest is clearly taller than a warrior.
+[scale.building_height]
+small = 1.0     # 2x2 tiles, such as a Visthus: about 1.8 warriors
+large = 1.4     # 3x3 tiles, such as a Krigshall: about 2.5 warriors
+main = 1.8      # the main building: about 3.3 warriors
 
 [preview]
 size = 640

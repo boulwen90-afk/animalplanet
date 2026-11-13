@@ -21,6 +21,11 @@ export interface AnimationInfo {
   frames: number;
   fps: number;
   loop: boolean;
+  /**
+   * For an animation of moving along the ground: how many tiles the figure
+   * travels while the loop plays once without its feet sliding.
+   */
+  distance?: number;
 }
 
 /**
@@ -57,6 +62,19 @@ export function frameAt(info: AnimationInfo, elapsedMs: number, offset = 0): num
   const frame = Math.floor((Math.max(0, elapsedMs) / 1000) * info.fps);
   if (!info.loop) return Math.min(info.frames - 1, frame);
   return (frame + offset) % info.frames;
+}
+
+/**
+ * The frame of a moving animation for a unit that has travelled `tiles` in
+ * all. The loop is stepped by distance, not by time, so the feet stay planted
+ * on the ground at any speed: a faster unit simply runs through the loop
+ * faster. `offset` shifts the loop by whole frames, as in `frameAt`.
+ */
+export function travelFrame(info: AnimationInfo, tiles: number, offset = 0): number {
+  if (!info.distance || info.distance <= 0) return offset % info.frames;
+  const loops = tiles / info.distance;
+  const frame = Math.floor((loops - Math.floor(loops)) * info.frames);
+  return (Math.min(info.frames - 1, frame) + offset) % info.frames;
 }
 
 /**
