@@ -4,12 +4,15 @@ import { openState } from '../../sim/testUtils';
 import {
   DIRECTIONS,
   activityOf,
+  animationFor,
   attackFrame,
   facingOf,
   frameAt,
   frameName,
+  progressFrame,
   travelFrame,
   type AnimationInfo,
+  type CharacterAnimations,
 } from './animation';
 
 const name = (dx: number, dy: number) => {
@@ -69,6 +72,88 @@ describe('activityOf', () => {
     const done = unit();
     done.attackCooldown = 12;
     expect(activityOf(done)).toBe('idle');
+  });
+});
+
+describe('activityOf for a worker', () => {
+  const worker = () => createUnit(openState(8, 8), 'samlare', 0, 2, 2);
+  const gathering = (phase: 'toSource' | 'gathering' | 'toDropoff') => {
+    const unit = worker();
+    unit.task = {
+      kind: 'gather',
+      resource: 'wood',
+      node: { x: 3, y: 2 },
+      phase,
+      workTicks: 0,
+      dropoffId: null,
+    };
+    return unit;
+  };
+
+  it('is gather while it works a source, and not on the way there or back', () => {
+    expect(activityOf(gathering('gathering'))).toBe('gather');
+    expect(activityOf(gathering('toSource'))).toBe('idle');
+    expect(activityOf(gathering('toDropoff'))).toBe('idle');
+  });
+
+  it('goes on working when a neighbour nudges it aside', () => {
+    const nudged = gathering('gathering');
+    nudged.prevX = nudged.x - 0.02;
+    expect(activityOf(nudged)).toBe('gather');
+  });
+
+  it('is walk on the way to a source', () => {
+    const walking = gathering('toSource');
+    walking.prevX = walking.x - 0.1;
+    expect(activityOf(walking)).toBe('walk');
+  });
+
+  it('is gather while it raises a building, once it has arrived', () => {
+    const builder = worker();
+    builder.task = { kind: 'build', buildingId: 7 };
+    expect(activityOf(builder)).toBe('gather');
+    builder.path = [{ x: 4, y: 2 }];
+    builder.prevX = builder.x - 0.1;
+    expect(activityOf(builder)).toBe('walk');
+  });
+});
+
+describe('progressFrame', () => {
+  const gather: AnimationInfo = { frames: 8, fps: 8, loop: true };
+
+  it('starts on the frame where the tool strikes and runs through the loop once', () => {
+    expect(progressFrame(gather, 0)).toBe(0);
+    expect(progressFrame(gather, 0.124)).toBe(0);
+    expect(progressFrame(gather, 0.125)).toBe(1);
+    expect(progressFrame(gather, 0.5)).toBe(4);
+    expect(progressFrame(gather, 0.99)).toBe(7);
+  });
+
+  it('stays inside the loop for values outside 0 to 1', () => {
+    expect(progressFrame(gather, -1)).toBe(0);
+    expect(progressFrame(gather, 1)).toBe(7);
+    expect(progressFrame(gather, 3)).toBe(7);
+  });
+});
+
+describe('animationFor', () => {
+  const info: AnimationInfo = { frames: 8, fps: 8, loop: true };
+  const warrior: CharacterAnimations = { idle: info, walk: info, defeat: info, attack: info };
+  const worker: CharacterAnimations = { idle: info, walk: info, defeat: info, gather: info };
+
+  it('is the animation of the activity when the character has it', () => {
+    expect(animationFor(warrior, 'attack')).toBe('attack');
+    expect(animationFor(worker, 'gather')).toBe('gather');
+    expect(animationFor(worker, 'walk')).toBe('walk');
+  });
+
+  it('lets a worker strike with its tool: it has no attack of its own', () => {
+    expect(animationFor(worker, 'attack')).toBe('gather');
+  });
+
+  it('falls back on standing when a character has neither', () => {
+    expect(animationFor({ idle: info, walk: info, defeat: info }, 'attack')).toBe('idle');
+    expect(animationFor({ idle: info, walk: info, defeat: info }, 'gather')).toBe('idle');
   });
 });
 

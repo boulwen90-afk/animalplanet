@@ -38,15 +38,18 @@ export const CHARACTER_VISUALS: Partial<
       halfWidth: number;
       /** Width of the ellipse drawn under the unit when it is selected. */
       selectionWidth: number;
+      /** Size of the shadow under the unit, against CHARACTER_SHADOW. */
+      shadowScale: number;
     }
   >
 > = {
-  ramkrigare: { height: 41, halfWidth: 13, selectionWidth: 40 },
+  samlare: { height: 34, halfWidth: 11, selectionWidth: 34, shadowScale: 0.84 },
+  ramkrigare: { height: 41, halfWidth: 13, selectionWidth: 40, shadowScale: 1 },
 };
 
 /**
- * The soft shadow drawn on the ground under a character: its size in pixels,
- * how far it lies from the unit's ground point (the light comes from the
+ * The soft shadow drawn on the ground under a character: its size in pixels
+ * for a warrior (smaller figures scale it by their `shadowScale`), how far it lies from the unit's ground point (the light comes from the
  * upper left) and how dark it is.
  */
 export const CHARACTER_SHADOW = {

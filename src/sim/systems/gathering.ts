@@ -155,7 +155,7 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
 }
 
 /** Simulation steps a unit works for each unit of resource. */
-function ticksPerUnit(unit: Unit): number {
+export function ticksPerUnit(unit: Unit): number {
   return Math.max(1, Math.round(SIM_CONFIG.ticksPerSecond / UNIT_DEFS[unit.type].gatherRate));
 }
 

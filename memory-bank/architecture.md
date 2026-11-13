@@ -562,8 +562,9 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - Enheter ritas mellan `prev` och aktuellt läge med
     `alpha = ackumulerad tid / steglängd`, så rörelsen blir mjuk i alla
     bildfrekvenser.
-  - Samlare är en cirkel i lagfärg, Storiden ett block med bokstaven S.
-    Spelaren är blå, motståndaren röd.
+  - Enheter ritas som figurer (se "Figurer" nedan). En enhetstyp utan
+    figur blir en cirkel eller fyrkant i lagfärg. Storiden är ett block
+    med bokstaven S. Spelaren är blå, motståndaren röd.
   - Djup = skärmhöjden för enhetens markpunkt respektive byggnadens mitt,
     samma regel som träden i `MapView`.
   - Markerade enheter får en grön ellips på marken, markerade byggnader en
@@ -572,7 +573,6 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     med bygget. Visthuset har bokstaven V, Krigshallen K.
   - En enhet som bär något får en liten fyrkant uppe till höger: röd för
     mat, brun för trä.
-  - Ramkrigare är en fyrkant, större än Samlarens cirkel.
   - Livstapel ovanför skadade enheter och färdiga byggnader: grön över
     50 %, gul över 25 %, röd annars.
   - Träff: målet ritas helvitt i 80 ms, och anfallaren gör ett utfall på
@@ -654,7 +654,8 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   dit; ett tryck på konturen bygger, om platsen är giltig. "Avbryt"
   avslutar placeringen.
 - **Figurer (`render/characters/`).** Enhetstyper som finns i `CHARACTERS`
-  ritas som figurer; övriga är platshållare. I dag gäller det Ramkrigaren.
+  ritas som figurer; övriga är platshållare. I dag gäller det båda
+  enhetstyperna: Samlaren (`bear_worker`) och Ramkrigaren (`bear_warrior`).
   - `GameScene.preload` laddar atlasens bas, mask och JSON-fil.
     `CharacterLibrary` gör sedan **en färgad kopia av atlasen per
     spelare**: pixlarna läses ut via en canvas, `recolorPixels` räknar om
@@ -665,11 +666,26 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     kostar inget per bildruta, hur många enheter det än finns, och
     fungerar likadant i WebGL och canvas.
   - `animation.ts` väljer vad som visas, som rena funktioner:
-    `activityOf` (går om enheten flyttade sig senaste steget; anfaller om
-    den står still med ett mål och löpande nedkylning; annars står),
+    `activityOf` (arbetar om enheten samlar vid en källa eller har kommit
+    fram till ett bygge; går om den flyttade sig senaste steget; anfaller
+    om den står still med ett mål och löpande nedkylning; annars står),
     `facingOf` (riktning ur en förflyttning i rutor), `frameAt`
-    (bildruta ur tid) och `attackFrame` (bildruta ur nedkylningen, så att
-    hugget träffar i samma ögonblick som skadan delas ut).
+    (bildruta ur tid), `attackFrame` (bildruta ur nedkylningen, så att
+    hugget träffar i samma ögonblick som skadan delas ut) och
+    `progressFrame` (bildruta ur hur långt ett arbetsmoment har kommit).
+  - Arbete kontrolleras före rörelse i `activityOf`. En arbetare som
+    knuffas åt sidan av en granne fortsätter alltså att hugga i stället
+    för att växla till gång i ett par bildrutor.
+  - **Alla figurer har inte alla animationer.** `idle`, `walk` och
+    `defeat` är obligatoriska; `attack` och `gather` är valfria.
+    `animationFor` väljer en ersättare när en saknas: en arbetare som
+    beordras att slåss visar `gather` (den hugger med sitt redskap), i
+    takt med sin nedkylning precis som ett anfall.
+  - **Arbete i takt med insamlingen.** Samlaren gör ett hugg per enhet av
+    resursen (1 per sekund): `gather` stegas efter `workTicks`, och
+    loopen börjar där redskapet träffar, vilket är i samma steg som
+    enheten läggs i lasten. Vid ett bygge går samma animation på spelets
+    klocka. Figuren vänder sig mot källans ruta respektive byggets mitt.
   - `EntityView.updateCharacter` ritar figuren med fötterna på enhetens
     markpunkt. Den vänder sig åt det håll den går, eller mot sitt mål när
     den slåss, och behåller riktningen när den stannar. Tomgången går på
@@ -684,7 +700,11 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - Under varje figur ligger en mjuk skugga (en delad textur, på markens
     djup). Markering, livstapel och flagga ritas efter figurens höjd
     (`CHARACTER_VISUALS`), och ett klick träffar hela kroppen, inte bara
-    en cirkel vid fötterna.
+    en cirkel vid fötterna. Skuggan skalas per enhetstyp (`shadowScale`:
+    0,84 för Samlaren).
+  - En figur som bär något får samma lilla fyrkant som platshållarna, vid
+    axeln: röd för mat, brun för trä. Korgen på ryggen ser likadan ut
+    vare sig den är tom eller full.
   - Träffblink och utfall fungerar som för platshållarna.
 - **`MapView`** ritar kartan en gång, från `state.map`:
   - Marken: en Blitter per marktextur (gräs, vatten), ett ritanrop var,
@@ -711,9 +731,9 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
 
 Figurerna byggs helt med kod i Blender, utan fönster och utan externa
 tjänster. Spelet ritas med Phaser i 2D, så slutprodukten blir spritesheets
-(PNG + JSON-atlas). Björnkrigaren är den första figuren: den har skelett
-och animationer, renderas i åtta riktningar och ritas i spelet i stället
-för Ramkrigarens platshållare. Samlaren och byggnaderna är fortfarande
+(PNG + JSON-atlas). Två figurer finns: **björnkrigaren** (Ramkrigaren) och
+**björnarbetaren** (Samlaren). Båda har skelett och animationer, renderas
+i åtta riktningar och ritas i spelet. Byggnaderna är fortfarande
 platshållare.
 
 **Körning**
@@ -731,7 +751,7 @@ tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior
 
 `npm run build:characters` kör `tools/blender/build.sh`, som skapar den
 virtuella miljön och installerar `bpy` första gången och sedan bygger om
-alla figurer från konfigfilerna. Björnkrigarens atlas tar cirka 1,5 minut.
+alla figurer från konfigfilerna. En figurs atlas tar cirka 1,5 minut.
 
 - Blender körs som Python-modulen `bpy` 5.3.0 (kräver Python 3.13). Den
   virtuella miljön checkas inte in.
@@ -761,7 +781,7 @@ alla figurer från konfigfilerna. Björnkrigarens atlas tar cirka 1,5 minut.
 | `lib/mesh.py` | `Builder` med grundformerna: `ellipsoid` (även kupol), `limb` (avsmalnande cylinder mellan två punkter), `box`, `sheet` (tyg). Sätter mjuka eller hårda kanter per delgrupp |
 | `lib/skeleton.py` | Det gemensamma skelettet: benen (`BONES`), lösaren `solve` som placerar leder och ben för en pose, och `Rig` som bygger Blender-skelettet, binder delarna och bakar animationer |
 | `lib/body.py` | Kroppen: bål, puckel, huvud, kinder, nos, käke, huggtänder, ögon, ögonbryn, öron, armar, ben, tassar, klor, svans |
-| `lib/armor.py` | Rustningsdelar: ringbrynja, bröstplåt med bukskenor, höftplåtar, axelskydd med taggar, pälskrage, armskenor, benskenor, bälte, vapenrock, hjälm med kam, mantel |
+| `lib/armor.py` | Rustnings- och klädesdelar. Krigarens: ringbrynja, bröstplåt med bukskenor, höftplåtar, axelskydd med taggar, pälskrage, armskenor, benskenor, bälte, vapenrock, hjälm med kam, mantel. Arbetarens: tunika, läderlindor, ett axelskydd av läder, förkläde, korg med remmar |
 | `lib/weapons.py` | Svärd, yxa och rundsköld |
 | `lib/emblem.py` | Läser ett sigill och lägger det på en yta (sköld eller mantel); ritar det även som platt bild |
 | `lib/figure.py` | Sätter ihop kropp, rustning, vapen, sköld och sigill till en figur och binder den till sitt skelett |
@@ -858,7 +878,7 @@ använder (`[animations] list`).
 | `idle` | 6 | 4/s | Ja | Andning, vapnet vajar, huvudet vrids lite åt sidorna |
 | `walk` | 8 | efter sträcka | Ja | Löpning: en fot i taget är i marken, däremellan är figuren i luften. Höfterna gungar, armarna pendlar mot benen, manteln fladdrar |
 | `attack` | 10 | 10/s | Ja | Hugg ovanifrån. Loopen börjar när hugget träffar och slutar med uppladdningen inför nästa |
-| `gather` | 8 | 8/s | Ja | Arbete: ett redskap svingas ned från axeln. Används inte av krigaren |
+| `gather` | 8 | 8/s | Ja | Arbete: ett redskap svingas ned från axeln, med eggen först. Loopen börjar när redskapet träffar. Används av arbetaren, inte av krigaren |
 | `defeat` | 7 | 10/s | Nej | Vacklar bakåt och går ned på knä med sänkt vapen och böjt huvud |
 
 Loopar är sömlösa av konstruktion: periodiska rörelser använder hela
@@ -870,7 +890,9 @@ spelet, så det som i uppdraget hette "dö" är `defeat`: figuren ger upp.
 kroppen passerar över den: foten rör sig bakåt under kroppen i jämn takt.
 Animationen anger hur långt kroppen färdas på ett varv (`distance`), och
 cykeln är dimensionerad efter benens längd, så den passar alla raser.
-Atlasen anger sträckan i rutor (0,79 för björnkrigaren). Spelet stegar
+Atlasen anger sträckan i rutor (0,79 för björnkrigaren, 0,66 för
+björnarbetaren, som är mindre men springer fortare: 3,8 varv per sekund
+mot krigarens 2,8). Spelet stegar
 bildrutorna efter **hur långt enheten har rört sig**, inte efter tid
 (`travelFrame`). Fötterna står därför stilla mot marken vid vilken fart
 som helst; en snabbare enhet springer igenom varvet fortare. Bygget
@@ -883,7 +905,8 @@ och bildruta (`Rig.bake`).
 (`s`, `se`, `e`, `ne`, `n`, `nw`, `w`, `sw`, namngivna efter vart figuren
 tittar på skärmen; `s` är mot betraktaren) med samma kamera, ljus och
 skala för alla figurer. Varje bildruta renderas i två pass (figur och
-mask) och får sin kontur. Björnkrigaren blir 248 bildrutor.
+mask) och får sin kontur. Björnkrigaren blir 248 bildrutor och
+björnarbetaren 232.
 
 - **Trimning och packning.** Tom yta runt varje bild skärs bort och
   bilderna packas i rader (`lib/atlas.py`). Masken har exakt samma
@@ -897,8 +920,9 @@ mask) och får sin kontur. Björnkrigaren blir 248 bildrutor.
   bild nästan dubbelt så stor. Spelet ritar en mjuk skugga under varje
   figur i stället.
 - **Storlek.** Atlasen renderas i `atlas_scale` gånger spelets pixlar.
-  Med 1 är björnkrigarens atlas 1024×881 pixlar och 1,8 MB (bas och mask).
-  Med 2 blir den ungefär fyra gånger så stor. Förhandsbilderna renderas i
+  Med 1 är björnkrigarens atlas 1024×881 pixlar och 1,8 MB (bas och mask)
+  och björnarbetarens 1024×452 pixlar och 1,0 MB. Med 2 blir de ungefär
+  fyra gånger så stora. Förhandsbilderna renderas i
   `render_scale` (2).
 - En bildruta där figuren når kanten stoppar bygget med ett felmeddelande
   (`sprite.frame` i `game.toml` är då för liten).
@@ -913,8 +937,17 @@ yta via en funktion, så samma sigill passar en platt sköld och en böjd
 mantel. Sigill finns för björn, tiger, apa och varg; bara björnens sitter
 på en figur.
 
-**Lagfärg och mask.** Hjälmkam, mantel, vapenrock, sköldens fält och
-sigillets `field`-delar använder materialet `team_color`. De renderas inte
+**Björnarbetaren** (`units/worker.toml`, storleksklass `worker`) bär en
+tunika i lagfärg med kjol och korta ärmar, ett läderförkläde från bältet
+och ned, läderlindor om underarmar och smalben, ett axelskydd av läder på
+vänster axel och en flätad korg på ryggen med remmar över bröstet. I
+höger hand har den en yxa, som vilar mot axeln när den står. Huvudet är
+bart. Den använder `idle`, `walk`, `gather` och `defeat`, och har inget
+sigill: det sitter på sköld och mantel, som arbetaren saknar.
+
+**Lagfärg och mask.** Hjälmkam, mantel, vapenrock, sköldens fält,
+arbetarens tunika och sigillets `field`-delar använder materialet
+`team_color`. De renderas inte
 i någon lagfärg, utan i en neutral grå (`#bcbcbc`), och färgas efteråt.
 Varje bild renderas i tre pass med samma ljus (`render_passes`):
 
@@ -958,6 +991,8 @@ bara kontrollerat på samma maskin och samma Blender-version.
 
 **Förhandsbilder**
 
+- `assets/previews/bear_worker/`: samma bilder för björnarbetaren, och
+  `animations.png` med animationerna som bildrutor.
 - `assets/previews/bear_warrior/`: `front.png`, `side.png`, `back.png`,
   `game_blue.png` och `game_red.png` (spelets kameravinkel),
   `mask_demo.png` (grå bas, mask och fyra färger ur samma rendering),

@@ -14,7 +14,14 @@ import type { Unit } from '../../sim/state';
 export const DIRECTIONS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
 export type Direction = (typeof DIRECTIONS)[number];
 
-export type CharacterAnimation = 'idle' | 'walk' | 'attack' | 'defeat';
+export type CharacterAnimation = 'idle' | 'walk' | 'attack' | 'gather' | 'defeat';
+
+/** What a character has pictures of. Every character can stand, walk and give up. */
+export type CharacterAnimations = Record<'idle' | 'walk' | 'defeat', AnimationInfo> &
+  Partial<Record<'attack' | 'gather', AnimationInfo>>;
+
+/** What a unit is doing, as far as its animation goes. */
+export type Activity = 'idle' | 'walk' | 'attack' | 'gather';
 
 /** What the atlas says about an animation. */
 export interface AnimationInfo {
@@ -44,8 +51,16 @@ export function facingOf(dx: number, dy: number): number | undefined {
   return ((eighth % 8) + 8) % 8;
 }
 
-/** What a unit is doing, as far as its animation goes. A beaten unit that leaves the field walks. */
-export function activityOf(unit: Unit): 'idle' | 'walk' | 'attack' {
+/**
+ * What a unit is doing. A beaten unit that leaves the field walks. Raising a
+ * building counts as gathering: the unit swings its tool either way.
+ */
+export function activityOf(unit: Unit): Activity {
+  const task = unit.task;
+  // A unit at work stands by what it works on. If a neighbour nudges it
+  // aside it goes on working, so this comes before the check for movement.
+  if (task.kind === 'gather' && task.phase === 'gathering') return 'gather';
+  if (task.kind === 'build' && unit.path.length === 0) return 'gather';
   if (unit.x !== unit.prevX || unit.y !== unit.prevY) return 'walk';
   // A unit that stands still with a target strikes it as soon as it may, so a
   // running cooldown means it is in the middle of a fight.
@@ -85,6 +100,34 @@ export function travelFrame(info: AnimationInfo, tiles: number, offset = 0): num
 export function attackFrame(info: AnimationInfo, cooldown: number, strikeTicks: number): number {
   const sinceStrike = 1 - Math.min(1, Math.max(0, cooldown / strikeTicks));
   return Math.min(info.frames - 1, Math.floor(sinceStrike * info.frames));
+}
+
+/**
+ * The frame of a loop that is `progress` (0 to 1) of the way through. Used
+ * for work that the simulation keeps the pace of: the loop starts where the
+ * tool strikes, which is when a unit of the resource has just been taken.
+ */
+export function progressFrame(info: AnimationInfo, progress: number): number {
+  const done = Math.min(1, Math.max(0, progress));
+  return Math.min(info.frames - 1, Math.floor(done * info.frames));
+}
+
+/** What a character shows instead of an animation it has no pictures of, in order of choice. */
+const STAND_INS: Record<Activity, readonly CharacterAnimation[]> = {
+  idle: [],
+  walk: [],
+  // A worker has no attack of its own: it strikes with its tool as it works.
+  attack: ['gather'],
+  gather: ['attack'],
+};
+
+/** The animation a character plays for what its unit does, of the ones it has pictures of. */
+export function animationFor(
+  animations: CharacterAnimations,
+  activity: Activity,
+): CharacterAnimation {
+  if (animations[activity]) return activity;
+  return STAND_INS[activity].find((name) => animations[name]) ?? 'idle';
 }
 
 /** The name of a picture in the atlas. */

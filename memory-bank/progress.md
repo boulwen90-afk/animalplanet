@@ -5,14 +5,14 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 ## Nuläge
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
-- **Pågår:** riktig figurgrafik, byggd med kod i Blender. Björnkrigaren
-  ritas i spelet. Grunden är omgjord innan fler figurer byggs:
-  storleksstandard, kollisionsradie och gång i takt med farten. Arbetet
-  väntar på att användaren ser skärmdumparna. Se "Efter MVP:n" nedan
+- **Pågår:** riktig figurgrafik, byggd med kod i Blender. Båda
+  enhetstyperna ritas nu som figurer: björnkrigaren (Ramkrigaren) och
+  björnarbetaren (Samlaren). Arbetet väntar på att användaren ser
+  skärmdumparna av Samlaren. Se "Efter MVP:n" nedan
 - **Beslutat men inte påbörjat:** skarp rendering i skärmens verkliga
   upplösning. Den står som egen punkt sist i `implementation-plan.md`
-- **Tänkbara nästa steg:** en figur för Samlaren, och byggnader enligt
-  storleksstandarden
+- **Tänkbara nästa steg:** byggnader enligt storleksstandarden, och träd,
+  bärsnår och klippor i samma stil
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -816,6 +816,68 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Figurgrafik: björnarbetaren, Samlarens figur (2026-11-13)
+
+Användaren godkände skalan och avstånden ("Det ser rätt ut, kör vidare").
+Nästa figur blev Samlaren, den enda enheten som fortfarande var en
+platshållare. Valet av figur och dess utseende är Claudes; användaren har
+inte sett den än. Arbetet ligger i samma pull request som björnkrigaren.
+
+**Skärmdumpar:** `docs/screenshots/figurer-samlare-arbetar.png` (hugger
+ved, plockar bär och reser ett Visthus), `figurer-samlare-gar.png` (på
+väg ut) och `figurer-samlare-skala.png` (tre Samlare bredvid tre
+Ramkrigare). Förhandsbilder i `assets/previews/bear_worker/`.
+
+**Vad som gjordes**
+
+- **Figuren.** Tunika i lagfärg, läderförkläde, läderlindor, ett
+  axelskydd av läder, en flätad korg på ryggen och en yxa i höger hand.
+  Bart huvud. Nya delar i `lib/armor.py`; konfig i `units/worker.toml`.
+  Storleksklass `worker`: 29 px hög mot krigarens 35.
+- **Animationer.** `idle`, `walk`, `gather` och `defeat` ur det
+  gemensamma biblioteket. `gather` ändrades så att yxans egg leder
+  hugget. 232 bildrutor, atlas 1024×452 px, 1,0 MB (bas och mask).
+- **I spelet.** Samlaren hugger när den samlar vid en källa och när den
+  reser en byggnad, vänd mot källan eller bygget. Vid insamling är det
+  ett hugg per enhet av resursen (1 per sekund), och redskapet träffar i
+  samma steg som enheten läggs i lasten.
+- **Figurer utan alla animationer.** Samlaren har ingen `attack`. En
+  Samlare som beordras att slåss visar `gather` i takt med sin
+  nedkylning (`animationFor`).
+- **Last.** Den lilla fyrkanten som visar att enheten bär något ritas nu
+  även för figurer, vid axeln.
+
+**Saknas eller avviker**
+
+- **Samlarens ben går fort.** Gången följer farten, och Samlaren är
+  mindre men snabbare än Ramkrigaren: 3,8 varv per sekund mot 2,8.
+  Fötterna glider inte, men stegen är snabba.
+- **Korgen ser likadan ut tom och full.** Lasten visas bara av den lilla
+  fyrkanten, som för platshållarna.
+- **Samma hugg för allt arbete.** Yxan används även på bärsnår och på
+  byggen. Ingen särskild animation för att plocka eller snickra.
+- **Samlaren bär inget sigill.** Det sitter på sköld och mantel.
+- **Ingen egen animation för att bära hem lasten.** Den springer som
+  vanligt, med yxan i handen.
+- **Samlare vid samma källa står nära varandra** och överlappar på
+  skärmen. Arbetare får dela ruta enligt kollisionsreglerna.
+- **1,0 MB mer att ladda innan startskärmen** (2,8 MB för båda
+  figurerna), fortfarande utan laddningsindikator.
+- **Byggnader, träd, bärsnår och klippor är fortfarande platshållare.**
+
+**Testresultat**
+
+- Vitest: 459 av 459 (15 nya: Samlarens aktiviteter, `progressFrame`,
+  `animationFor`, och atlasens test gäller nu båda figurerna)
+- Playwright: 98 av 98 (4 nya för Samlaren), även med webbläsaren
+  nedbromsad 8 gånger
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+- Prestanda, huvudlös Chromium utan grafikkort, 1280×720: 17 bilder/s
+  med 120 Samlare som står (20 utan extra enheter; 18 med 120
+  Ramkrigare). Inte mätt på telefon.
+- Ett andra bygge av båda atlaserna ger identiska filer (kontrollsummor).
+  Björnkrigarens atlas är oförändrad av de nya delarna.
 
 ### Figurgrafik: grunden rättad – skala, kollision, gång och ett test (2026-11-13)
 

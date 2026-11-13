@@ -32,6 +32,36 @@ def build_armor(
     def on_head(x: float, y: float, z: float) -> Vector:
         return head + head_turn.to_3x3() @ Vector((x, y, z))
 
+    def front(x: float, z: float) -> float:
+        """How far forward (-Y) the clothed torso reaches at a point across and up the body."""
+        best = hips.y
+        for centre, (rx, ry, rz) in ((belly, (bx, by, bz)), (chest, (cx, cy, cz))):
+            inside = 1.0 - ((x - centre.x) / rx) ** 2 - ((z - centre.z) / rz) ** 2
+            if inside > 0:
+                best = min(best, centre.y - ry * 1.06 * math.sqrt(inside))
+        return best
+
+    if armor.get("tunic"):
+        # A cloth shirt in the team colour: over the belly and chest, down into a skirt, with short sleeves.
+        b.attach("hips")
+        b.ellipsoid("armor.tunic_body", belly, (bx * 1.04, by * 1.04, bz * 1.03), pal["team"])
+        top = hips + Vector((0, -0.02, 0.16))
+        hem = hips + Vector((0, -0.02, -skirt))
+        b.limb("armor.tunic_skirt", top, hem, bx * 0.98, bx * 1.14, pal["team"], 12, by / bx)
+        b.attach("chest")
+        b.ellipsoid("armor.tunic_chest", chest, (cx * 1.04, cy * 1.05, cz * 1.03), pal["team"])
+        for side in ("l", "r"):
+            shoulder, elbow = joints[f"shoulder_{side}"], joints[f"elbow_{side}"]
+            b.attach(f"upper_arm_{side}")
+            b.limb(
+                f"armor.tunic_sleeve_{side}",
+                shoulder,
+                shoulder.lerp(elbow, armor.get("sleeve_length", 0.5)),
+                a0 * 1.12,
+                am * 1.14,
+                pal["team"],
+            )
+
     if armor.get("mail"):
         # A mail shirt: over the belly, down into a skirt, out over the upper arms and up the neck.
         b.attach("hips")
@@ -169,6 +199,88 @@ def build_armor(
                     pal["brass"],
                     4,
                 )
+
+    if armor.get("wraps"):
+        # Leather wrapped around the forearms and the shins.
+        for side in ("l", "r"):
+            elbow, hand = joints[f"elbow_{side}"], joints[f"hand_{side}"]
+            b.attach(f"forearm_{side}")
+            b.limb(
+                f"armor.wrap_arm_{side}",
+                elbow.lerp(hand, 0.3),
+                elbow.lerp(hand, 0.86),
+                am * 1.14,
+                a1 * 1.16,
+                pal["leather"],
+            )
+            knee, foot = joints[f"knee_{side}"], joints[f"foot_{side}"]
+            b.attach(f"shin_{side}")
+            b.limb(
+                f"armor.wrap_leg_{side}",
+                knee.lerp(foot, 0.25),
+                foot.lerp(knee, 0.1),
+                lm * 1.12,
+                l1 * 1.16,
+                pal["leather"],
+            )
+
+    guard = armor.get("shoulder_guard")
+    if guard:
+        # One thick leather plate over a shoulder, with a brass stud.
+        side, sign = ("l", 1.0) if guard == "left" else ("r", -1.0)
+        centre = joints[f"shoulder_{side}"] + Vector((sign * 0.05, 0, 0.06))
+        b.attach("chest")
+        b.ellipsoid(
+            f"armor.shoulder_guard_{side}",
+            centre,
+            (a0 * 1.45, a0 * 1.4, a0 * 1.1),
+            pal["leather"],
+            rotation=frame((sign * 0.45, 0, 1.0)),
+            keep_above=-0.25,
+        )
+        stud = centre + Vector((sign * a0 * 0.5, 0, a0 * 0.95))
+        b.ellipsoid(f"armor.shoulder_stud_{side}", stud, (a0 * 0.3,) * 3, pal["brass"], detail=1)
+
+    if armor.get("apron"):
+        # A leather work apron hanging from the belt down past the hem of the skirt.
+        b.attach("hips")
+        y = -by * 1.2
+        top_z, low_z = hips.z + 0.14, hips.z - skirt - 0.1
+        rows = []
+        for t in (0.0, 0.5, 1.0):
+            z = top_z + (low_z - top_z) * t
+            half = bx * (0.62 + 0.14 * t)
+            out = y - 0.07 * t
+            rows.append([(-half, out + 0.1, z), (-half * 0.5, out, z), (half * 0.5, out, z), (half, out + 0.1, z)])
+        b.sheet("armor.apron", rows, pal["leather"])
+
+    if armor.get("basket"):
+        # A wicker basket carried on the back, with straps over the shoulders.
+        b.attach("chest")
+        low, high = armor.get("basket_radii", (0.27, 0.37))
+        squeeze = 0.82
+        middle_y = chest.y + cy * 0.95 + high * squeeze
+        bottom = Vector((0.0, middle_y - 0.04, hips.z + 0.18))
+        rim = Vector((0.0, middle_y + 0.06, neck.z + 0.12))
+        b.limb("armor.basket", bottom, rim, low, high, pal["wicker"], 12, squeeze)
+        for i, t in enumerate((0.3, 0.62)):
+            at = bottom.lerp(rim, t)
+            width = low + (high - low) * t
+            step = (rim - bottom).normalized() * 0.035
+            b.limb(f"armor.basket_band_{i}", at - step, at + step, width * 1.04, width * 1.05, pal["wicker_dark"], 12, squeeze)
+        lip = (rim - bottom).normalized() * 0.05
+        b.limb("armor.basket_rim", rim - lip, rim + lip, high * 1.08, high * 1.1, pal["wicker_dark"], 12, squeeze)
+        # The dark inside of the basket, seen from above.
+        b.limb("armor.basket_inside", rim + lip, rim + lip * 1.15, high * 0.92, high * 0.92, pal["fur_dark"], 12, squeeze)
+        for side, sign in (("l", 1.0), ("r", -1.0)):
+            x = sign * cx * 0.5
+            rows = []
+            for t in (0.0, 0.2, 0.45, 0.7, 1.0):
+                z = chest.z + cz * (0.78 - 1.3 * t)
+                across = x + sign * cx * 0.16 * t
+                y = front(across, z) - 0.03
+                rows.append([(across - 0.055, y, z), (across + 0.055, y, z)])
+            b.sheet(f"armor.basket_strap_{side}", rows, pal["leather"])
 
     if armor.get("belt"):
         middle = hips + Vector((0, -0.02, 0.16))

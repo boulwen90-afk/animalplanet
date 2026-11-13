@@ -1,5 +1,6 @@
 import type { GameObjects, Scene } from 'phaser';
 import { BUILDING_DEFS } from '../../data/buildings';
+import type { ResourceType } from '../../data/resources';
 import { UI_CONFIG } from '../../data/ui';
 import { UNIT_DEFS } from '../../data/units';
 import { buildingCentre, hasSurrendered } from '../../sim/entities';
@@ -7,13 +8,16 @@ import { tileToWorld, type Point, type TileSize } from '../../sim/map/iso';
 import type { Building, Entity, GameState, Unit } from '../../sim/state';
 import { strikeTicks } from '../../sim/systems/combat';
 import { buildFraction } from '../../sim/systems/construction';
+import { ticksPerUnit } from '../../sim/systems/gathering';
 import {
   DIRECTIONS,
   activityOf,
+  animationFor,
   attackFrame,
   facingOf,
   frameAt,
   frameName,
+  progressFrame,
   travelFrame,
   type CharacterAnimation,
 } from '../characters/animation';
@@ -279,12 +283,11 @@ export class EntityView {
 
     // A small square in the resource's colour shows that the unit carries something.
     if (unit.carryAmount > 0 && unit.carryType) {
-      const x = centre.x + radius - CARRY_MARK_SIZE / 2;
-      const y = centre.y - radius - CARRY_MARK_SIZE / 2;
-      this.overlay.fillStyle(RESOURCE_COLORS[unit.carryType], 1);
-      this.overlay.fillRect(x, y, CARRY_MARK_SIZE, CARRY_MARK_SIZE);
-      this.overlay.lineStyle(1, OUTLINE_COLOR, 1);
-      this.overlay.strokeRect(x, y, CARRY_MARK_SIZE, CARRY_MARK_SIZE);
+      this.drawCarryMark(
+        centre.x + radius - CARRY_MARK_SIZE / 2,
+        centre.y - radius - CARRY_MARK_SIZE / 2,
+        unit.carryType,
+      );
     }
   }
 
@@ -333,21 +336,31 @@ export class EntityView {
         y = drawing.defeat.y + (ground.y - drawing.defeat.y) * k;
       }
       const activity = activityOf(unit);
-      animation = activity;
+      animation = animationFor(animations, activity);
+      const info = animations[animation] ?? animations.idle;
+      const task = unit.task;
+      const face = (at: Point | undefined) => {
+        if (at) drawing.direction = facingOf(at.x - unit.x, at.y - unit.y) ?? drawing.direction;
+      };
       if (activity === 'walk') {
         drawing.direction = facingOf(unit.x - unit.prevX, unit.y - unit.prevY) ?? drawing.direction;
         // By distance, not by time, so that the feet do not slide on the ground.
-        frame = travelFrame(animations.walk, drawing.travelled, unit.id * 3);
-      } else if (activity === 'attack' && unit.task.kind === 'attack') {
-        const target = byId.get(unit.task.targetId);
-        if (target) {
-          const at = target.kind === 'unit' ? target : buildingCentre(target);
-          drawing.direction = facingOf(at.x - unit.x, at.y - unit.y) ?? drawing.direction;
-        }
+        frame = travelFrame(info, drawing.travelled, unit.id * 3);
+      } else if (activity === 'attack' && task.kind === 'attack') {
+        const target = byId.get(task.targetId);
+        face(target && (target.kind === 'unit' ? target : buildingCentre(target)));
         const cooldown = Math.max(0, unit.attackCooldown - alpha);
-        frame = attackFrame(animations.attack, cooldown, strikeTicks(unit));
+        frame = attackFrame(info, cooldown, strikeTicks(unit));
+      } else if (activity === 'gather' && task.kind === 'gather') {
+        // One swing for each unit of the resource: the tool lands as it is taken.
+        face({ x: task.node.x + 0.5, y: task.node.y + 0.5 });
+        frame = progressFrame(info, (task.workTicks + alpha) / ticksPerUnit(unit));
+      } else if (activity === 'gather' && task.kind === 'build') {
+        const site = byId.get(task.buildingId);
+        face(site?.kind === 'building' ? buildingCentre(site) : undefined);
+        frame = frameAt(info, this.now, unit.id * 3);
       } else {
-        frame = frameAt(animations.idle, this.now, unit.id * 3);
+        frame = frameAt(info, this.now, unit.id * 3);
       }
     }
 
@@ -369,6 +382,7 @@ export class EntityView {
       height: 48,
       halfWidth: 16,
       selectionWidth: 46,
+      shadowScale: 1,
     };
     if (selected) {
       this.marks.strokeEllipse(x, y, visual.selectionWidth, visual.selectionWidth / 2);
@@ -392,6 +406,22 @@ export class EntityView {
       unit.hp,
       UNIT_DEFS[unit.type].hp,
     );
+
+    // A small square in the resource's colour, by the shoulder, shows that the unit carries something.
+    if (unit.carryAmount > 0 && unit.carryType) {
+      this.drawCarryMark(
+        x + visual.halfWidth - CARRY_MARK_SIZE / 2,
+        y - visual.height,
+        unit.carryType,
+      );
+    }
+  }
+
+  private drawCarryMark(x: number, y: number, resource: ResourceType): void {
+    this.overlay.fillStyle(RESOURCE_COLORS[resource], 1);
+    this.overlay.fillRect(x, y, CARRY_MARK_SIZE, CARRY_MARK_SIZE);
+    this.overlay.lineStyle(1, OUTLINE_COLOR, 1);
+    this.overlay.strokeRect(x, y, CARRY_MARK_SIZE, CARRY_MARK_SIZE);
   }
 
   private updateBuilding(building: Building, sprite: EntitySprite, selected: boolean): void {
@@ -460,7 +490,10 @@ export class EntityView {
       const image = this.scene.add
         .image(0, 0, sheet.textureKey(unit.owner), frame)
         .setScale(sheet.displayScale);
-      const shadow = this.scene.add.image(0, 0, this.shadowTexture()).setDepth(SHADOW_DEPTH);
+      const shadow = this.scene.add
+        .image(0, 0, this.shadowTexture())
+        .setScale(CHARACTER_VISUALS[unit.type]?.shadowScale ?? 1)
+        .setDepth(SHADOW_DEPTH);
       return {
         image,
         shadow,

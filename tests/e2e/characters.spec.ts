@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { BUILDING_DEFS } from '../../src/data/buildings';
+import { DIRECTIONS, facingOf } from '../../src/render/characters/animation';
 import type { GameState, Unit } from '../../src/sim/state';
 import { getState, openGame, trackConsoleErrors } from './helpers';
 
@@ -11,6 +12,17 @@ const spawn = (page: Page, owner: 0 | 1, x: number, y: number) =>
     x,
     y,
   ] as const);
+const spawnWorker = (page: Page, owner: 0 | 1, x: number, y: number) =>
+  page.evaluate(([who, tx, ty]) => window.__TEST__!.spawnUnit('samlare', who, tx, ty), [
+    owner,
+    x,
+    y,
+  ] as const);
+const unitOf = async (page: Page, id: number) =>
+  (await getState(page)).entities.find((e): e is Unit => e.kind === 'unit' && e.id === id)!;
+/** The way a unit at `from` faces when it looks at `to`, as the atlas names it. */
+const towards = (from: { x: number; y: number }, to: { x: number; y: number }) =>
+  DIRECTIONS[facingOf(to.x - from.x, to.y - from.y)!];
 const advance = (page: Page, steps: number) =>
   page.evaluate((n) => window.__TEST__!.advance(n), steps);
 
@@ -83,12 +95,6 @@ test.describe('characters: the bear warrior', () => {
       .poll(() => sprite(page, red))
       .toMatchObject({ animation: 'idle', texture: 'character-bear_warrior-player-1' });
     expect((await sprite(page, blue))!.frame).toMatch(/^idle_s_\d$/);
-
-    // A Samlare is still a placeholder shape.
-    const worker = (await getState(page)).entities.find(
-      (e): e is Unit => e.kind === 'unit' && e.type === 'samlare',
-    )!;
-    expect(await sprite(page, worker.id)).toBeNull();
     expect(errors).toEqual([]);
   });
 
@@ -207,6 +213,126 @@ test.describe('characters: the bear warrior', () => {
     // Some have surrendered and left by now, but most are still drawn.
     expect(drawn).toBeGreaterThan(80);
     expect(frames).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+  });
+});
+
+test.describe('characters: the bear worker', () => {
+  test("workers are drawn as characters in their side's colour, smaller than warriors", async ({
+    page,
+  }) => {
+    const errors = trackConsoleErrors(page);
+    await openGame(page, '&ai=0&fog=0');
+    const state = await getState(page);
+    const workers = state.entities.filter(
+      (e): e is Unit => e.kind === 'unit' && e.type === 'samlare',
+    );
+    const blue = workers.find((w) => w.owner === 0)!;
+    const red = workers.find((w) => w.owner === 1)!;
+
+    await expect
+      .poll(() => sprite(page, blue.id))
+      .toMatchObject({ animation: 'idle', texture: 'character-bear_worker-player-0' });
+    await expect
+      .poll(() => sprite(page, red.id))
+      .toMatchObject({ animation: 'idle', texture: 'character-bear_worker-player-1' });
+    expect((await sprite(page, blue.id))!.frame).toMatch(/^idle_s_\d$/);
+    expect(errors).toEqual([]);
+  });
+
+  test('a worker sent to a tree runs there and then swings its tool at it', async ({ page }) => {
+    const errors = trackConsoleErrors(page);
+    await openGame(page, '&ai=0&fog=0');
+    const state = await getState(page);
+    const worker = state.entities.find(
+      (e): e is Unit => e.kind === 'unit' && e.type === 'samlare' && e.owner === 0,
+    )!;
+    const { width, terrain } = state.map;
+    // The tree nearest the worker.
+    let tree = { x: 0, y: 0 };
+    let nearest = Infinity;
+    terrain.forEach((kind, index) => {
+      if (kind !== 'tree') return;
+      const at = { x: index % width, y: Math.floor(index / width) };
+      const distance = Math.hypot(at.x - worker.x, at.y - worker.y);
+      if (distance < nearest) [tree, nearest] = [at, distance];
+    });
+    await lookAt(page, tree.x, tree.y);
+
+    await page.evaluate(
+      ([id, x, y]) => window.__TEST__!.command({ type: 'gather', player: 0, unitIds: [id], x, y }),
+      [worker.id, tree.x, tree.y] as const,
+    );
+    await expect.poll(() => sprite(page, worker.id)).toMatchObject({ animation: 'walk' });
+
+    // Step until it stands by the tree and works.
+    const working = await page.evaluate((id) => {
+      const t = window.__TEST__!;
+      for (let step = 0; step < 1200; step++) {
+        t.advance(1);
+        const unit = t.getState().entities.find((e) => e.id === id);
+        if (unit?.kind === 'unit' && unit.task.kind === 'gather' && unit.task.phase === 'gathering')
+          return true;
+      }
+      return false;
+    }, worker.id);
+    expect(working).toBe(true);
+
+    const there = await unitOf(page, worker.id);
+    const facing = towards(there, { x: tree.x + 0.5, y: tree.y + 0.5 });
+    await expect
+      .poll(() => sprite(page, worker.id))
+      .toMatchObject({ animation: 'gather', direction: facing });
+    expect((await sprite(page, worker.id))!.frame).toMatch(/^gather_[a-z]+_\d$/);
+
+    // With a full load it runs back with it.
+    await advance(page, 220);
+    await expect.poll(async () => (await unitOf(page, worker.id)).carryAmount).toBeGreaterThan(0);
+    expect(errors).toEqual([]);
+  });
+
+  test('a worker that raises a building swings its tool facing the site', async ({ page }) => {
+    await openGame(page, '&ai=0&fog=0');
+    const row = freeRow(await getState(page), 6);
+    await lookAt(page, row.x + 3, row.y);
+    const id = await spawnWorker(page, 0, row.x, row.y);
+    const result = await page.evaluate(
+      ([unitId, x, y]) =>
+        window.__TEST__!.command({
+          type: 'build',
+          player: 0,
+          unitIds: [unitId],
+          building: 'visthus',
+          x,
+          y,
+        }),
+      [id, row.x + 3, row.y] as const,
+    );
+    expect(result.ok).toBe(true);
+
+    await expect.poll(() => sprite(page, id)).toMatchObject({ animation: 'gather' });
+    const builder = await unitOf(page, id);
+    const side = BUILDING_DEFS.visthus.size;
+    const centre = { x: row.x + 3 + side / 2, y: row.y + side / 2 };
+    expect((await sprite(page, id))!.direction).toBe(towards(builder, centre));
+  });
+
+  test('a worker ordered to fight strikes with its tool, facing its target', async ({ page }) => {
+    const errors = trackConsoleErrors(page);
+    await openGame(page, '&ai=0&fog=0');
+    const row = freeRow(await getState(page), 4);
+    await lookAt(page, row.x + 2, row.y);
+    const blue = await spawnWorker(page, 0, row.x + 1, row.y);
+    const red = await spawnWorker(page, 1, row.x + 2, row.y);
+    await page.evaluate(
+      ([unitId, targetId]) =>
+        window.__TEST__!.command({ type: 'attack', player: 0, unitIds: [unitId], targetId }),
+      [blue, red] as const,
+    );
+    // It has no attack animation of its own, so it shows the swing it works with.
+    await expect
+      .poll(() => sprite(page, blue))
+      .toMatchObject({ animation: 'gather', direction: 'se' });
     expect(errors).toEqual([]);
   });
 });

@@ -1,6 +1,6 @@
 import type { Scene } from 'phaser';
 import type { UnitType } from '../../data/types';
-import type { AnimationInfo, CharacterAnimation } from './animation';
+import type { AnimationInfo, CharacterAnimations } from './animation';
 import { CHARACTERS, type CharacterSource } from './characters';
 import { parseHexColor, recolorPixels } from './recolor';
 
@@ -21,7 +21,7 @@ export interface CharacterSheet {
   name: string;
   /** Scale to draw the pictures at so that they have their size in game pixels. */
   displayScale: number;
-  animations: Record<CharacterAnimation, AnimationInfo>;
+  animations: CharacterAnimations;
   /** Key of the texture in a player's colour. */
   textureKey(owner: number): string;
 }
@@ -82,7 +82,7 @@ export class CharacterLibrary {
       this.sheets.set(unitType, {
         name: source.name,
         displayScale: 1 / atlas.meta.scale,
-        animations: atlas.meta.animations as Record<CharacterAnimation, AnimationInfo>,
+        animations: atlas.meta.animations as unknown as CharacterAnimations,
         textureKey: (owner) => key(source, `player-${owner}`),
       });
     }

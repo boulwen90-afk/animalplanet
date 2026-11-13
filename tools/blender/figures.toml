@@ -3,3 +3,7 @@
 [[figure]]
 race = "bear"
 unit = "warrior"
+
+[[figure]]
+race = "bear"
+unit = "worker"
