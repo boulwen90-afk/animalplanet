@@ -34,10 +34,12 @@ def build_armor(
 
     if armor.get("mail"):
         # A mail shirt: over the belly, down into a skirt, out over the upper arms and up the neck.
+        b.attach("hips")
         b.ellipsoid("armor.mail_body", belly, (bx * 1.04, by * 1.04, bz * 1.03), pal["mail"])
         top = hips + Vector((0, -0.02, 0.16))
         hem = hips + Vector((0, -0.02, -skirt))
         b.limb("armor.mail_skirt", top, hem, bx * 0.98, bx * 1.16, pal["mail"], 12, by / bx)
+        b.attach("chest")
         b.limb(
             "armor.mail_collar",
             neck - Vector((0, 0, 0.12)),
@@ -49,6 +51,7 @@ def build_armor(
         )
         for side in ("l", "r"):
             shoulder, elbow = joints[f"shoulder_{side}"], joints[f"elbow_{side}"]
+            b.attach(f"upper_arm_{side}")
             b.limb(
                 f"armor.mail_sleeve_{side}",
                 shoulder,
@@ -59,8 +62,10 @@ def build_armor(
             )
 
     if armor.get("cuirass"):
+        b.attach("chest")
         b.ellipsoid("armor.cuirass", chest, (cx * 1.06, cy * 1.08, cz * 1.05), pal["steel"])
         # Overlapping bands of plate down the belly.
+        b.attach("hips")
         for i in range(armor.get("lames", 0)):
             middle = hips + Vector((0, -0.02, bz * (1.0 - i * 0.36)))
             b.limb(
@@ -77,6 +82,7 @@ def build_armor(
     if armor.get("tassets"):
         # Plates hanging from the belt over the mail skirt: two in front, one on each hip.
         height = skirt + 0.1
+        b.attach("hips")
         z = hips.z + 0.12 - height / 2
         for side, sign in (("l", 1.0), ("r", -1.0)):
             lean = Matrix.Rotation(-0.22, 4, "X")
@@ -98,6 +104,7 @@ def build_armor(
     if armor.get("pauldrons"):
         for side, sign in (("l", 1.0), ("r", -1.0)):
             centre = joints[f"shoulder_{side}"] + Vector((sign * 0.05, 0, 0.06))
+            b.attach("chest")
             b.ellipsoid(
                 f"armor.pauldron_{side}",
                 centre,
@@ -107,6 +114,7 @@ def build_armor(
                 keep_above=-0.25,
             )
             # A second plate under the first, further down the arm.
+            b.attach(f"upper_arm_{side}")
             b.ellipsoid(
                 f"armor.pauldron_lower_{side}",
                 centre + Vector((sign * a0 * 0.62, 0, -a0 * 0.55)),
@@ -116,12 +124,14 @@ def build_armor(
                 keep_above=-0.15,
             )
             if armor.get("pauldron_spikes"):
+                b.attach("chest")
                 root = centre + Vector((sign * a0 * 0.45, 0, a0 * 0.85))
                 tip = root + Vector((sign * a0 * 0.75, 0, a0 * 1.25))
                 b.limb(f"armor.pauldron_spike_{side}", root, tip, a0 * 0.4, 0.0, pal["brass"], 6)
 
     if armor.get("fur_collar"):
         # A thick pelt around the back of the neck and over the shoulders.
+        b.attach("chest")
         for i, angle in enumerate((-80, -45, -15, 15, 45, 80)):
             a = math.radians(angle)
             tuft = neck + Vector((math.sin(a) * cx * 0.66, math.cos(a) * cy * 0.62 + 0.04, 0.02))
@@ -131,6 +141,7 @@ def build_armor(
     if armor.get("bracers"):
         for side in ("l", "r"):
             elbow, hand = joints[f"elbow_{side}"], joints[f"hand_{side}"]
+            b.attach(f"forearm_{side}")
             b.limb(
                 f"armor.bracer_{side}",
                 elbow.lerp(hand, 0.28),
@@ -144,6 +155,7 @@ def build_armor(
     if armor.get("greaves"):
         for side in ("l", "r"):
             knee, foot = joints[f"knee_{side}"], joints[f"foot_{side}"]
+            b.attach(f"shin_{side}")
             b.limb(f"armor.greave_{side}", knee, foot.lerp(knee, 0.1), lm * 1.2, l1 * 1.22, pal["steel"])
             cap = knee + Vector((0, -lm * 0.55, 0.02))
             b.ellipsoid(f"armor.knee_{side}", cap, (lm * 0.95, lm * 0.8, lm * 0.95), pal["steel_dark"], detail=1)
@@ -160,6 +172,7 @@ def build_armor(
 
     if armor.get("belt"):
         middle = hips + Vector((0, -0.02, 0.16))
+        b.attach("hips")
         b.limb(
             "armor.belt",
             middle - Vector((0, 0, 0.065)),
@@ -175,6 +188,7 @@ def build_armor(
     if armor.get("tabard"):
         # A strip of cloth in the team colour, hanging from the belt and ending in a point.
         y, w = -by * 1.17, 0.19
+        b.attach("hips")
         top_z, low_z = hips.z + 0.14, hips.z - skirt - 0.2
         rows = [
             [(-w, y, top_z), (0, y - 0.02, top_z), (w, y, top_z)],
@@ -187,6 +201,7 @@ def build_armor(
     if helmet:
         # A tall, rounded helmet that leaves the muzzle and the ears free.
         hx, hy, hz = p["head_radii"]
+        b.attach("head")
         rim = 0.34  # how far up the dome the rim is cut, 0 = its middle, 1 = its top
         tall = hz * 1.42
         b.ellipsoid(
@@ -250,6 +265,7 @@ def build_armor(
     if armor.get("cape"):
         # The cape hangs from the shoulders down the back, in the team colour, with a ragged hem.
         half = p["shoulder_half_width"]
+        b.attach("cape")
         back = cy * 1.02
         length = armor.get("cape_length", 1.0)
         top_z = neck.z - 0.06

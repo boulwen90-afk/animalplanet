@@ -24,3 +24,8 @@ def load_unit(name: str) -> dict:
 def load_game() -> dict:
     """Settings shared by every figure: sprite scale, camera angle, team colours."""
     return _load(ROOT / "game.toml")
+
+
+def load_figures() -> list[dict]:
+    """The figures the game uses, as pairs of race and unit names."""
+    return _load(ROOT / "figures.toml")["figure"]

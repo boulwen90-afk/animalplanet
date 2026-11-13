@@ -24,6 +24,40 @@ export const UNIT_VISUALS: Record<UnitType, { shape: 'circle' | 'square'; radius
   ramkrigare: { shape: 'square', radius: 11 },
 };
 
+/**
+ * Units drawn as characters (see render/characters). Sizes are in pixels and
+ * measured from the point on the ground the unit stands on.
+ */
+export const CHARACTER_VISUALS: Partial<
+  Record<
+    UnitType,
+    {
+      /** From the ground to the top of the head. */
+      height: number;
+      /** Half the width of the body; with `height` it is the area a click hits. */
+      halfWidth: number;
+      /** Width of the ellipse drawn under the unit when it is selected. */
+      selectionWidth: number;
+    }
+  >
+> = {
+  ramkrigare: { height: 52, halfWidth: 17, selectionWidth: 50 },
+};
+
+/**
+ * The soft shadow drawn on the ground under a character: its size in pixels,
+ * how far it lies from the unit's ground point (the light comes from the
+ * upper left) and how dark it is.
+ */
+export const CHARACTER_SHADOW = {
+  width: 54,
+  height: 24,
+  offsetX: 7,
+  offsetY: 1,
+  alpha: 0.4,
+  color: '12, 18, 10',
+} as const;
+
 /** Buildings are drawn as blocks with walls of this height, in pixels, and a letter on the roof. */
 export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label: string }> = {
   storide: { wallHeight: 36, label: 'S' },

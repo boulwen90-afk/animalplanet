@@ -8,11 +8,16 @@ tile_height = 32
 camera_elevation_deg = 30.0
 # How many game pixels one Blender unit is. The bear is about 2.4 units to the top of its helmet.
 pixels_per_unit = 24.0
-# Size of one picture of a figure, in game pixels. It has room for a raised sword.
-frame = 96
-# Pictures are rendered this many times larger than game pixels, so they stay
-# sharp on phones and other screens with small pixels.
+# Size of one picture of a figure, in game pixels. It has room for a sword swung
+# at arm's length in any direction. Empty space is trimmed away in the atlas.
+frame = 184
+# The previews are rendered this many times larger than game pixels.
 render_scale = 2
+# The pictures in the game's atlas are rendered this many times larger than
+# game pixels. 2 is sharp on phones and other screens with small pixels, but
+# makes the files four times as large; it is only worth it once the game draws
+# at the screen's real resolution.
+atlas_scale = 1
 # The camera looks at this height on the figure.
 target_z = 1.45
 # A soft dark edge around the figure, in game pixels.
@@ -22,7 +27,7 @@ outline_radius = 0.75
 # The shadow the figure casts on the ground.
 shadow = "#0c120a"
 shadow_strength = 0.55
-samples = 128
+samples = 64
 
 [preview]
 size = 640

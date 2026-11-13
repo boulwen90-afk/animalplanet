@@ -1,0 +1,5 @@
+# Every figure the game uses. `build.py --all` builds them all.
+
+[[figure]]
+race = "bear"
+unit = "warrior"

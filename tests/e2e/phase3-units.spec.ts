@@ -235,7 +235,9 @@ test.describe('phase 3: units, selection and movement', () => {
   });
 
   test("the test interface cannot move the opponent's units as the player", async ({ page }) => {
-    await openGame(page);
+    // A passive opponent: the computer player gives its own units orders in
+    // the very first step, which would hide whether this order was refused.
+    await openGame(page, '&ai=0');
     const state = await getState(page);
     const enemy = state.entities.find((e) => e.kind === 'unit' && e.owner === 1)!;
 

@@ -12,6 +12,7 @@ import { resourceAt } from '../../sim/resources';
 import type { Building, Entity, PlayerId, Unit } from '../../sim/state';
 import {
   BUILDING_VISUALS,
+  CHARACTER_VISUALS,
   TERRAIN_OBJECT_VISUALS,
   UNIT_PICK_MARGIN,
   UNIT_VISUALS,
@@ -38,9 +39,7 @@ export function pickEntity(
   let bestDepth = -Infinity;
 
   for (const unit of entities.filter(isUnit)) {
-    const centre = unitVisualCentre(unit, unit.x, unit.y, size);
-    const reach = UNIT_VISUALS[unit.type].radius + UNIT_PICK_MARGIN;
-    if (Math.hypot(world.x - centre.x, world.y - centre.y) > reach) continue;
+    if (!isOnUnit(unit, world, size)) continue;
     const depth = tileToWorld(unit.x, unit.y, size).y;
     if (depth > bestDepth) {
       best = unit;
@@ -59,6 +58,23 @@ export function pickEntity(
     }
   }
   return best;
+}
+
+/** True if a world position is on a unit as it is drawn. */
+function isOnUnit(unit: Unit, world: Point, size: TileSize): boolean {
+  const character = CHARACTER_VISUALS[unit.type];
+  if (character) {
+    // A character stands on its ground point: the body is the area above it.
+    const ground = tileToWorld(unit.x, unit.y, size);
+    return (
+      Math.abs(world.x - ground.x) <= character.halfWidth &&
+      world.y <= ground.y + UNIT_PICK_MARGIN * 2 &&
+      world.y >= ground.y - character.height
+    );
+  }
+  const centre = unitVisualCentre(unit, unit.x, unit.y, size);
+  const reach = UNIT_VISUALS[unit.type].radius + UNIT_PICK_MARGIN;
+  return Math.hypot(world.x - centre.x, world.y - centre.y) <= reach;
 }
 
 /** True if a world position is on a building's drawn block: its footprint or its walls. */

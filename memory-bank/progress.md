@@ -5,12 +5,13 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 ## Nuläge
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
-- **Pågår:** riktig figurgrafik, byggd med kod i Blender. Steg 0–2 är
-  gjorda och figuren är omgjord en gång efter användarens synpunkter
-  (tuffare, skarpare, sigill, lagfärg via mask). Arbetet väntar på att
-  användaren godkänner stilen. Se "Efter MVP:n" nedan
-- **Nästa steg efter godkännande:** skelett, animationer och spritesheets,
-  och därefter att spelet ritar figurerna i stället för platshållarna
+- **Pågår:** riktig figurgrafik, byggd med kod i Blender. Björnkrigaren
+  har skelett och animationer och ritas i spelet i stället för
+  Ramkrigarens platshållare. Arbetet väntar på att användaren ser
+  skärmdumparna. Se "Efter MVP:n" nedan
+- **Tänkbara nästa steg:** låta spelet rita i skärmens verkliga upplösning
+  (så att figurerna blir skarpa på telefoner), en figur för Samlaren, och
+  byggnader
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -814,6 +815,118 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Figurgrafik: skelett, animationer, spritesheets och björnkrigaren i spelet (2026-11-13)
+
+**PR:** PR_LINK
+
+**Skärmdumpar:** `docs/screenshots/figurer-gar.png` (två lag går mot
+varandra), `figurer-slass.png` (fem dueller) och `figurer-besegrad.png`
+(besegrade krigare på knä och på väg bort med vit flagga).
+`assets/previews/bear_warrior/animations.png` visar varje animation som en
+rad bildrutor
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| 1. Humanoid-skelett i `tools/blender/lib/`, samma struktur för alla raser | Klar | 17 ben; bara längderna skiljer mellan raser |
+| 1. Animationer i kod: idle, gå, attack, samla, dö | Klar | "Dö" är `defeat`: figuren ger upp. `gather` finns i biblioteket men ingen figur använder den än |
+| 1. Loopande animationer loopar sömlöst | Klar | Av konstruktion; granskat på animationsarket, inte som rörlig film |
+| 1. Gemensamt animationsbibliotek | Klar | `tools/blender/animations/` |
+| 2. Spritesheets i 8 riktningar, ortografisk kamera i spelets vinkel, transparent bakgrund, fast ljus | Klar | 248 bildrutor för björnkrigaren |
+| 2. Samma pixelskala för alla figurer, pivot vid fötterna | Klar | 24 pixlar per Blender-enhet; `anchor` i atlasen |
+| 2. Lagfärg via separat mask, teknik vald och motiverad | Klar | En färgad atlas per spelare görs när spelet startar; se `architecture.md` |
+| 2. PNG + JSON-atlas i `assets/characters/` | Klar | |
+| 3. Björnkrigaren ersätter platshållaren, med riktning och animationer efter tillstånd | Klar | Står, går, anfaller, besegras |
+| 3. npm-skript som bygger om alla figurer | Klar | `npm run build:characters` |
+| Bygget och alla tester går igenom | Klar | Se testresultat |
+| Spelet startar i huvudlös webbläsare utan konsolfel | Klar | |
+| Skärmdumpar av björnkrigare för två lag som går och slåss | Klar | |
+| Prestanda kontrollerad med minst 100 enheter på skärmen | Klar | Mätt med 120; se tabellen |
+| `progress.md` och `architecture.md` uppdaterade | Klar | |
+
+**Prestanda** (1280×720, huvudlös Chromium med programvarurendering, alltså
+utan grafikkort; 3 sekunders mätning per rad)
+
+| Scen | Enheter i bild | Bilder/s | Tid per bild |
+|---|---|---|---|
+| Inga extra enheter | 0 | 17–18 | 55–59 ms |
+| 120 platshållare (Samlare) som står | 120 | 18–19 | 53–57 ms |
+| 120 figurer som står | 120 | 15 | 68 ms |
+| 120 figurer som går | 120 | 14 | 72–73 ms |
+| 120 figurer som slåss, 60 mot 60 | 120 | 14 | 70–73 ms |
+| Samma strid, kameran riktad mot ett tomt hörn | 0 | 24 | 41 ms |
+
+- 120 figurer kostar 10–15 ms per bild här, mot cirka 2 ms för 120
+  platshållare. Skillnaden är ritade pixlar: en figur är runt 50 pixlar
+  hög, en platshållare 20.
+- Spelets egen kod är inte flaskhalsen: samma strid går i 24 bilder/s när
+  den inte ritas.
+- **Inget av detta är mätt på en dator med grafikkort eller på en
+  telefon.** Programvarurendering är långsam redan för kartan ensam
+  (17–18 bilder/s). Siffrorna visar vad figurerna kostar i förhållande
+  till resten, inte hur spelet går på riktig hårdvara.
+- Från sidladdning till att spelet är igång tar 0,6–0,7 s här, med
+  laddning och färgning av atlasen inräknat. Det är mätt mot en lokal
+  server, så nedladdningstid över nätet ingår inte.
+
+**Saknas eller avviker**
+- **"Dö" är "besegrad".** Ingen dör i spelet (GDD avsnitt 15). Krigaren
+  vacklar, går ned på knä och ger sig sedan av med vit flagga.
+- **Bilden av en besegrad enhet dröjer.** Den knäböjer 0,7 s där den föll
+  och springer sedan i kapp sin verkliga plats på 0,6 s. Simuleringen är
+  oförändrad: enheten börjar gå direkt.
+- **Spelet ritar fortfarande i skärmens grova pixlar.** Förra gången sa
+  jag att jag skulle ändra det i det här steget. Det är inte gjort: det
+  rör runt 85 ställen i inmatning och gränssnitt och behöver egna tester.
+  Figurerna är därför inte skarpare på en telefon än resten av spelet.
+- **Spelets atlas är i enkel upplösning**, inte dubbel som
+  förhandsbilderna. Dubbel upplösning gav 8,3 MB att ladda och syns inte
+  förrän punkten ovan är löst. Det är en inställning (`atlas_scale`).
+- **Ingen inbakad skugga.** Spelet ritar en mjuk oval skugga under varje
+  figur, inte den formade skuggan från förhandsbilderna. Med inbakad
+  skugga blev atlasen nästan dubbelt så stor.
+- **2,6 MB mer att ladda innan startskärmen visas**, utan
+  laddningsindikator.
+- **Figurer överlappar varandra i närstrid.** En figur är bredare än en
+  ruta, och enheter som slåss står på rutor intill varandra.
+- **Fötterna glider något när figuren går.** Enheten rör sig snabbare än
+  stegen räcker till.
+- **Första hugget har ingen uppladdning.** Simuleringen delar ut skadan i
+  samma steg som hugget beslutas, så animationen börjar där hugget träffar.
+- **Samlaren och byggnaderna är fortfarande platshållare**, och ser små ut
+  bredvid krigaren.
+- **`gather` är inte provad på en arbetarfigur.** Den syns bara på
+  animationsarket, spelad av krigaren.
+- **Vapnet följer alltid höger hand och skölden vänster underarm.**
+- **Alla åtta riktningar renderas**; ingen är en spegelbild av en annan.
+- **Klickytan för en Ramkrigare är nu hela kroppen**, inte en cirkel vid
+  fötterna.
+- **Ett fas 3-test körs nu med `&ai=0`.** Det förutsatte att inget
+  simuleringssteg hinner köras mellan spelstart och kontrollen. Det
+  stämde bara så länge första bildrutan var snabb.
+- **CI bygger inte figurerna.** De färdiga filerna är incheckade, och den
+  som ändrar en konfigfil måste köra `npm run build:characters` (kräver
+  Python 3.13).
+- **Två nya funktioner i testgränssnittet:** `getUnitSprite` och
+  `getFrameCount`.
+
+**Testresultat**
+- Vitest: 418 av 418
+- Playwright: 93 av 93, även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll: utan anmärkning
+- Konsolfel i huvudlös webbläsare: inga
+
+**Beslut och lärdomar**
+- Första atlasen blev 4096×2063 pixlar och 11 MB. Mätning visade att den
+  inbakade skuggan stod för 43 % av ytan. Brusreducering provades för att
+  få ned filstorleken men gjorde ingen skillnad.
+- Ett test för knäfallet missade det, eftersom testet upptäckte
+  kapitulationen för långsamt. Det stegar nu fram och kontrollerar i ett
+  svep.
+- Svärdet klipptes av bildrutans kant i hugget. Bygget stoppar nu med ett
+  felmeddelande när det händer.
 
 ### Figurgrafik, omarbetning: tuffare figur, mask och sigill (2026-11-13)
 

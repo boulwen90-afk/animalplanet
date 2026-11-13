@@ -19,7 +19,9 @@ def build_body(
 
     # Torso: a belly and a chest, and for heavy races a hump behind the shoulders.
     belly_radii = p["belly_radii"]
+    b.attach("hips")
     b.ellipsoid("body.belly", hips + Vector((0, -0.02, belly_radii[2] * 0.5)), belly_radii, fur)
+    b.attach("chest")
     b.ellipsoid("body.chest", chest, p["chest_radii"], fur)
     hump = f.get("hump", 0.0)
     if hump > 0:
@@ -32,6 +34,7 @@ def build_body(
     b.limb("body.neck", neck - Vector((0, 0, 0.14)), head, p["neck_radius"], p["neck_radius"] * 0.92, fur)
 
     # Head: skull, cheeks, muzzle, jaw, nose, eyes, brow and ears.
+    b.attach("head")
     hx, hy, hz = p["head_radii"]
     b.ellipsoid("body.head", head, (hx, hy, hz), fur, rotation=head_turn)
     cheek = f.get("cheek_radius", 0.0)
@@ -107,18 +110,24 @@ def build_body(
     for side, sign in (("l", 1.0), ("r", -1.0)):
         shoulder, elbow, hand = (joints[f"{n}_{side}"] for n in ("shoulder", "elbow", "hand"))
         am = (a0 + a1) / 2
+        b.attach(f"upper_arm_{side}")
         b.ellipsoid(f"body.shoulder_{side}", shoulder, (a0 * 1.12,) * 3, fur, detail=1)
         b.limb(f"body.upper_arm_{side}", shoulder, elbow, a0, am, fur)
+        b.attach(f"forearm_{side}")
         b.ellipsoid(f"body.elbow_{side}", elbow, (am * 1.02,) * 3, fur, detail=1)
         b.limb(f"body.forearm_{side}", elbow, hand, am, a1, fur)
+        b.attach(f"hand_{side}")
         b.ellipsoid(f"body.hand_{side}", hand, (p["hand_radius"],) * 3, dark, detail=1)
 
         hip, knee, foot = (joints[f"{n}_{side}"] for n in ("hip", "knee", "foot"))
         lm = (l0 + l1) / 2
+        b.attach(f"thigh_{side}")
         b.limb(f"body.thigh_{side}", hip, knee, l0, lm, fur)
+        b.attach(f"shin_{side}")
         b.ellipsoid(f"body.knee_{side}", knee, (lm * 1.02,) * 3, fur, detail=1)
         b.limb(f"body.shin_{side}", knee, foot, lm, l1, fur)
         fx, fy, fz = p["foot_size"]
+        b.attach(f"foot_{side}")
         sole = Vector((foot.x, foot.y - fy * 0.4, fz))
         b.ellipsoid(f"body.foot_{side}", sole, (fx, fy, fz), dark, detail=1)
         for i in (-1, 0, 1):
@@ -134,6 +143,7 @@ def build_body(
             )
 
     # Tail.
+    b.attach("hips")
     if f["tail"] == "stub":
         tail = hips + Vector((0, belly_radii[1] * 0.92, 0.2))
         b.ellipsoid("body.tail", tail, (f["tail_size"],) * 3, dark, detail=1)

@@ -32,6 +32,13 @@ class Builder:
         self.root = bpy.data.objects.new(f"{name}.root", None)
         self.collection.objects.link(self.root)
         self.parts: list[bpy.types.Object] = []
+        # Which bone each part follows, by the part's name.
+        self.bone_of: dict[str, str] = {}
+        self._bone = "root"
+
+    def attach(self, bone: str) -> None:
+        """The parts made from here on follow this bone."""
+        self._bone = bone
 
     def _finish(self, name: str, bm: bmesh.types.BMesh, material: bpy.types.Material):
         bmesh.ops.recalc_face_normals(bm, faces=bm.faces[:])
@@ -47,6 +54,7 @@ class Builder:
         obj.parent = self.root
         self.collection.objects.link(obj)
         self.parts.append(obj)
+        self.bone_of[obj.name] = self._bone
         return obj
 
     def ellipsoid(

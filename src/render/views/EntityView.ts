@@ -5,9 +5,22 @@ import { UNIT_DEFS } from '../../data/units';
 import { buildingCentre, hasSurrendered } from '../../sim/entities';
 import { tileToWorld, type Point, type TileSize } from '../../sim/map/iso';
 import type { Building, Entity, GameState, Unit } from '../../sim/state';
+import { strikeTicks } from '../../sim/systems/combat';
 import { buildFraction } from '../../sim/systems/construction';
 import {
+  DIRECTIONS,
+  activityOf,
+  attackFrame,
+  facingOf,
+  frameAt,
+  frameName,
+  type CharacterAnimation,
+} from '../characters/animation';
+import type { CharacterLibrary, CharacterSheet } from '../characters/CharacterLibrary';
+import {
   BUILDING_VISUALS,
+  CHARACTER_SHADOW,
+  CHARACTER_VISUALS,
   CONSTRUCTION_START_ALPHA,
   LIFE_BAR,
   LIFE_BAR_COLORS,
@@ -23,6 +36,9 @@ import {
 const GROUND_MARK_DEPTH = -0.5;
 /** Depth of marks drawn on top of units: in front of everything in the world. */
 const OVERLAY_DEPTH = 900_000;
+/** Depth of the shadows under characters: on the ground, above the selection marks. */
+const SHADOW_DEPTH = -0.45;
+const SHADOW_TEXTURE = 'character-shadow';
 /** Side of the square shown on a unit that carries a resource, in pixels. */
 const CARRY_MARK_SIZE = 7;
 
@@ -32,6 +48,32 @@ interface EntitySprite {
   kind: Entity['kind'];
   /** Whether the image is currently drawn all white because it was just struck. */
   flashing: boolean;
+  /** Set for a unit that is drawn as a character instead of a placeholder shape. */
+  character?: CharacterDrawing;
+  /** The shadow on the ground under a character. */
+  shadow?: GameObjects.Image;
+}
+
+/** What is remembered about a character between frames. */
+interface CharacterDrawing {
+  sheet: CharacterSheet;
+  /** The way the unit faces, as an index into DIRECTIONS. It keeps facing that way when it stops. */
+  direction: number;
+  animation: CharacterAnimation;
+  /** Name of the picture shown now. */
+  frame: string;
+  /** Whether the unit had surrendered at the last frame. */
+  fleeing: boolean;
+  /** Where and when the unit was beaten, while it kneels there and then catches up with its real place. */
+  defeat?: { x: number; y: number; since: number };
+}
+
+/** What a character looks like right now, for tests. */
+export interface UnitSpriteInfo {
+  animation: CharacterAnimation;
+  direction: string;
+  frame: string;
+  texture: string;
 }
 
 interface Lunge {
@@ -58,9 +100,14 @@ export class EntityView {
   /** Frame time of the latest update, in milliseconds. */
   private now = 0;
 
+  /**
+   * @param characters The characters to draw units as. Unit types without
+   * one, and all units when it is left out, are placeholder shapes.
+   */
   constructor(
     private readonly scene: Scene,
     private readonly size: TileSize,
+    private readonly characters?: CharacterLibrary,
   ) {
     this.marks = scene.add.graphics().setDepth(GROUND_MARK_DEPTH);
     this.overlay = scene.add.graphics().setDepth(OVERLAY_DEPTH);
@@ -103,6 +150,9 @@ export class EntityView {
     this.marks.lineStyle(2, SELECTION_COLOR, 1);
     this.overlay.clear();
 
+    const byId = new Map<number, Entity>();
+    for (const entity of state.entities) byId.set(entity.id, entity);
+
     const seen = new Set<number>();
     for (const entity of state.entities) {
       seen.add(entity.id);
@@ -115,12 +165,17 @@ export class EntityView {
       if (sprite.image.visible !== shown) {
         sprite.image.setVisible(shown);
         sprite.label?.setVisible(shown);
+        sprite.shadow?.setVisible(shown);
       }
       // Nothing more is drawn for an entity lost in the fog: no bars, flags or marks.
       if (!shown) continue;
       this.updateFlash(entity.id, sprite);
       if (entity.kind === 'unit') {
-        this.updateUnit(entity, sprite, alpha, selected.has(entity.id));
+        if (sprite.character) {
+          this.updateCharacter(entity, sprite, alpha, selected.has(entity.id), byId);
+        } else {
+          this.updateUnit(entity, sprite, alpha, selected.has(entity.id));
+        }
       } else {
         this.updateBuilding(entity, sprite, selected.has(entity.id));
       }
@@ -132,6 +187,7 @@ export class EntityView {
       this.flashUntil.delete(id);
       this.lunges.delete(id);
       sprite.label?.destroy();
+      sprite.shadow?.destroy();
       if (sprite.kind === 'unit' && sprite.image.visible) {
         // A unit that went into a cave or vanished fades away where it stood.
         sprite.image.clearTint();
@@ -150,6 +206,19 @@ export class EntityView {
       fade.image.setAlpha(1 - t);
       return true;
     });
+  }
+
+  /** What a unit drawn as a character looks like right now, or undefined. */
+  describeUnit(id: number): UnitSpriteInfo | undefined {
+    const sprite = this.sprites.get(id);
+    const drawing = sprite?.character;
+    if (!sprite || !drawing) return undefined;
+    return {
+      animation: drawing.animation,
+      direction: DIRECTIONS[drawing.direction] ?? 's',
+      frame: drawing.frame,
+      texture: sprite.image.texture.key,
+    };
   }
 
   /** World position of the ground point an entity stands on. */
@@ -214,6 +283,107 @@ export class EntityView {
     }
   }
 
+  /**
+   * Draws a unit as a character: the animation that fits what it is doing,
+   * facing the way it moves or the target it strikes.
+   */
+  private updateCharacter(
+    unit: Unit,
+    sprite: EntitySprite,
+    alpha: number,
+    selected: boolean,
+    byId: ReadonlyMap<number, Entity>,
+  ): void {
+    const drawing = sprite.character as CharacterDrawing;
+    const { animations } = drawing.sheet;
+    const tileX = unit.prevX + (unit.x - unit.prevX) * alpha;
+    const tileY = unit.prevY + (unit.y - unit.prevY) * alpha;
+    const ground = tileToWorld(tileX, tileY, this.size);
+    let { x, y } = ground;
+
+    // A unit that has just been beaten kneels where it stood before it leaves.
+    const fleeing = hasSurrendered(unit);
+    if (fleeing && !drawing.fleeing) drawing.defeat = { x, y, since: this.now };
+    drawing.fleeing = fleeing;
+    const kneelMs = (animations.defeat.frames / animations.defeat.fps) * 1000;
+    const sinceDefeat = drawing.defeat ? this.now - drawing.defeat.since : Infinity;
+    if (sinceDefeat >= kneelMs + UI_CONFIG.defeatCatchUpMs) drawing.defeat = undefined;
+
+    let animation: CharacterAnimation;
+    let frame: number;
+    if (drawing.defeat && sinceDefeat < kneelMs) {
+      ({ x, y } = drawing.defeat);
+      animation = 'defeat';
+      frame = frameAt(animations.defeat, sinceDefeat);
+    } else {
+      if (drawing.defeat) {
+        // Then it runs to catch up with where the simulation has it.
+        const t = (sinceDefeat - kneelMs) / UI_CONFIG.defeatCatchUpMs;
+        const k = t * t * (3 - 2 * t);
+        x = drawing.defeat.x + (ground.x - drawing.defeat.x) * k;
+        y = drawing.defeat.y + (ground.y - drawing.defeat.y) * k;
+      }
+      const activity = activityOf(unit);
+      animation = activity;
+      if (activity === 'walk') {
+        drawing.direction = facingOf(unit.x - unit.prevX, unit.y - unit.prevY) ?? drawing.direction;
+        frame = frameAt(animations.walk, this.now, unit.id * 3);
+      } else if (activity === 'attack' && unit.task.kind === 'attack') {
+        const target = byId.get(unit.task.targetId);
+        if (target) {
+          const at = target.kind === 'unit' ? target : buildingCentre(target);
+          drawing.direction = facingOf(at.x - unit.x, at.y - unit.y) ?? drawing.direction;
+        }
+        const cooldown = Math.max(0, unit.attackCooldown - alpha);
+        frame = attackFrame(animations.attack, cooldown, strikeTicks(unit));
+      } else {
+        frame = frameAt(animations.idle, this.now, unit.id * 3);
+      }
+    }
+
+    const name = frameName(animation, drawing.direction, frame);
+    if (name !== drawing.frame) {
+      sprite.image.setFrame(name);
+      drawing.frame = name;
+    }
+    drawing.animation = animation;
+
+    const lunge = this.lunges.get(unit.id);
+    const reach = lunge && this.now < lunge.until ? UI_CONFIG.lungePx : 0;
+    sprite.image
+      .setPosition(x + (lunge?.dx ?? 0) * reach, y + (lunge?.dy ?? 0) * reach)
+      .setDepth(y);
+    sprite.shadow?.setPosition(x + CHARACTER_SHADOW.offsetX, y + CHARACTER_SHADOW.offsetY);
+
+    const visual = CHARACTER_VISUALS[unit.type] ?? {
+      height: 48,
+      halfWidth: 16,
+      selectionWidth: 46,
+    };
+    if (selected) {
+      this.marks.strokeEllipse(x, y, visual.selectionWidth, visual.selectionWidth / 2);
+    }
+
+    if (fleeing) {
+      // A white flag on a pole above the unit.
+      const top = y - visual.height - 16;
+      this.overlay.lineStyle(2, OUTLINE_COLOR, 1);
+      this.overlay.lineBetween(x, y - visual.height + 6, x, top);
+      this.overlay.fillStyle(0xffffff, 1);
+      this.overlay.fillRect(x, top, 10, 7);
+      this.overlay.lineStyle(1, OUTLINE_COLOR, 1);
+      this.overlay.strokeRect(x, top, 10, 7);
+      return;
+    }
+    this.drawLifeBar(
+      x,
+      y - visual.height - 8,
+      LIFE_BAR.unitWidth,
+      unit.hp,
+      UNIT_DEFS[unit.type].hp,
+    );
+  }
+
   private updateBuilding(building: Building, sprite: EntitySprite, selected: boolean): void {
     // A building under construction is see-through and turns solid as it is built.
     const solidity =
@@ -274,6 +444,22 @@ export class EntityView {
   }
 
   private createUnitSprite(unit: Unit): EntitySprite {
+    const sheet = this.characters?.get(unit.type);
+    if (sheet) {
+      const frame = frameName('idle', 0, 0);
+      const image = this.scene.add
+        .image(0, 0, sheet.textureKey(unit.owner), frame)
+        .setScale(sheet.displayScale);
+      const shadow = this.scene.add.image(0, 0, this.shadowTexture()).setDepth(SHADOW_DEPTH);
+      return {
+        image,
+        shadow,
+        kind: 'unit',
+        flashing: false,
+        character: { sheet, direction: 0, animation: 'idle', frame, fleeing: false },
+      };
+    }
+
     const key = `unit-${unit.type}-${unit.owner}`;
     if (!this.scene.textures.exists(key)) {
       const { radius, shape } = UNIT_VISUALS[unit.type];
@@ -292,6 +478,34 @@ export class EntityView {
       g.destroy();
     }
     return { image: this.scene.add.image(0, 0, key), kind: 'unit', flashing: false };
+  }
+
+  /** The picture of a shadow: a dark ellipse that fades out towards its edge. Made on first use. */
+  private shadowTexture(): string {
+    if (!this.scene.textures.exists(SHADOW_TEXTURE)) {
+      const { width, height, alpha, color } = CHARACTER_SHADOW;
+      const canvas = this.scene.textures.createCanvas(SHADOW_TEXTURE, width, height);
+      const context = canvas?.getContext();
+      if (canvas && context) {
+        // A round fade, squeezed to the flat shape of a shadow on the ground.
+        context.scale(1, height / width);
+        const fade = context.createRadialGradient(
+          width / 2,
+          width / 2,
+          0,
+          width / 2,
+          width / 2,
+          width / 2,
+        );
+        fade.addColorStop(0, `rgba(${color}, ${alpha})`);
+        fade.addColorStop(0.6, `rgba(${color}, ${alpha * 0.8})`);
+        fade.addColorStop(1, `rgba(${color}, 0)`);
+        context.fillStyle = fade;
+        context.fillRect(0, 0, width, width);
+        canvas.refresh();
+      }
+    }
+    return SHADOW_TEXTURE;
   }
 
   private createBuildingSprite(building: Building): EntitySprite {

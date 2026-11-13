@@ -8,6 +8,7 @@ import type {
   ResourceBarDisplay,
   StartScreenDisplay,
 } from '../render/scenes/UiScene';
+import type { UnitSpriteInfo } from '../render/views/EntityView';
 import type { Placement } from '../render/views/PlacementView';
 import type { Command, CommandResult } from '../sim/commands';
 import type { Point } from '../sim/map/iso';
@@ -43,6 +44,8 @@ export interface TestApiSource {
   getHudButtons(): HudButtonDisplay[];
   getTouchMode(): TouchMode | 'none';
   getShakeCount(): number;
+  getFrameCount(): number;
+  getUnitSprite(id: number): UnitSpriteInfo | null;
   command(command: Command): CommandResult;
   getSelection(): number[];
   getHud(): HudDisplay;
@@ -90,6 +93,14 @@ export interface TestApi {
   getTouchMode(): TouchMode | 'none';
   /** How many times the screen has shaken because a building collapsed in view. */
   getShakeCount(): number;
+  /** How many frames the game has drawn so far. With a clock it gives the frame rate. */
+  getFrameCount(): number;
+  /**
+   * How a unit drawn as a character looks right now: its animation, the way
+   * it faces, the name of the picture and the texture it comes from. Null for
+   * units drawn as placeholder shapes and for units that are not drawn.
+   */
+  getUnitSprite(id: number): UnitSpriteInfo | null;
   /** Sends a command to the simulation, exactly as player input and the AI do, and returns its result. */
   command(command: Command): CommandResult;
   /** Ids of the selected entities. */
@@ -139,6 +150,8 @@ export function installTestApi(source: TestApiSource): TestApi {
     getHudButtons: () => source.getHudButtons(),
     getTouchMode: () => source.getTouchMode(),
     getShakeCount: () => source.getShakeCount(),
+    getFrameCount: () => source.getFrameCount(),
+    getUnitSprite: (id) => source.getUnitSprite(id),
     command: (command) => source.command(command),
     getSelection: () => source.getSelection(),
     getHud: () => source.getHud(),

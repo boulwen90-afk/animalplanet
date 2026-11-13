@@ -3,6 +3,10 @@
 name = "warrior"
 game_unit = "ramkrigare"
 
+# The animations this unit is drawn with, from the shared library in animations/.
+[animations]
+list = ["idle", "walk", "attack", "defeat"]
+
 [armor]
 helmet = "nasal"        # an open helmet with a nose guard; the ears stay free
 crest = true            # team colour, over the crown of the helmet

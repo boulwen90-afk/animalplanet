@@ -22,6 +22,7 @@ import {
 } from '../../sim/systems/visibility';
 import { tick } from '../../sim/tick';
 import { installTestApi, type TestApi } from '../../testing/testHooks';
+import { CharacterLibrary } from '../characters/CharacterLibrary';
 import { CameraController } from '../input/CameraController';
 import { PlacementController } from '../input/PlacementController';
 import { builderUnitIds } from '../input/selection';
@@ -38,6 +39,7 @@ import { CaveView } from '../views/CaveView';
 import { EntityView } from '../views/EntityView';
 import { FogView } from '../views/FogView';
 import { MapView } from '../views/MapView';
+import { PLAYER_COLORS } from '../views/visuals';
 import { PlacementView } from '../views/PlacementView';
 import { SelectionView } from '../views/SelectionView';
 import { restartGame } from '../session';
@@ -86,10 +88,16 @@ export class GameScene extends Scene implements HudSource {
   private lastAlertAt = -Infinity;
   /** How many times the screen has shaken because a building collapsed. */
   private shakeCount = 0;
+  /** How many frames have been drawn. */
+  private frameCount = 0;
 
   constructor(private readonly options: GameSceneOptions) {
     super('Game');
     this.started = !options.startScreen;
+  }
+
+  preload(): void {
+    CharacterLibrary.preload(this);
   }
 
   create(): void {
@@ -102,7 +110,7 @@ export class GameScene extends Scene implements HudSource {
     this.mapView = new MapView(this, state.map, MAP_CONFIG);
     this.caveView = new CaveView(this, state.map, MAP_CONFIG);
     if (state.fogEnabled) this.fogView = new FogView(this, state.map, MAP_CONFIG);
-    this.entityView = new EntityView(this, MAP_CONFIG);
+    this.entityView = new EntityView(this, MAP_CONFIG, new CharacterLibrary(this, PLAYER_COLORS));
     this.selectionView = new SelectionView(this);
 
     this.cameraController = new CameraController(this, MAP_CONFIG, MAP_CONFIG);
@@ -163,6 +171,7 @@ export class GameScene extends Scene implements HudSource {
         : Math.min(time - this.lastFrameTime, CAMERA_CONFIG.maxFrameMs);
     this.lastFrameTime = time;
     this.elapsedTotal += elapsed;
+    this.frameCount++;
 
     // Behind the start screen the match stands still.
     if (this.started) {
@@ -414,6 +423,8 @@ export class GameScene extends Scene implements HudSource {
       getHudButtons: () => (this.scene.get('Ui') as UiScene).getHudButtonsDisplay(),
       getTouchMode: () => this.touchController.mode,
       getShakeCount: () => this.shakeCount,
+      getFrameCount: () => this.frameCount,
+      getUnitSprite: (id) => this.entityView.describeUnit(id) ?? null,
       command: (command) => applyCommand(state, command),
       getSelection: () => [...this.selectionController.selection],
       getHud: () => (this.scene.get('Ui') as UiScene).getDisplay(),
