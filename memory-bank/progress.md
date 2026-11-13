@@ -28,7 +28,7 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 | 7 | Soldater, strid, kapitulation, vinst och förlust | Mergad | [#7](https://github.com/boulwen90-afk/animalplanet/pull/7) |
 | 8 | Krigsdimma | Mergad | [#8](https://github.com/boulwen90-afk/animalplanet/pull/8) |
 | 9 | AI-motståndare | Mergad | [#9](https://github.com/boulwen90-afk/animalplanet/pull/9) |
-| 10 | Pekstyrning, balans, MVP-avstämning | Klar, väntar på merge | PR_LINK |
+| 10 | Pekstyrning, balans, MVP-avstämning | Klar, väntar på merge | [#10](https://github.com/boulwen90-afk/animalplanet/pull/10) |
 
 ## Fasloggar
 
@@ -57,6 +57,8 @@ Mall – kopiera för varje avslutad fas:
 -->
 
 ### Fas 10 – Pekstyrning, balans och MVP-avstämning (2026-11-13)
+
+**PR:** https://github.com/boulwen90-afk/animalplanet/pull/10
 
 **Skärmdumpar:** `docs/screenshots/fas-10-startskarm.png` (startskärmen på
 dator), `fas-10-hallring.png` (ringen under ett finger som legat still i
