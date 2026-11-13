@@ -746,6 +746,7 @@ tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior
 tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior --sprites
 tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior --animations
 tools/blender/.venv/bin/python tools/blender/build.py --emblems
+tools/blender/.venv/bin/python tools/blender/build.py --overview
 tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior --check-mask
 ```
 
@@ -766,7 +767,7 @@ alla figurer från konfigfilerna. En figurs atlas tar cirka 1,5 minut.
 
 | Fil | Ansvar |
 |---|---|
-| `build.py` | Bygger en figur (`--race`, `--unit`) och renderar förhandsbilderna till `assets/previews/<ras>_<enhet>/`. `--sprites` renderar figurens atlas till `assets/characters/`, och `--all` gör det för alla figurer i `figures.toml`. `--animations` ritar varje animation som en rad bildrutor. `--emblems` ritar alla sigill. `--check-mask` jämför färgning via masken med direkt rendering. `--out` väljer annan mapp |
+| `build.py` | Bygger en figur (`--race`, `--unit`) och renderar förhandsbilderna till `assets/previews/<ras>_<enhet>/`. `--sprites` renderar figurens atlas till `assets/characters/`, och `--all` gör det för alla figurer i `figures.toml`. `--animations` ritar varje animation som en rad bildrutor. `--emblems` ritar alla sigill. `--overview` ritar alla figurer i `figures.toml` bredvid varandra till `assets/previews/overview.png`. `--check-mask` jämför färgning via masken med direkt rendering. `--out` väljer annan mapp |
 | `build.sh` | Det `npm run build:characters` kör: sätter upp Blender vid behov och bygger alla figurer |
 | `figures.toml` | Listan över figurer som spelet använder |
 | `animations/` | Det gemensamma animationsbiblioteket: `base.py` (byggstenar), `idle.py`, `walk.py`, `attack.py`, `gather.py`, `defeat.py` |
@@ -991,6 +992,11 @@ bara kontrollerat på samma maskin och samma Blender-version.
 
 **Förhandsbilder**
 
+- `assets/previews/overview.png`: **alla figurer bredvid varandra i
+  verklig skala**, i båda lagfärgerna, på spelets rutnät. Övre bilden är
+  fyra gånger spelets pixlar (`[overview] scale` i `game.toml`); den
+  nedre är samma bild i spelets egna pixlar. Ordningen är den i
+  `figures.toml`: björnkrigare, björnarbetare.
 - `assets/previews/bear_worker/`: samma bilder för björnarbetaren, och
   `animations.png` med animationerna som bildrutor.
 - `assets/previews/bear_warrior/`: `front.png`, `side.png`, `back.png`,

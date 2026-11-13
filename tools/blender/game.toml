@@ -55,6 +55,11 @@ small = 1.0     # 2x2 tiles, such as a Visthus: about 1.8 warriors
 large = 1.4     # 3x3 tiles, such as a Krigshall: about 2.5 warriors
 main = 1.8      # the main building: about 3.3 warriors
 
+# The overview of all figures (--overview): how many times larger than game
+# pixels its upper picture is. A power of two.
+[overview]
+scale = 4
+
 [preview]
 size = 640
 view_width = 4.3        # Blender units across the large previews

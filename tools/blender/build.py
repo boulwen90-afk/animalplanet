@@ -325,6 +325,54 @@ def render_previews(race: dict, unit: dict, game: dict, out: Path) -> None:
     print(f"Wrote previews to {out}")
 
 
+def render_overview(game: dict, out: Path) -> None:
+    """
+    Every figure in figures.toml side by side on the game's ground, in both
+    team colours and in true scale to each other and to the tiles: enlarged
+    on top, and in the game's own pixels below.
+    """
+    out.mkdir(parents=True, exist_ok=True)
+    sprite, preview, teams = game["sprite"], game["preview"], game["teams"]
+    scale = game["overview"]["scale"]
+    elevation = sprite["camera_elevation_deg"]
+    tile_w, tile_h = sprite["tile_width"] * scale, sprite["tile_height"] * scale
+    size = sprite["frame"] * scale
+    feet = export.feet_offset(elevation, sprite["target_z"], sprite["pixels_per_unit"] * scale)
+    # Each figure stands twice, once per team, turned a little to each side.
+    poses = list(zip(teams.items(), (GAME_YAW, -GAME_YAW)))
+
+    shots = []
+    for entry in load_figures():
+        race, unit = load_race(entry["race"]), load_unit(entry["unit"])
+        scratch = out / ".render.png"
+        studio = Studio(race, unit, game, scratch)
+        studio.figure.rig.stand()
+        studio.scene.cycles.samples = sprite["samples"]
+        studio.aim(elevation, sprite["frame"] / sprite["pixels_per_unit"])
+        for (_, color), yaw in poses:
+            base, mask = studio.sprite(yaw, scale=scale)
+            shots.append(export.recolor(base, mask, color, NEUTRAL))
+        scratch.unlink(missing_ok=True)
+        print(f"  overview: rendered {race['name']} {unit['name']}", flush=True)
+
+    # The figures stand on the centres of tiles in one row across the picture, two tiles apart.
+    ground = export.iso_ground(
+        len(shots) * 2 * tile_w, tile_h * 9 // 2, tile_w, tile_h, preview["background"], preview["ground_edge"]
+    )
+    for index, shot in enumerate(shots):
+        x, y = tile_w + index * 2 * tile_w, tile_h * 7 // 2
+        export.over(ground, shot, x - size // 2, round(y - size / 2 - feet))
+
+    # The same picture in the game's own pixels, centred on a dark band.
+    small = ground
+    for _ in range(int(math.log2(scale))):
+        small = export.halve(small)
+    band = export.flat(ground.shape[1], small.shape[0] + 32, "#20262c")
+    export.over(band, small, (band.shape[1] - small.shape[1]) // 2, 16)
+    export.write_png(out / "overview.png", np.concatenate([ground, band], axis=0))
+    print(f"Wrote the overview of {len(shots) // len(poses)} figures to {out / 'overview.png'}")
+
+
 def fit_square(pixels: np.ndarray, size: int) -> np.ndarray:
     """Centres a picture in a square of `size` pixels, cropping what does not fit."""
     canvas = export.flat(size, size, "#20262c")
@@ -398,6 +446,11 @@ def main() -> None:
         help="build the sprites of every figure listed in figures.toml",
     )
     parser.add_argument(
+        "--overview",
+        action="store_true",
+        help="draw every figure in figures.toml side by side in true scale to assets/previews/overview.png",
+    )
+    parser.add_argument(
         "--animations",
         action="store_true",
         help="render every animation in the library as rows of frames",
@@ -413,6 +466,9 @@ def main() -> None:
     if args.emblems:
         render_emblems(game, Path(args.out) if args.out else REPO / "assets" / "previews" / "emblems")
         return
+    if args.overview:
+        render_overview(game, Path(args.out) if args.out else REPO / "assets" / "previews")
+        return
     characters = REPO / "assets" / "characters"
     if args.all:
         for figure in load_figures():
@@ -420,7 +476,7 @@ def main() -> None:
             export_sprites(load_race(figure["race"]), load_unit(figure["unit"]), game, characters / name)
         return
     if not args.race or not args.unit:
-        parser.error("--race and --unit are required unless --emblems or --all is given")
+        parser.error("--race and --unit are required unless --emblems, --overview or --all is given")
     race, unit = load_race(args.race), load_unit(args.unit)
     out = Path(args.out) if args.out else REPO / "assets" / "previews" / f"{args.race}_{args.unit}"
     if args.sprites:

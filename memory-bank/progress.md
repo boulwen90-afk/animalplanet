@@ -821,8 +821,35 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
 
 Användaren godkände skalan och avstånden ("Det ser rätt ut, kör vidare").
 Nästa figur blev Samlaren, den enda enheten som fortfarande var en
-platshållare. Valet av figur och dess utseende är Claudes; användaren har
-inte sett den än. Arbetet ligger i samma pull request som björnkrigaren.
+platshållare. Arbetet ligger i samma pull request som björnkrigaren.
+
+Efter att figuren var byggd kom användarens uppdrag för resten av
+figurerna, i tre punkter med stopp efter varje:
+
+| Punkt | Status |
+|---|---|
+| 1. Björnarbetare (ingen tung rustning, verktyg i stället för vapen) | Klar, väntar på användarens granskning av översiktsbilden |
+| 2. Byggnader för björnrasen: huvudbyggnad, förråd, kasern, med byggnadsstadier om spelet stöder det | Inte påbörjad |
+| 3. Raskonfig för tigrar och en tigerkrigare med tydligt annan siluett | Inte påbörjad |
+
+Uppdraget säger: lägg bara till nya konfigfiler och delar, och ändra inte
+i den gemensamma koden om det inte är absolut nödvändigt. Det som ändrades
+i gemensam kod för punkt 1:
+
+- **`animations/gather.py`:** redskapets flatsida följer nu svingens plan.
+  Utan det pekade yxans egg uppåt när hugget träffade, eftersom
+  animationen bara angav vart skaftet pekar. Ändringen påverkar ingen
+  befintlig atlas: krigaren använder inte `gather`.
+- **`lib/armor.py`:** bara nya delar (tunika, lindor, axelskydd av läder,
+  förkläde, korg). Krigarens delar är orörda, och hans atlas blir
+  identisk vid ombygge.
+- **`build.py` och `game.toml`:** ny flagga `--overview` för
+  översiktsbilden som uppdraget ber om. Inget befintligt ändrat.
+- **Spelkoden** (`src/render/`): behövdes för att rita Samlaren och visa
+  arbetet. Se listan nedan.
+
+**Översiktsbild:** `assets/previews/overview.png` visar alla figurer
+bredvid varandra i verklig skala, i båda lagfärgerna.
 
 **Skärmdumpar:** `docs/screenshots/figurer-samlare-arbetar.png` (hugger
 ved, plockar bär och reser ett Visthus), `figurer-samlare-gar.png` (på
