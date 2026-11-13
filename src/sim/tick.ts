@@ -1,3 +1,4 @@
+import { runAi } from './ai/ai';
 import type { GameState } from './state';
 import { resolveCombat } from './systems/combat';
 import { constructBuildings } from './systems/construction';
@@ -14,6 +15,7 @@ import { updateVisibility } from './systems/visibility';
 export function tick(state: GameState): void {
   if (state.winner !== null) return;
   state.events = [];
+  runAi(state);
   produceUnits(state);
   constructBuildings(state);
   gatherResources(state);

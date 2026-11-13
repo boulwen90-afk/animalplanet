@@ -80,6 +80,16 @@ export interface PlayerState {
    * Same indexing as the map's terrain.
    */
   visibility: number[];
+  /** The computer opponent's memory, for a side it plays; null for a side played by a person. */
+  ai: AiState | null;
+}
+
+/** What the computer opponent remembers between decisions. */
+export interface AiState {
+  /** Ids of its soldiers that are out on an attack wave. */
+  attackers: number[];
+  /** The simulation step at which each wave so far set off. */
+  waveTicks: number[];
 }
 
 export interface Unit {

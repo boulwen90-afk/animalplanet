@@ -48,10 +48,14 @@ export interface GameSceneOptions {
   seed: number;
   /** Whether the fog of war is on. Off only with ?fog=0 in test mode. */
   fog: boolean;
+  /** Whether the computer plays the opponent. Off only with ?ai=0 in test mode. */
+  ai: boolean;
 }
 
 /** The side the person at the screen plays. */
 const LOCAL_PLAYER: PlayerId = 0;
+/** The side the computer plays. */
+const OPPONENT: PlayerId = 1;
 
 export class GameScene extends Scene implements HudSource {
   private state: GameState | undefined;
@@ -83,6 +87,7 @@ export class GameScene extends Scene implements HudSource {
   create(): void {
     const state = createGame(this.options.seed, MAP_CONFIG, MAP_GEN_CONFIG, {
       fog: this.options.fog,
+      ai: this.options.ai ? [OPPONENT] : [],
     });
     this.state = state;
 

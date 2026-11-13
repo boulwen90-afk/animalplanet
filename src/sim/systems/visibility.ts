@@ -53,9 +53,13 @@ function reveal(state: GameState, tiles: number[], x: number, y: number, radius:
   }
 }
 
-/** What a side knows about a tile. With the fog of war off, everything is visible. */
+/**
+ * What a side knows about a tile. With the fog of war off, and for a side
+ * played by the computer, everything is visible.
+ */
 export function visibilityAt(state: GameState, player: PlayerId, x: number, y: number): number {
-  if (!state.fogEnabled) return VISIBLE;
+  // The computer opponent knows the whole map (GDD section 10).
+  if (!state.fogEnabled || state.players[player]?.ai) return VISIBLE;
   if (!inBounds(x, y, state.map)) return UNEXPLORED;
   return state.players[player]?.visibility[tileIndex(x, y, state.map)] ?? UNEXPLORED;
 }
@@ -74,7 +78,7 @@ export function isTileExplored(state: GameState, player: PlayerId, x: number, y:
  * they stand on a visible tile (for a building, when any of its tiles is visible).
  */
 export function isEntityVisibleTo(state: GameState, player: PlayerId, entity: Entity): boolean {
-  if (entity.owner === player || !state.fogEnabled) return true;
+  if (entity.owner === player || !state.fogEnabled || state.players[player]?.ai) return true;
   if (isUnit(entity)) {
     const tile = unitTile(entity);
     return isTileVisible(state, player, tile.x, tile.y);

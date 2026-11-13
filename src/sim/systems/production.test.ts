@@ -329,7 +329,8 @@ describe('training in a real game', () => {
   });
 
   it('the starting Storide trains a fourth Samlare', () => {
-    const state = createGame(1);
+    // Without a computer opponent, so that the other side stays as it started.
+    const state = createGame(1, undefined, undefined, { ai: [] });
     const storide = state.entities.find(
       (e): e is Building => e.kind === 'building' && e.owner === 0,
     )!;

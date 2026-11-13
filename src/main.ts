@@ -11,7 +11,10 @@ const seed = parseSeed(params.get('seed'), MAP_GEN_CONFIG.defaultSeed);
 // The fog of war can only be turned off in test mode.
 const fog = !(testMode && params.get('fog') === '0');
 
-const gameScene = new GameScene({ testMode, seed, fog });
+// Likewise the computer opponent: ?ai=0 leaves the other side standing still.
+const ai = !(testMode && params.get('ai') === '0');
+
+const gameScene = new GameScene({ testMode, seed, fog, ai });
 
 new Game({
   type: AUTO,
