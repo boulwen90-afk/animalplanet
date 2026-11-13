@@ -627,8 +627,8 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
 Figurerna byggs helt med kod i Blender, utan fönster och utan externa
 tjänster. Spelet ritas med Phaser i 2D, så slutprodukten blir spritesheets
 (PNG + JSON-atlas). **Hittills finns bara steg 0–2:** pipelinen, en
-björnkrigare i statisk pose och förhandsbilder. Spelkoden använder inte
-figurerna än.
+björnkrigare i statisk pose, rasernas sigill och förhandsbilder.
+Spelkoden använder inte figurerna än.
 
 **Körning**
 
@@ -636,32 +636,37 @@ figurerna än.
 python3.13 -m venv tools/blender/.venv
 tools/blender/.venv/bin/pip install -r tools/blender/requirements.txt
 tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior
+tools/blender/.venv/bin/python tools/blender/build.py --emblems
+tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior --check-mask
 ```
 
 - Blender körs som Python-modulen `bpy` 5.3.0 (kräver Python 3.13). Den
   virtuella miljön checkas inte in.
 - Renderingen görs med **Cycles på processorn**. EEVEE går inte att använda
   utan grafikkort (`libEGL.so.1` saknas i molnmiljön).
+- Ett bygge av en figurs förhandsbilder tar cirka två minuter.
 - CI kör inte pipelinen. Genererade bilder checkas in.
 
 **Filer**
 
 | Fil | Ansvar |
 |---|---|
-| `build.py` | Bygger en figur (`--race`, `--unit`) och renderar förhandsbilderna till `assets/previews/<ras>_<enhet>/` (`--out` väljer annan mapp) |
-| `game.toml` | Gemensamt för alla figurer: rutstorlek, kameravinkel (30°), pixlar per Blender-enhet (22), bildruta (64 px), kontur, ljus och lagfärger |
-| `races/<ras>.toml` | En ras: proportioner, drag (nos, öron, puckel, svans) och pälsfärger |
+| `build.py` | Bygger en figur (`--race`, `--unit`) och renderar förhandsbilderna till `assets/previews/<ras>_<enhet>/`. `--emblems` ritar alla sigill. `--check-mask` jämför färgning via masken med direkt rendering. `--out` väljer annan mapp |
+| `game.toml` | Gemensamt för alla figurer: rutstorlek, kameravinkel, skala, bildruta, kontur, skugga, kantmjukhet per delgrupp, ljus, lagfärger och sigillens färg |
+| `races/<ras>.toml` | En ras: proportioner, drag (nos, kinder, ögonbryn, huggtänder, öron, puckel, svans), pälsfärger och vilket sigill den bär |
 | `units/<enhet>.toml` | En enhetstyp: rustningsdelar, vapen, sköld, färger och pose |
+| `emblems/<namn>.toml` | Ett sigill som platta former i lager |
 | `lib/config.py` | Läser konfigfilerna |
-| `lib/materials.py` | Matta lågpolymaterial från hexfärger; lagfärgsmaterialet `team_color` |
-| `lib/mesh.py` | `Builder` med grundformerna: `ellipsoid` (även kupol), `limb` (avsmalnande cylinder mellan två punkter), `box`, `sheet` (tyg) |
-| `lib/skeleton.py` | De gemensamma lederna (`JOINTS`) och var de hamnar för en ras och en pose |
-| `lib/body.py` | Kroppen: bål, puckel, huvud, nos, ögon, öron, armar, ben, tassar, klor, svans |
-| `lib/armor.py` | Rustningsdelar: ringbrynja, bröstplåt, axelskydd, armskenor, benskenor, bälte, vapenrock, hjälm, mantel |
+| `lib/materials.py` | Material från hexfärger; lagfärgsmaterialet `team_color` |
+| `lib/mesh.py` | `Builder` med grundformerna: `ellipsoid` (även kupol), `limb` (avsmalnande cylinder mellan två punkter), `box`, `sheet` (tyg). Sätter mjuka eller hårda kanter per delgrupp |
+| `lib/skeleton.py` | De gemensamma lederna (`JOINTS`), var de hamnar för en ras och en pose, och huvudets lutning |
+| `lib/body.py` | Kroppen: bål, puckel, huvud, kinder, nos, käke, huggtänder, ögon, ögonbryn, öron, armar, ben, tassar, klor, svans |
+| `lib/armor.py` | Rustningsdelar: ringbrynja, bröstplåt med bukskenor, höftplåtar, axelskydd med taggar, pälskrage, armskenor, benskenor, bälte, vapenrock, hjälm med kam, mantel |
 | `lib/weapons.py` | Svärd, yxa och rundsköld |
-| `lib/figure.py` | Sätter ihop kropp, rustning, vapen och sköld till en figur |
-| `lib/camera.py` | Ortografisk kamera och ljus |
-| `lib/export.py` | Cycles-inställningar, rendering till PNG och bildoperationer (kontur, bakgrund, förstoring, spelets mark) |
+| `lib/emblem.py` | Läser ett sigill och lägger det på en yta (sköld eller mantel); ritar det även som platt bild |
+| `lib/figure.py` | Sätter ihop kropp, rustning, vapen, sköld och sigill till en figur |
+| `lib/camera.py` | Ortografisk kamera, ljus och den osynliga mark som fångar skuggan |
+| `lib/export.py` | Cycles-inställningar, de tre renderingspassen, färgning via mask och bildoperationer (kontur, skugga, halvering, spelets mark) |
 
 **Hur en figur byggs**
 
@@ -670,38 +675,80 @@ tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior
    `chest`, `neck`, `head`, `shoulder_l`, `elbow_l`, `hand_l`, `hip_l`,
    `knee_l`, `foot_l` och motsvarande `_r`), så att animationer kan delas
    när figurerna får skelett. Än finns inget skelett, bara ledernas lägen.
-2. Kroppen byggs led för led av enkla, plant skuggade former. Figuren står
-   på z = 0 och tittar mot −Y; dess vänstra sida är +X.
+2. Kroppen byggs led för led av enkla former. Figuren står på z = 0 och
+   tittar mot −Y; dess vänstra sida är +X.
 3. Rustningen läggs utanpå och får sina mått från rasens proportioner, så
    samma enhetskonfig passar en annan ras. Varje del slås av eller på i
    enhetens konfig.
 4. Vapen sätts i en hand och skölden på en underarm.
 5. Varje del är ett eget objekt med namn efter grupp: `body.*`, `armor.*`,
    `weapon.*`, `shield.*`.
+6. Kroppen skuggas mjukt (kanter under 75° jämnas ut) medan rustning,
+   vapen och sköld har plana, hårda ytor. Vinklarna står i `game.toml`.
 
-**Lagfärg.** Mantel, vapenrock och sköldens fält använder materialet
-`team_color`. `export.set_team_color` byter dess färg mellan renderingar.
-Färgerna i `game.toml` är samma som `PLAYER_COLORS` i spelet.
+**Sigill.** Varje ras har ett sigill: ett djurhuvud i silhuett, i samma
+anda som vapensköldar. Det beskrivs i `emblems/<namn>.toml` som former i
+lager: `half` (högra halvan av en symmetrisk form), `pair` (en form som
+speglas) eller `shape` (en hel form). Färgen `charge` är sigillets egen
+färg; `field` släpper igenom lagfärgen och används för ögon, mun och
+ränder. `build_emblem` delar formerna i små trianglar och lägger dem på en
+yta via en funktion, så samma sigill passar en platt sköld och en böjd
+mantel. Sigill finns för björn, tiger, apa och varg; bara björnens sitter
+på en figur.
 
-**Skala.** En Blender-enhet är 22 pixlar i spelet. Björnen är cirka 2,2
-enheter hög med öron, alltså runt 48 pixlar, på en ruta som är 64×32.
-Kameran ser ned i 30°, vilket ger spelets rutform (dubbelt så bred som
-hög). Figuren vrids för olika vyer; kameran och ljuset står still, så att
-ljuset alltid kommer från samma håll i bilden.
+**Lagfärg och mask.** Hjälmkam, mantel, vapenrock, sköldens fält och
+sigillets `field`-delar använder materialet `team_color`. De renderas inte
+i någon lagfärg, utan i en neutral grå (`#bcbcbc`), och färgas efteråt.
+Varje bild renderas i tre pass med samma ljus (`render_passes`):
 
-**Kontur.** Bilder i spelstorlek får en mörk kant på en pixel
-(`add_outline`), så att figuren syns mot marken.
+1. **Figuren**, med lagfärgsdelarna grå.
+2. **Masken**: bara lagfärgsdelarna, skuggade grå, med sin täckning som
+   alfa. Övriga delar är urholkade (`is_holdout`), så att de skymmer men
+   inte syns.
+3. **Skuggan** på marken, från en osynlig yta som bara fångar skugga.
+
+`recolor(bas, mask, färg)` byter sedan ut ljuset från de grå delarna mot
+samma ljus skalat till lagfärgen:
+
+```
+ljus = linjär(bas) · alfa − linjär(mask) · maskalfa · (1 − linjär(färg) / linjär(grå))
+```
+
+Räkningen görs på ljusmängd (linjärt), inte på lagrade färgvärden. Spelet
+ska göra samma räkning när bilderna laddas, en gång per lagfärg. Mot en
+direkt rendering i lagfärgen skiljer resultatet i snitt 2–3 % per pixel
+(`--check-mask`). Med vit grundfärg var felet dubbelt så stort, eftersom
+vitt studsar mer ljus mellan ytorna än en riktig färg.
+
+**Skala och upplösning.** En Blender-enhet är 24 spelpixlar. Björnen är
+cirka 2,4 enheter till hjälmens topp, alltså runt 50 pixlar hög på en ruta
+som är 64×32, och drygt 60 med höjt svärd. En bildruta är 96×96 spelpixlar.
+Bilderna renderas dubbelt så stora (192×192), så att de är skarpa på
+telefoner och andra skärmar med små pixlar. Kameran ser ned i 30°, vilket
+ger spelets rutform. Figuren vrids för olika vyer; kameran och ljuset står
+still, så att ljuset alltid kommer från samma håll i bilden.
+
+**Kontur och skugga.** Figuren får en mjuk mörk kant (0,75 spelpixlar) och
+läggs ovanpå sin markskugga. Båda ingår i basbilden. Bara huvudljuset
+kastar skugga. Skuggan tonas ut mot bildrutans kant, så att en lång skugga
+aldrig klipps av.
 
 **Deterministiskt.** Ingen slump används när figuren byggs. Cycles kör med
 fast frö, fast antal strålar och utan brusreducering. Två byggen efter
 varandra ger identiska filer (kontrollerat med kontrollsummor). Det är
 bara kontrollerat på samma maskin och samma Blender-version.
 
-**Förhandsbilder** (`assets/previews/bear_warrior/`): `front.png`,
-`side.png`, `back.png`, `game_blue.png` och `game_red.png` (spelets
-kameravinkel, en per lagfärg), `ingame_1x.png` (verklig storlek på spelets
-mark), `ingame_4x.png` (samma bild förstorad fyra gånger utan utjämning)
-och `overview.png` (allt på ett ark).
+**Förhandsbilder**
+
+- `assets/previews/bear_warrior/`: `front.png`, `side.png`, `back.png`,
+  `game_blue.png` och `game_red.png` (spelets kameravinkel),
+  `mask_demo.png` (grå bas, mask och fyra färger ur samma rendering),
+  `ingame_2x.png` (på spelets mark i dubbel upplösning, som på en
+  telefon), `ingame_1x.png` (samma bild i spelpixlar),
+  `sprite_base.png` och `sprite_mask.png` (en bildruta så som spelet
+  kommer att få den) och `overview.png` (allt på ett ark).
+- `assets/previews/emblems/`: ett sigill per ras och `all.png` med alla
+  fyra i båda lagfärgerna.
 
 ## Data (`src/data/`)
 
@@ -872,3 +919,7 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | Efter MVP | Figurerna byggs med kod i Blender och blir spritesheets | Spelet är 2D i Phaser. Kod i stället för handritade bilder gör figurerna parametriska: en ny ras eller enhet är en ny konfigfil. |
 | Efter MVP | Cycles på processorn, inte EEVEE | EEVEE kräver grafikkort, som molnmiljön saknar. Cycles ger dessutom samma pixlar varje gång med fast frö. |
 | Efter MVP | Konfigfilerna är TOML | Går att kommentera, och Python läser dem utan extra paket. |
+| Efter MVP | Lagfärgen läggs på via en mask, inte genom ett spritesheet per lag | Ett spritesheet räcker för hur många lag som helst. Användarens beslut 2026-11-13. |
+| Efter MVP | Lagfärgsdelarna renderas grå, inte vita, och färgas i linjärt ljus | Mätt mot direkt rendering halverade det felet, till 2–3 % per pixel. |
+| Efter MVP | Bilderna renderas i dubbel upplösning | Användaren tyckte att figurerna såg pixliga ut. På skärmar med små pixlar visas då varje bildpunkt skarpt i stället för uppförstorad. |
+| Efter MVP | Sigill är former i en konfigfil som läggs på ytor som geometri | Samma sigill passar sköld och mantel, och delar i lagfärg följer masken utan särskild kod. |

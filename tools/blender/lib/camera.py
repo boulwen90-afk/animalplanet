@@ -29,7 +29,7 @@ def make_camera(scene: bpy.types.Scene, elevation_deg: float, ortho_scale: float
 
 
 def make_lights(scene: bpy.types.Scene, lighting: dict) -> None:
-    """A key light from the upper left, a weak fill from the right, and even light from the sky."""
+    """Even light from the sky plus the suns listed in game.toml (key, fill, rim)."""
     world = bpy.data.worlds.new("world")
     world.use_nodes = True
     background = world.node_tree.nodes["Background"]
@@ -37,14 +37,28 @@ def make_lights(scene: bpy.types.Scene, lighting: dict) -> None:
     background.inputs["Strength"].default_value = lighting["sky"]
     scene.world = world
 
-    for name, direction, strength in (
-        ("key", lighting["key_from"], lighting["key"]),
-        ("fill", lighting["fill_from"], lighting["fill"]),
-    ):
-        data = bpy.data.lights.new(name, "SUN")
-        data.energy = strength
-        data.angle = math.radians(lighting.get("softness_deg", 8.0))
-        light = bpy.data.objects.new(name, data)
+    for sun in lighting["suns"]:
+        data = bpy.data.lights.new(sun["name"], "SUN")
+        data.energy = sun["strength"]
+        data.angle = math.radians(sun.get("softness_deg", 8.0))
+        # Only the key light casts a shadow, so the figure has one shadow on the ground.
+        data.use_shadow = sun.get("shadow", False)
+        light = bpy.data.objects.new(sun["name"], data)
         scene.collection.objects.link(light)
-        light.location = Vector(direction) * 10.0
-        light.rotation_euler = (-Vector(direction)).to_track_quat("-Z", "Y").to_euler()
+        direction = Vector(sun["from"])
+        light.location = direction * 10.0
+        light.rotation_euler = (-direction).to_track_quat("-Z", "Y").to_euler()
+
+
+def make_shadow_catcher(scene: bpy.types.Scene) -> bpy.types.Object:
+    """An invisible ground that only shows the shadow falling on it."""
+    mesh = bpy.data.meshes.new("ground")
+    size = 20.0
+    mesh.from_pydata(
+        [(-size, -size, 0), (size, -size, 0), (size, size, 0), (-size, size, 0)], [], [(0, 1, 2, 3)]
+    )
+    ground = bpy.data.objects.new("ground", mesh)
+    ground.is_shadow_catcher = True
+    ground.hide_render = True
+    scene.collection.objects.link(ground)
+    return ground

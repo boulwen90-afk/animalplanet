@@ -1,43 +1,47 @@
-# Bears, "Järnramarna": heavy, broad and short-legged, with a big head.
+# Bears, "Järnramarna": heavy and broad, with huge shoulders and arms.
 # Lengths are in Blender units. The figure stands on z = 0 and faces -Y.
 name = "bear"
+emblem = "bear"                # the sigil in emblems/, shown on shields and capes
 
 [proportions]
-hip_height = 0.58
-torso_length = 0.80
-chest_forward = 0.04          # how far the chest leans forward
-shoulder_half_width = 0.52
-shoulder_drop = 0.14          # shoulders below the top of the torso
-hip_half_width = 0.26
-upper_arm = 0.38
-forearm = 0.36
-thigh = 0.28
-shin = 0.24
-chest_radii = [0.54, 0.42, 0.44]
-belly_radii = [0.50, 0.44, 0.42]
-neck_radius = 0.27
-head_radii = [0.40, 0.38, 0.35]
-head_forward = 0.12
-arm_radius = [0.19, 0.16]     # at the shoulder and at the wrist
-leg_radius = [0.22, 0.16]     # at the hip and at the ankle
-hand_radius = 0.18
-foot_size = [0.18, 0.27, 0.10]
+hip_height = 0.72
+torso_length = 0.92
+chest_forward = 0.12          # how far the chest leans forward
+shoulder_half_width = 0.66
+shoulder_drop = 0.16          # shoulders below the top of the torso
+hip_half_width = 0.27
+upper_arm = 0.48
+forearm = 0.46
+thigh = 0.36
+shin = 0.30
+chest_radii = [0.66, 0.48, 0.50]
+belly_radii = [0.50, 0.44, 0.44]
+neck_radius = 0.30
+head_radii = [0.33, 0.34, 0.30]
+head_forward = 0.20
+arm_radius = [0.25, 0.20]     # at the shoulder and at the wrist
+leg_radius = [0.25, 0.18]     # at the hip and at the ankle
+hand_radius = 0.22
+foot_size = [0.20, 0.30, 0.11]
 
 [features]
-muzzle_radii = [0.18, 0.21, 0.15]
-muzzle_drop = 0.09
+muzzle_radii = [0.17, 0.25, 0.14]
+muzzle_drop = 0.07
+cheek_radius = 0.16           # fur on the cheeks that widens the jaw; 0 for none
+brow = 0.5                    # how hard the brow slopes down towards the nose; 0 for none
+fangs = true
 ear = "round"                 # "round" or "pointed"
-ear_radius = 0.18
-ear_spread = 0.90             # how far out on the head the ears sit, 0..1
-ear_height = 0.74             # how high on the head, 0..1
-hump = 0.12                   # the bear's shoulder hump; 0 for none
+ear_radius = 0.13
+ear_spread = 0.95             # how far out on the head the ears sit, 0..1
+ear_height = 0.62             # how high on the head, 0..1
+hump = 0.2                    # the bear's shoulder hump; 0 for none
 tail = "stub"                 # "stub", "long" or "none"
 tail_size = 0.10
 
 [colors]
-fur = "#8a5a32"
-fur_dark = "#4d3220"
-fur_light = "#c49a66"
-nose = "#1b1310"
-eye = "#120c08"
-claw = "#e9dfc6"
+fur = "#6f4526"
+fur_dark = "#3d2616"
+fur_light = "#a67c4e"
+nose = "#150e0b"
+eye = "#e8a020"
+claw = "#ece2c8"

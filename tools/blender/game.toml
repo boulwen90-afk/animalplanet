@@ -6,34 +6,71 @@ tile_width = 64
 tile_height = 32
 # The game looks down on the ground at 30 degrees: a square tile becomes twice as wide as high.
 camera_elevation_deg = 30.0
-# How many pixels one Blender unit is in the game. A bear is about 2.2 units tall.
-pixels_per_unit = 22.0
-# Size of one picture of a figure in the game, in pixels.
-frame = 64
-# The camera looks at this height on the figure, so the figure sits in the middle of the frame.
-target_z = 1.2
-# A dark edge around the figure, one pixel wide in the game.
-outline = "#141a12"
-outline_strength = 0.9
-# Width of the renderer's pixel filter for game-size pictures. Lower is sharper.
-filter_width = 1.0
+# How many game pixels one Blender unit is. The bear is about 2.4 units to the top of its helmet.
+pixels_per_unit = 24.0
+# Size of one picture of a figure, in game pixels. It has room for a raised sword.
+frame = 96
+# Pictures are rendered this many times larger than game pixels, so they stay
+# sharp on phones and other screens with small pixels.
+render_scale = 2
+# The camera looks at this height on the figure.
+target_z = 1.45
+# A soft dark edge around the figure, in game pixels.
+outline = "#12160f"
+outline_strength = 0.8
+outline_radius = 0.75
+# The shadow the figure casts on the ground.
+shadow = "#0c120a"
+shadow_strength = 0.55
+samples = 128
 
 [preview]
-size = 512
-view_width = 3.3        # Blender units across the large previews
-samples = 96
+size = 640
+view_width = 4.3        # Blender units across the large previews
+samples = 128
 background = "#5a8f3c"  # the game's grass, MapView.ts
 ground_edge = "#3f6b2a"
 
+# Which edges are shaded smooth, per group of parts: edges sharper than the
+# angle stay hard. 0 gives flat facets.
+[style.smooth_deg]
+body = 75.0
+armor = 0.0
+weapon = 0.0
+shield = 0.0
+
 [lighting]
-sky = 0.7
-key = 2.6
-key_from = [-0.55, -0.6, 1.0]     # from the upper left, in front
-fill = 0.9
-fill_from = [0.9, -0.5, 0.35]
-softness_deg = 10.0
+sky = 0.5
+
+[[lighting.suns]]
+name = "key"            # from the upper left, in front
+from = [-0.45, -0.5, 1.0]
+strength = 3.0
+softness_deg = 8.0
+shadow = true
+
+[[lighting.suns]]
+name = "fill"
+from = [0.9, -0.5, 0.35]
+strength = 0.7
+softness_deg = 20.0
+
+[[lighting.suns]]
+name = "rim"            # from behind, to lift the outline from the ground
+from = [0.5, 0.9, 0.7]
+strength = 1.6
+softness_deg = 8.0
+
+[emblem]
+color = "#ece2c8"       # the sigil itself; the field behind it is the team colour
+races = ["bear", "tiger", "ape", "wolf"]   # the sigils to draw for the preview sheet
 
 # The same colours as PLAYER_COLORS in src/render/views/visuals.ts.
 [teams]
 blue = "#3b7de0"
 red = "#d0453a"
+
+# More colours, only to show that the mask takes any colour.
+[demo_teams]
+green = "#3f9b4b"
+yellow = "#e0b030"

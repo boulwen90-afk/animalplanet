@@ -1,4 +1,6 @@
-"""Low-poly primitives. Every part is its own flat-shaded object, built in place."""
+"""Low-poly primitives. Every part is its own object, built in place."""
+
+import math
 
 import bmesh
 import bpy
@@ -21,7 +23,10 @@ def frame(z_dir: Vec, x_hint: Vec = (1.0, 0.0, 0.0)) -> Matrix:
 class Builder:
     """Creates the parts of one figure in a collection, parented to a common root."""
 
-    def __init__(self, name: str) -> None:
+    def __init__(self, name: str, smooth_deg: dict[str, float] | None = None) -> None:
+        # Per group of parts ("body", "armor", ...): edges sharper than this angle
+        # stay hard, the rest are shaded smooth. 0 gives flat facets.
+        self.smooth_deg = smooth_deg or {}
         self.collection = bpy.data.collections.new(name)
         bpy.context.scene.collection.children.link(self.collection)
         self.root = bpy.data.objects.new(f"{name}.root", None)
@@ -34,6 +39,10 @@ class Builder:
         bm.to_mesh(mesh)
         bm.free()
         mesh.materials.append(material)
+        angle = self.smooth_deg.get(name.split(".")[0], 0.0)
+        if angle > 0:
+            mesh.polygons.foreach_set("use_smooth", [True] * len(mesh.polygons))
+            mesh.set_sharp_from_angle(angle=math.radians(angle))
         obj = bpy.data.objects.new(name, mesh)
         obj.parent = self.root
         self.collection.objects.link(obj)

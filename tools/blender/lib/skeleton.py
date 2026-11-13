@@ -7,7 +7,7 @@ The figure stands on z = 0 and faces -Y. Its left side is +X ("_l"), its right
 side is -X ("_r").
 """
 
-from mathutils import Vector
+from mathutils import Matrix, Vector
 
 JOINTS = (
     "root",
@@ -45,7 +45,7 @@ DEFAULT_POSE = {
 def posed_joints(proportions: dict, pose: dict | None = None) -> dict[str, Vector]:
     """Where each joint is, for a race's proportions and a unit's static pose."""
     p = proportions
-    directions = {**DEFAULT_POSE, **(pose or {})}
+    directions = {**DEFAULT_POSE, **{k: v for k, v in (pose or {}).items() if k in DEFAULT_POSE}}
     lean = p.get("chest_forward", 0.0)
 
     joints: dict[str, Vector] = {"root": Vector((0.0, 0.0, 0.0))}
@@ -72,3 +72,11 @@ def posed_joints(proportions: dict, pose: dict | None = None) -> dict[str, Vecto
 
     assert set(joints) == set(JOINTS)
     return joints
+
+
+def head_rotation(pose: dict | None) -> Matrix:
+    """How the head is turned. A positive `head_pitch_deg` lowers the muzzle."""
+    import math
+
+    pitch = math.radians((pose or {}).get("head_pitch_deg", 0.0))
+    return Matrix.Rotation(pitch, 4, "X")

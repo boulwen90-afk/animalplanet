@@ -6,8 +6,9 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
 - **Pågår:** riktig figurgrafik, byggd med kod i Blender. Steg 0–2 är
-  gjorda (pipeline och en björnkrigare i statisk pose). Arbetet väntar på
-  att användaren godkänner stilen. Se "Efter MVP:n" nedan
+  gjorda och figuren är omgjord en gång efter användarens synpunkter
+  (tuffare, skarpare, sigill, lagfärg via mask). Arbetet väntar på att
+  användaren godkänner stilen. Se "Efter MVP:n" nedan
 - **Nästa steg efter godkännande:** skelett, animationer och spritesheets,
   och därefter att spelet ritar figurerna i stället för platshållarna
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
@@ -813,6 +814,64 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Figurgrafik, omarbetning: tuffare figur, mask och sigill (2026-11-13)
+
+Användaren bad efter första visningen om lagfärg via mask, en tuffare och
+mindre pixlig figur, och en logga per ras i stil med vapensköldar, synlig
+på mantel och sköld.
+
+**Förhandsbilder:** `assets/previews/bear_warrior/` och
+`assets/previews/emblems/`
+
+**Avstämning mot önskemålen**
+
+| Önskemål | Status | Kommentar |
+|---|---|---|
+| Lagfärg via mask | Klar i pipelinen | Varje bild ger en bas och en mask; `mask_demo.png` visar fyra färger ur en rendering. Spelet använder den inte än |
+| Tuffare figur | Klar | Bredare axlar och bröst, mindre huvud, längre nos, huggtänder, sänkt blick under tunga ögonbryn, taggar på axlar och knän, bukskenor och höftplåtar, pälskrage, hjälmkam, bredsvärd, trasig mantelfåll, bredbent ställning med höjt svärd |
+| Mindre pixlig | Klar | Bilderna renderas i dubbel upplösning med mjuk kontur och kroppen skuggas mjukt. Figuren är också något större i spelet (cirka 50 pixlar mot 48) |
+| Logga per ras | Klar | Sigill för björn, tiger, apa och varg. Egna motiv: djurhuvuden i silhuett |
+| Loggan synlig på mantel och sköld | Klar för björnen | Sigillet ersätter sköldbucklan och ligger mitt på manteln |
+
+**Saknas eller avviker**
+- **Spelet ritar på en yta i skärmens grova pixlar.** På en telefon
+  förstoras hela spelbilden av webbläsaren. För att de dubbelt så skarpa
+  bilderna ska synas måste spelet rita i skärmens verkliga upplösning.
+  Det är en ändring i spelkoden och hör till steget då figurerna kopplas in.
+- **Första omgångens `ingame_4x.png` var en fyra gånger uppförstorad bild**
+  utan utjämning, gjord för att visa varje pixel. Den såg därför
+  pixligare ut än spelet skulle ha gjort. Den är ersatt av `ingame_2x.png`,
+  som är renderad i den upplösningen.
+- **Masken ger inte exakt samma färg som en direkt rendering.** Skillnaden
+  är i snitt 2–3 % per pixel och syns inte för ögat.
+- **Det ljusa sigillet syns sämre mot gul lagfärg** än mot blå, röd och
+  grön.
+- **Sköldbucklan är borta** när skölden bär sigillet. Klomärkena från
+  första försöket finns kvar som alternativ (`emblem = "claws"`).
+- **Tiger, apa och varg finns bara som sigill.** Raserna själva är inte
+  byggda, och sigillen är inte provade på en figur.
+- **Tre renderingar per bild** (figur, mask, skugga) gör bygget
+  långsammare: cirka två minuter för förhandsbilderna, mot 20 sekunder.
+- **Figuren har fortfarande inget skelett**, och `assets/characters/` är
+  tom tills stilen är godkänd.
+- **Ändringen i `game.toml` av ljuset** (svagare himmel, bakljus, bara
+  huvudljuset kastar skugga) gäller alla framtida figurer.
+
+**Testresultat**
+- Bygget kör utan fel, och två körningar ger identiska kontrollsummor
+- `--check-mask`: blå 5,4 och röd 7,4 av 255 i medelavvikelse över
+  lagfärgsdelarnas pixlar
+- Lint: utan anmärkning. Spelets kod och tester är inte berörda
+
+**Beslut och lärdomar**
+- Handen stack igenom skölden och hjälmen dolde ögonen i första
+  renderingen av den nya figuren. Båda syntes bara på bilderna.
+- Skuggpasset gav först en svag ruta runt varje figur. Två orsaker: marken
+  är lite mörkare överallt under öppen himmel, och bakljuset kastade en
+  egen lång skugga som klipptes av bildrutans kant.
+- Att mäta masken mot en direkt rendering visade att vit grundfärg ger för
+  ljusa färger. Utan mätningen hade det inte märkts.
 
 ### Figurgrafik, steg 0–2: pipeline och en björnkrigare (2026-11-13)
 
