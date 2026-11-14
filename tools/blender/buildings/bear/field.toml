@@ -1,0 +1,70 @@
+# The bears' field, the Odling: a tilled bed with rows of grain, a fence along
+# its two far sides and a scarecrow. Units can walk across it, and one worker
+# tills it, standing on the bare quarter at its far corner.
+# Lengths are in tiles; see lib/structures.py for the frame.
+name = "field"
+game_building = "odling"
+size_class = "plot"      # a field has no lowest height; see game.toml
+footprint = 2
+
+# Marked out, then dug, then sown.
+[[part]]
+type = "stakes"
+box = [-0.92, -0.92, 0.92, 0.92]
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "soil"
+box = [-0.9, -0.9, 0.0, 0.9]
+rows = 6
+along = "y"
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "planks"
+at = [0.45, -0.3]
+along = "y"
+length = 0.5
+count = 3
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "soil"
+box = [-0.9, -0.9, 0.9, 0.9]
+rows = 6
+along = "y"
+from = "construction_2"
+
+# The fence runs along the two sides away from the viewer, so that it does
+# not stand in front of the worker.
+[[part]]
+type = "fence"
+points = [[-0.94, -0.94], [-0.94, 0.94], [0.94, 0.94]]
+height = 0.3
+spacing = 0.47
+from = "construction_2"
+
+# Grain on three quarters of the bed. The quarter at the far corner, where
+# the worker stands (x < 0, y > 0 here), is left as bare earth.
+[[part]]
+type = "crops"
+box = [-0.85, -0.85, 0.85, -0.05]
+rows = 3
+per_row = 6
+along = "x"
+
+[[part]]
+type = "crops"
+box = [0.05, 0.05, 0.85, 0.85]
+rows = 3
+per_row = 3
+along = "x"
+
+[[part]]
+type = "scarecrow"
+at = [0.62, 0.62]
+height = 0.6      # with its hat about as tall as a worker
+face = "-y"

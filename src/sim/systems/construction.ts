@@ -19,6 +19,7 @@ import type { Point } from '../map/iso';
 import { canStep, findPath, type PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
 import type { Building, GameState, PlayerId, Unit } from '../state';
+import { startWorking } from './gathering';
 import { isTileExplored } from './visibility';
 
 /** Work, in worker-steps, needed to finish a building. */
@@ -230,6 +231,12 @@ export function constructBuildings(state: GameState): void {
       site.buildProgress = total;
       site.hp = Math.min(Math.round(site.hp), maxHp);
       for (const unit of builders) unit.task = { kind: 'idle' };
+      // Those who raised a building that can be worked, such as a field,
+      // start working it at once, as many as it takes.
+      if (BUILDING_DEFS[site.type].work) {
+        const grid = buildPathGrid(state);
+        for (const unit of builders) startWorking(state, grid, unit, site);
+      }
     }
   }
 }

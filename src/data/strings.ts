@@ -13,7 +13,21 @@ export const STRINGS = {
     visthus: 'Visthus',
     krigshall: 'Krigshall',
     ide: 'Ide',
+    odling: 'Odling',
   } satisfies Record<BuildingType, string>,
+  /** One short line about each building, shown in the build menu. */
+  buildingInfo: {
+    storide: 'Huvudbyggnad',
+    visthus: 'Lämna mat och trä',
+    krigshall: 'Tränar Ramkrigare',
+    ide: '+5 befolkning',
+    odling: 'Oändlig mat, 1 Samlare',
+  } satisfies Record<BuildingType, string>,
+  /** One short line about each unit, shown on its train button. */
+  unitInfo: {
+    samlare: 'Samlar och bygger',
+    ramkrigare: 'Slåss i närstrid',
+  } satisfies Record<UnitType, string>,
   resources: {
     food: 'Mat',
     wood: 'Trä',

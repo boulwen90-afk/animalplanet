@@ -138,7 +138,7 @@ const BAR_KEYS: readonly BarKey[] = ['food', 'wood', 'population'];
 /** What the command panel currently shows, with the screen position of each part's centre. */
 export interface CommandPanelDisplay {
   visible: boolean;
-  buttons: { label: string; cost: string; x: number; y: number }[];
+  buttons: { label: string; cost: string; info: string; x: number; y: number }[];
   queue: { label: string; x: number; y: number }[];
   progress: number;
 }
@@ -157,6 +157,21 @@ function housingName(): string {
 const PANEL_COLOR = 0x10141a;
 const PANEL_EDGE = 0x4a5568;
 const BUTTON_COLOR = 0x2d3748;
+/** How far from a command panel button's left edge its texts start, in pixels. */
+const BUTTON_TEXT_INSET = 8;
+
+/** The three lines of a command panel button: what it does, its price and a few words about it. */
+interface ButtonTexts {
+  label: GameObjects.Text;
+  cost: GameObjects.Text;
+  info: GameObjects.Text;
+}
+
+function hideButtonTexts(texts: ButtonTexts): void {
+  texts.label.setVisible(false);
+  texts.cost.setVisible(false);
+  texts.info.setVisible(false);
+}
 const SLOT_COLOR = 0x1a202c;
 const SLOT_FILLED_COLOR = 0x3b7de0;
 const PROGRESS_COLOR = 0x35e06a;
@@ -191,7 +206,7 @@ export class UiScene extends Scene {
   private now = 0;
 
   private command!: GameObjects.Graphics;
-  private readonly buttonTexts: { label: GameObjects.Text; cost: GameObjects.Text }[] = [];
+  private readonly buttonTexts: ButtonTexts[] = [];
   private slotTexts: GameObjects.Text[] = [];
   private commandInfo: CommandPanelInfo | undefined;
   private commandLayout: CommandPanelLayout | undefined;
@@ -433,6 +448,7 @@ export class UiScene extends Scene {
       buttons: info.buttons.map((button, i) => ({
         label: button.label,
         cost: button.cost,
+        info: button.info,
         ...centre(layout.buttons[i]!),
       })),
       queue: (info.queue ?? []).map((entry, i) => ({
@@ -752,10 +768,7 @@ export class UiScene extends Scene {
     if (!info) {
       this.commandLayout = undefined;
       for (const text of this.slotTexts) text.setVisible(false);
-      for (const texts of this.buttonTexts) {
-        texts.label.setVisible(false);
-        texts.cost.setVisible(false);
-      }
+      for (const texts of this.buttonTexts) hideButtonTexts(texts);
       return;
     }
 
@@ -783,16 +796,17 @@ export class UiScene extends Scene {
       texts.label
         .setVisible(true)
         .setText(button.label)
-        .setPosition(rect.x + 10, rect.y + 6);
+        .setPosition(rect.x + BUTTON_TEXT_INSET, rect.y + 6);
       texts.cost
         .setVisible(true)
         .setText(button.cost)
-        .setPosition(rect.x + 10, rect.y + 27);
+        .setPosition(rect.x + BUTTON_TEXT_INSET, rect.y + 26);
+      texts.info
+        .setVisible(true)
+        .setText(button.info)
+        .setPosition(rect.x + BUTTON_TEXT_INSET, rect.y + 44);
     });
-    this.buttonTexts.slice(info.buttons.length).forEach((texts) => {
-      texts.label.setVisible(false);
-      texts.cost.setVisible(false);
-    });
+    this.buttonTexts.slice(info.buttons.length).forEach(hideButtonTexts);
 
     this.slotTexts.slice(layout.slots.length).forEach((text) => text.setVisible(false));
     layout.slots.forEach((rect, i) => {
@@ -817,8 +831,8 @@ export class UiScene extends Scene {
     }
   }
 
-  /** The label and cost texts of the train button at an index, created on first use. */
-  private buttonTextsAt(index: number): { label: GameObjects.Text; cost: GameObjects.Text } {
+  /** The texts of the command panel button at an index, created on first use. */
+  private buttonTextsAt(index: number): ButtonTexts {
     let texts = this.buttonTexts[index];
     if (!texts) {
       texts = {
@@ -832,6 +846,11 @@ export class UiScene extends Scene {
           fontFamily: 'sans-serif',
           fontSize: '13px',
           color: '#cbd5e0',
+        }),
+        info: this.add.text(0, 0, '', {
+          fontFamily: 'sans-serif',
+          fontSize: '12px',
+          color: '#9fb0c3',
         }),
       };
       this.buttonTexts[index] = texts;

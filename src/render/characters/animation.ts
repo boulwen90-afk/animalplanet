@@ -1,3 +1,4 @@
+import type { BuildingType } from '../../data/buildings';
 import type { ResourceType } from '../../data/resources';
 import type { Unit } from '../../sim/state';
 
@@ -15,7 +16,8 @@ import type { Unit } from '../../sim/state';
 export const DIRECTIONS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
 export type Direction = (typeof DIRECTIONS)[number];
 
-export type CharacterAnimation = 'idle' | 'walk' | 'attack' | 'chop' | 'pick' | 'hammer' | 'defeat';
+export type CharacterAnimation =
+  'idle' | 'walk' | 'attack' | 'chop' | 'pick' | 'till' | 'hammer' | 'defeat';
 
 /** What a unit is doing, as far as its animation goes. */
 export type Activity = Exclude<CharacterAnimation, 'defeat'>;
@@ -36,10 +38,16 @@ export interface AnimationInfo {
 
 /** What a character has pictures of. Every character can stand, walk and give up. */
 export type CharacterAnimations = Record<'idle' | 'walk' | 'defeat', AnimationInfo> &
-  Partial<Record<'attack' | 'chop' | 'pick' | 'hammer', AnimationInfo>>;
+  Partial<Record<'attack' | 'chop' | 'pick' | 'till' | 'hammer', AnimationInfo>>;
 
 /** How a unit works each resource: it chops wood and picks food. */
 export const GATHER_ACTIVITY: Record<ResourceType, Activity> = { wood: 'chop', food: 'pick' };
+
+/**
+ * How a unit works a building that yields a resource, where that differs
+ * from working the same resource on the map: it tills a field with a hoe.
+ */
+export const SITE_ACTIVITY: Partial<Record<BuildingType, Activity>> = { odling: 'till' };
 
 /** How a unit raises a building. */
 export const BUILD_ACTIVITY: Activity = 'hammer';
@@ -60,12 +68,17 @@ export function facingOf(dx: number, dy: number): number | undefined {
   return ((eighth % 8) + 8) % 8;
 }
 
-/** What a unit is doing. A beaten unit that leaves the field walks. */
-export function activityOf(unit: Unit): Activity {
+/**
+ * What a unit is doing. A beaten unit that leaves the field walks.
+ * @param site The type of the building the unit works at, if its task has one.
+ */
+export function activityOf(unit: Unit, site?: BuildingType): Activity {
   const task = unit.task;
   // A unit at work stands by what it works on. If a neighbour nudges it
   // aside it goes on working, so this comes before the check for movement.
-  if (task.kind === 'gather' && task.phase === 'gathering') return GATHER_ACTIVITY[task.resource];
+  if (task.kind === 'gather' && task.phase === 'gathering') {
+    return (site && SITE_ACTIVITY[site]) ?? GATHER_ACTIVITY[task.resource];
+  }
   if (task.kind === 'build' && unit.path.length === 0) return BUILD_ACTIVITY;
   if (unit.x !== unit.prevX || unit.y !== unit.prevY) return 'walk';
   // A unit that stands still with a target strikes it as soon as it may, so a
@@ -112,10 +125,23 @@ export function attackFrame(info: AnimationInfo, cooldown: number, strikeTicks: 
  * The frame of a loop that is `progress` (0 to 1) of the way through. Used
  * for work that the simulation keeps the pace of: the loop starts where the
  * tool strikes, which is when a unit of the resource has just been taken.
+ * With `loops` above one the loop plays that many times on the way: slow
+ * work takes several strokes for each unit.
  */
-export function progressFrame(info: AnimationInfo, progress: number): number {
-  const done = Math.min(1, Math.max(0, progress));
-  return Math.min(info.frames - 1, Math.floor(done * info.frames));
+export function progressFrame(info: AnimationInfo, progress: number, loops = 1): number {
+  const done = Math.min(1, Math.max(0, progress)) * Math.max(1, loops);
+  // The very end belongs to the last loop, not to the start of a next one.
+  const within = done >= loops ? 1 : done - Math.floor(done);
+  return Math.min(info.frames - 1, Math.floor(within * info.frames));
+}
+
+/**
+ * How many times a work loop plays for each unit of a resource, when a unit
+ * takes `seconds` to gather one: as many as keeps the strokes closest to the
+ * pace the animation was made for, and at least one.
+ */
+export function workLoops(info: AnimationInfo, seconds: number): number {
+  return Math.max(1, Math.round((seconds * info.fps) / info.frames));
 }
 
 /** What a character shows instead of an animation it has no pictures of, in order of choice. */
@@ -126,6 +152,7 @@ const STAND_INS: Record<Activity, readonly CharacterAnimation[]> = {
   attack: ['chop'],
   chop: ['attack'],
   pick: ['chop'],
+  till: ['pick', 'chop'],
   hammer: ['chop'],
 };
 

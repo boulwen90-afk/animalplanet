@@ -45,6 +45,7 @@ describe('separateUnits', () => {
         phase: 'gathering',
         workTicks: 0,
         dropoffId: null,
+        siteId: null,
       };
     }
     for (let step = 0; step < 60; step++) separateUnits(state);

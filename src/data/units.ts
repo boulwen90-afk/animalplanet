@@ -53,7 +53,7 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     sight: 6,
     carryCapacity: 10,
     gatherRate: 1,
-    builds: ['visthus', 'krigshall', 'ide'],
+    builds: ['visthus', 'krigshall', 'ide', 'odling'],
     damage: 3,
     armor: 0,
     attackCooldown: 1.5,

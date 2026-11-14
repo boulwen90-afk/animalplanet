@@ -35,6 +35,12 @@ export interface GatherTask {
   workTicks: number;
   /** Building the load is being carried to, while in the toDropoff phase. */
   dropoffId: number | null;
+  /**
+   * The building being worked, when the source is a building such as a
+   * field; null for a source on the map. `node` and `place` are then both
+   * the tile of the building the worker stands on.
+   */
+  siteId: number | null;
 }
 
 /** Walking to a construction site and working on it until it is finished. */

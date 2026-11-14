@@ -11,6 +11,7 @@ import {
   frameName,
   progressFrame,
   travelFrame,
+  workLoops,
   type AnimationInfo,
   type CharacterAnimations,
 } from './animation';
@@ -90,6 +91,7 @@ describe('activityOf for a worker', () => {
       phase,
       workTicks: 0,
       dropoffId: null,
+      siteId: null,
     };
     return unit;
   };
@@ -103,6 +105,13 @@ describe('activityOf for a worker', () => {
   it('picks while it works a berry bush', () => {
     expect(activityOf(gathering('gathering', 'food'))).toBe('pick');
     expect(activityOf(gathering('toSource', 'food'))).toBe('idle');
+  });
+
+  it('tills while it works a field, with the hoe and not as it picks berries', () => {
+    expect(activityOf(gathering('gathering', 'food'), 'odling')).toBe('till');
+    expect(activityOf(gathering('toDropoff', 'food'), 'odling')).toBe('idle');
+    // A building with no way of its own to be worked is worked as its resource is.
+    expect(activityOf(gathering('gathering', 'food'), 'visthus')).toBe('pick');
   });
 
   it('goes on working when a neighbour nudges it aside', () => {
@@ -145,6 +154,41 @@ describe('progressFrame', () => {
   });
 });
 
+describe('progressFrame with several strokes for each unit', () => {
+  const till: AnimationInfo = { frames: 8, fps: 8, loop: true };
+
+  it('plays the loop that many times on the way', () => {
+    expect(progressFrame(till, 0, 2)).toBe(0);
+    expect(progressFrame(till, 0.25, 2)).toBe(4);
+    expect(progressFrame(till, 0.49, 2)).toBe(7);
+    expect(progressFrame(till, 0.5, 2)).toBe(0);
+    expect(progressFrame(till, 0.75, 2)).toBe(4);
+  });
+
+  it('ends on the last picture of the last stroke', () => {
+    expect(progressFrame(till, 0.999, 3)).toBe(7);
+    expect(progressFrame(till, 1, 3)).toBe(7);
+    expect(progressFrame(till, 2, 3)).toBe(7);
+  });
+});
+
+describe('workLoops', () => {
+  const second: AnimationInfo = { frames: 8, fps: 8, loop: true };
+
+  it('is one stroke when a unit takes about as long as the loop', () => {
+    expect(workLoops(second, 1)).toBe(1);
+    expect(workLoops(second, 1.4)).toBe(1);
+    expect(workLoops(second, 0.3)).toBe(1);
+  });
+
+  it('is several strokes for slow work, each close to the pace of the loop', () => {
+    expect(workLoops(second, 2)).toBe(2);
+    expect(workLoops(second, 2.4)).toBe(2);
+    expect(workLoops(second, 3.1)).toBe(3);
+    expect(workLoops({ frames: 8, fps: 10, loop: true }, 2.5)).toBe(3);
+  });
+});
+
 describe('animationFor', () => {
   const info: AnimationInfo = { frames: 8, fps: 8, loop: true };
   const basic = { idle: info, walk: info, defeat: info };
@@ -167,6 +211,12 @@ describe('animationFor', () => {
     const chopper: CharacterAnimations = { ...basic, chop: info };
     expect(animationFor(chopper, 'pick')).toBe('chop');
     expect(animationFor(chopper, 'hammer')).toBe('chop');
+    expect(animationFor(chopper, 'till')).toBe('chop');
+  });
+
+  it('lets a character without a hoe till as it picks', () => {
+    expect(animationFor(worker, 'till')).toBe('pick');
+    expect(animationFor({ ...worker, till: info }, 'till')).toBe('till');
   });
 
   it('falls back on standing when a character has neither', () => {

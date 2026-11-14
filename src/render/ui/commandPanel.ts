@@ -15,8 +15,8 @@ export type CommandAction =
 export interface CommandPanelInfo {
   /** The building whose production queue is shown, when a building is selected. */
   buildingId?: number;
-  /** One button per thing the selection can train or build. */
-  buttons: { action: CommandAction; label: string; cost: string }[];
+  /** One button per thing the selection can train or build: what it does, its price and a few words about it. */
+  buttons: { action: CommandAction; label: string; cost: string; info: string }[];
   /**
    * The production queue; the first unit is the one in training. Undefined
    * for panels without a queue, such as the build menu.
@@ -58,6 +58,7 @@ export function describeCommandPanel(
         action: { kind: 'train', unit },
         label: STRINGS.hud.train(STRINGS.units[unit]),
         cost: formatCost(UNIT_DEFS[unit].cost),
+        info: STRINGS.unitInfo[unit],
       })),
       queue: first.queue.map((unit) => ({ unit, label: STRINGS.units[unit].charAt(0) })),
       progress: inTraining ? Math.min(first.trainTicks / trainTicksFor(inTraining), 1) : 0,
@@ -78,6 +79,7 @@ export function describeCommandPanel(
       action: { kind: 'build', building },
       label: STRINGS.hud.build(STRINGS.buildings[building]),
       cost: formatCost(BUILDING_DEFS[building].cost),
+      info: STRINGS.buildingInfo[building],
     })),
     progress: 0,
   };
@@ -95,12 +97,22 @@ export interface CommandPanelLayout {
 }
 
 const MARGIN = 12;
-const PANEL = { width: 424, height: 64 };
 /** Space between the edge of the panel and what is in it. */
 const PAD = 8;
-const BUTTON = { width: 150, height: 48, gap: 8 };
+/**
+ * A button holds three lines: what it does, what it costs and a few words
+ * about it. It is `width` wide where there is room and never narrower than
+ * `minWidth`; buttons that do not fit in one row go on in the next.
+ */
+const BUTTON = { width: 160, minWidth: 136, height: 64, gap: 8 };
+/** The narrowest panel that is put beside the selection panel instead of above it. */
+const MIN_BESIDE = 2 * PAD + 2 * BUTTON.width + BUTTON.gap;
 /** Queue places are at least 44 px so they can be tapped on a touch screen. */
 const SLOT = { size: 44, gap: 2 };
+/** Space between the buttons and the queue. */
+const QUEUE_GAP = 8;
+/** The progress bar under the queue: the space above it and its height. */
+const PROGRESS = { gap: 3, height: 6 };
 
 export function commandPanelLayout(
   viewWidth: number,
@@ -110,23 +122,41 @@ export function commandPanelLayout(
 ): CommandPanelLayout {
   const selection = selectionPanelRect(viewWidth, viewHeight);
   const beside = selection.x + selection.width + MARGIN;
-  // Next to the selection panel when there is room, otherwise above it.
-  const fitsBeside = beside + PANEL.width + MARGIN <= viewWidth;
-  const width = Math.min(PANEL.width, viewWidth - 2 * MARGIN);
+  const queueWidth = withQueue ? PRODUCTION_CONFIG.maxQueue * (SLOT.size + SLOT.gap) - SLOT.gap : 0;
+  const queueHeight = withQueue ? SLOT.size + PROGRESS.gap + PROGRESS.height : 0;
+  const rowWidth = (count: number, width: number) =>
+    count * width + Math.max(0, count - 1) * BUTTON.gap;
 
-  // On a narrow screen the buttons shrink to share the width of the panel.
-  const room = width - 2 * PAD - (buttonCount - 1) * BUTTON.gap;
-  const buttonWidth =
-    buttonCount > 0 ? Math.min(BUTTON.width, Math.floor(room / buttonCount)) : BUTTON.width;
-  const buttonsWidth = buttonCount * (buttonWidth + BUTTON.gap);
-  const queueWidth = PRODUCTION_CONFIG.maxQueue * (SLOT.size + SLOT.gap) - SLOT.gap;
-  // And the queue goes under the buttons when one row cannot hold both.
-  const stacked = withQueue && PAD + buttonsWidth + 4 + queueWidth + 4 > width;
-  const height = stacked ? PANEL.height + SLOT.size + 14 : PANEL.height;
+  // The panel is as wide as one row of everything needs, if the screen has
+  // the room: next to the selection panel when a fair part of it fits there,
+  // otherwise above it.
+  const wanted =
+    2 * PAD + rowWidth(buttonCount, BUTTON.width) + (withQueue ? QUEUE_GAP + queueWidth : 0);
+  const roomBeside = viewWidth - beside - MARGIN;
+  const fitsBeside = roomBeside >= Math.min(wanted, MIN_BESIDE);
+  const width = Math.min(wanted, fitsBeside ? roomBeside : viewWidth - 2 * MARGIN);
+  const inner = width - 2 * PAD;
 
+  // The queue goes under the buttons when one row cannot hold both.
+  const stacked =
+    withQueue && rowWidth(buttonCount, BUTTON.minWidth) + QUEUE_GAP + queueWidth > inner;
+  const buttonRoom = withQueue && !stacked ? inner - QUEUE_GAP - queueWidth : inner;
+  const columns = Math.max(
+    1,
+    Math.min(buttonCount, Math.floor((buttonRoom + BUTTON.gap) / (BUTTON.minWidth + BUTTON.gap))),
+  );
+  const rows = Math.max(1, Math.ceil(buttonCount / columns));
+  const buttonWidth = Math.min(
+    BUTTON.width,
+    Math.floor((buttonRoom - (columns - 1) * BUTTON.gap) / columns),
+  );
+  const buttonsHeight = rows * BUTTON.height + (rows - 1) * BUTTON.gap;
+  const height = 2 * PAD + buttonsHeight + (stacked ? QUEUE_GAP + queueHeight : 0);
+
+  // Its lower edge is level with the selection panel's, or just above that panel.
   const panel: ScreenRect = {
     x: fitsBeside ? beside : MARGIN,
-    y: fitsBeside ? selection.y : selection.y - 8 - height,
+    y: fitsBeside ? selection.y + selection.height - height : selection.y - 8 - height,
     width,
     height,
   };
@@ -134,15 +164,19 @@ export function commandPanelLayout(
   const buttons: ScreenRect[] = [];
   for (let i = 0; i < buttonCount; i++) {
     buttons.push({
-      x: panel.x + PAD + i * (buttonWidth + BUTTON.gap),
-      y: panel.y + PAD,
+      x: panel.x + PAD + (i % columns) * (buttonWidth + BUTTON.gap),
+      y: panel.y + PAD + Math.floor(i / columns) * (BUTTON.height + BUTTON.gap),
       width: buttonWidth,
       height: BUTTON.height,
     });
   }
 
-  const slotsX = stacked ? panel.x + PAD : panel.x + PAD + buttonsWidth + 4;
-  const slotsY = stacked ? panel.y + PAD + BUTTON.height + 6 : panel.y + 6;
+  const slotsX = stacked
+    ? panel.x + PAD
+    : panel.x + PAD + rowWidth(buttonCount, buttonWidth) + QUEUE_GAP;
+  const slotsY = stacked
+    ? panel.y + PAD + buttonsHeight + QUEUE_GAP
+    : panel.y + PAD + Math.floor((buttonsHeight - queueHeight) / 2);
   const slots: ScreenRect[] = [];
   for (let i = 0; withQueue && i < PRODUCTION_CONFIG.maxQueue; i++) {
     slots.push({
@@ -159,9 +193,9 @@ export function commandPanelLayout(
     slots,
     progressBar: {
       x: slotsX,
-      y: slotsY + SLOT.size + 3,
-      width: withQueue ? queueWidth : 0,
-      height: withQueue ? 6 : 0,
+      y: slotsY + SLOT.size + PROGRESS.gap,
+      width: queueWidth,
+      height: withQueue ? PROGRESS.height : 0,
     },
   };
 }

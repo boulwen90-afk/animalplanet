@@ -1,6 +1,6 @@
-import type { BuildingType } from '../../data/buildings';
+import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
 import { UNIT_DEFS } from '../../data/units';
-import type { Entity, PlayerId } from '../../sim/state';
+import type { Building, Entity, PlayerId } from '../../sim/state';
 
 /**
  * Selection rules. A selection is either any number of the player's own
@@ -141,4 +141,13 @@ export function attackerUnitIds(
         UNIT_DEFS[entity.type].damage > 0,
     )
     .map((entity) => entity.id);
+}
+
+/** True for a finished building of the player's own that units can work at, such as a field. */
+export function isWorkplace(building: Building, player: PlayerId): boolean {
+  return (
+    building.owner === player &&
+    building.complete &&
+    BUILDING_DEFS[building.type].work !== undefined
+  );
 }

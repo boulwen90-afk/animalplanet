@@ -11,6 +11,9 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   gjorda och väntar på att användaren ser skärmdumparna. Se "Efter MVP:n"
 - **Väntar på användaren:** befolkningssystemet (plats från byggnader,
   bostaden Ide, hårt tak 50) är infört och väntar på granskning
+- **Väntar på användaren:** ekonomibyggnader, steg 1 av 2: **Odlingen**
+  är införd. Användaren ska se skärmdumparna och godkänna startvärdena
+  innan steg 2 (Fiskehyttan) påbörjas
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare), björnarnas byggnader och att byggnaderna ritas i spelet
 - **Inte gjort:** Idet har ingen egen bild (block med bokstaven I).
@@ -823,6 +826,149 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Ekonomibyggnader, steg 1: Odling (2026-11-14)
+
+Användaren: maten tar slut för snabbt eftersom bärsnåren är ändliga.
+Björnarna får ekonomibyggnader, en i taget: först Odling, sedan
+Fiskehytta. Efter varje steg ska Claude stanna och visa skärmdumpar.
+
+**Kontrollerna som uppdraget bad om först**
+
+- *Finns Idet och befolkningssystemet?* Ja (pull request 14). Steg 0
+  hoppades därför över.
+- *Finns vatten och strandlinje på kartan?* Vatten finns på alla åtta
+  prövade frön: 34–80 vattenrutor, varav 42–66 öppna gräsrutor gränsar
+  till vatten. Närmaste strandruta ligger 9–38 rutor från startplatserna.
+  Det finns ingen egen strandterräng och ingen strandgrafik: vatten är blå
+  rutor som spärrar vägen. Steg 2 kan alltså byggas på "gräsruta intill
+  vatten" utan att kartan ändras, men på vissa frön ligger vattnet långt
+  från basen.
+
+**Skärmdumpar:** `docs/screenshots/odling-stadier.png` (byggmenyn med
+kostnad och beskrivning, och tre Odlingar i var sitt stadium),
+`odling-arbete.png` (Samlaren hackar: fyra bildrutor ur rörelsen),
+`odling-tre.png` (tre färdiga Odlingar med var sin Samlare) och
+`odling-byggmeny-telefon.png` (byggmenyn i två rader på en 390 px bred
+skärm).
+
+**Startvärden (förslag, väntar på godkännande)**
+
+| | Odling | Bärsnår |
+|---|---|---|
+| Kostnad | 60 trä | – |
+| Byggtid, 1 Samlare | 20 s | – |
+| Liv | 200 | – |
+| Yta | 2×2 rutor | 1 ruta |
+| Samlare samtidigt | 1 | upp till 4 |
+| Tid per mat | 2,5 s | 1 s |
+| Mat per minut och Samlare, utan gångväg | 24 | 60 |
+| Uppmätt med gångväg (sex frön) | 20–22, Odlingen intill Storidet | 45–55, snåret 4–6 rutor från Storidet |
+| Mängd | tar aldrig slut | 150 per snår |
+
+En Odling ger alltså drygt 40 % av vad samma Samlare får ur bär. De 60
+träna motsvarar knappt tre minuters skörd från åkern.
+
+**Avstämning mot uppdraget, steg 1**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| Byggs av Samlare, kostar trä, yta enligt skalstandarden | Klar | 60 trä, 2×2 rutor. Ny storleksklass `plot` utan lägsta höjd, eftersom en åker inte är ett hus |
+| En Samlare per Odling | Klar | `work.workers = 1`. Nästa Samlare går till närmaste egna lediga Odling, annars behåller den sin uppgift |
+| Mat i oändlighet, tydligt långsammare än bär | Klar | 24 mot 60 mat/min utan gångväg |
+| Lämnar maten i närmaste förråd eller huvudbyggnad, som för bär | Klar | Samma avlämningskod som för bär |
+| Egen arbetsanimation om pipelinen tillåter | Klar | Ny animation `till` med hacka, 8 bildrutor i 8 riktningar |
+| AI:n bygger Odlingar innan bären tar slut | Klar | Börjar när bären inom 14 rutor från Storidet är under 600 mat |
+| Enhetstester för produktion och en Samlare per Odling | Klar | `src/sim/systems/farming.test.ts`, 19 tester, och ett AI-test |
+| Grafik via figurpipelinen enligt skalstandarden | Klar | `buildings/bear/field.toml`, tre byggstadier och skugga |
+| Syns i byggmenyn med kostnad och kort beskrivning | Klar | Alla knappar i kommandopanelen har nu tre rader |
+| Alla värden i datafilerna | Klar | `BUILDING_DEFS.odling`, `AI_CONFIG.fields`, `STRINGS.buildingInfo` |
+| Tester gröna, inga konsolfel, skärmdumpar | Klar | Se "Testresultat" |
+| progress.md, architecture.md och GDD:t uppdaterade | Klar | GDD avsnitt 4, 6, 8, 10 och 13 |
+
+**Så fungerar det**
+
+- En byggnad kan ha `work` i `BUILDING_DEFS`: resurs, antal arbetare och
+  sekunder per enhet. Arbetet är samma `GatherTask` som för träd och
+  bärsnår, med byggnadens id i `siteId`. Fiskehyttan kan använda samma
+  väg.
+- Nytt kommando `work` (spelare och AI). Högerklick, eller ett tryck på
+  pekskärm, på en egen färdig Odling skickar dit markerade Samlare.
+- Odlingen är `walkable`: enheter går över den, och den ritas som mark.
+- Samlaren står på åkerns bortre hörnruta, som är bar jord i bilden, och
+  hackar tre tag per mat.
+- Den som bygger klart en Odling börjar arbeta på den.
+
+**Val som uppdraget inte avgjorde**
+
+- **Man går över en Odling.** Annars skulle en rad åkrar stänga in basen.
+  Den kan fortfarande anfallas och rivas.
+- **Byggaren börjar arbeta på åkern** när den är klar, så att spelaren
+  inte behöver ge två order.
+- **En Samlare som inte får plats behåller sin uppgift.** Inget
+  meddelande visas.
+- **Alla knappar i kommandopanelen fick en beskrivningsrad**, även
+  träningsknapparna, så att menyn ser likadan ut överallt. Knapparna blev
+  därför 64 px höga mot 48, och radbryts när de inte ryms.
+- **AI:ns regel:** en Odling för varje 150 mat som fattas under 600 inom
+  14 rutor från Storidet, högst 5.
+
+**Saknas eller avviker**
+
+- **Grödan skymmer inte enheter.** Åkern ritas under allt som står på
+  marken. En enhet som går genom säden ser ut att gå ovanpå den, och en
+  enhet bakom gärdsgården eller fågelskrämman ritas framför dem.
+- **Korgen visar bär.** Samlaren bär hem mat från åkern i samma fyllda
+  korg som från bärsnår; det finns ingen egen bild för säd.
+- **Inget meddelande när Odlingen är upptagen.** Högerklickar man med en
+  andra Samlare händer ingenting synligt, utöver orderringen.
+- **Byggplaceringen visar fortfarande bara fotavtrycket**, inte åkerns
+  bild. Det gäller alla byggnader sedan tidigare.
+- **Idet är fortfarande ett platshållarblock.**
+- **Ingen skärmdump av datorspelarens Odlingar.** Regeln prövas av ett
+  enhetstest, där bären vid dess bas töms i förväg. I en vanlig match mot
+  en spelare som inte gör något är matchen slut innan bären tar slut.
+- **Balansen mot en mänsklig spelare är inte speltestad.** Värdena är
+  förslag.
+- **Matcher mellan två datorspelare blev längre:** 13,3–20,8 minuter (sex
+  frön) mot 11,5–15,0 förut. Båda sidor bygger fyra Odlingar i varje
+  match, den första efter 1,7–10,8 minuter. Ett av sex frön hamnar strax
+  över GDD:ts mål på 10–20 minuter. Balanstesterna går igenom utan
+  ändrade värden.
+- **En åker bakom en hög byggnad är svår att klicka på.** Klickytan för
+  Storidet når upp över tornet, så ett klick på en Odling rakt bakom det
+  träffar Storidet. Det gäller allt som står bakom höga byggnader sedan
+  byggnaderna fick bilder.
+- **Den gemensamma pipelinen ändrades** med tillägg: redskapet hacka i
+  `lib/weapons.py`, animationen `till`, fem nya byggnadsdelar i
+  `lib/structures.py` och storleksklassen `plot` i `game.toml`. Alla
+  övriga atlaser byggdes om och är oförändrade byte för byte.
+- **Pull request 14 växer.** Arbetet ligger på samma gren som
+  befolkningssystemet, som inte är mergat än, och hamnar därför i samma
+  pull request.
+- **Steg 2 (Fiskehytta) är inte påbörjat.**
+
+**Testresultat**
+
+- Vitest: 556 av 556 (37 nya: 19 för Odlingens regler, 1 för att
+  datorspelaren bygger Odlingar i tid, övriga för byggmenyn, hackrörelsen,
+  arbetsordern och åkerns atlas)
+- Playwright: 116 av 116 (4 nya), även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+
+**Två nya tester föll första gången, och varför.** Testerna för
+högerklick och tryck på en Odling lät testhjälpen bygga åkern på första
+lediga plats, som låg rakt bakom Storidet. Klickpunkten låg då inom
+Storidets klickyta, så klicket träffade Storidet och gav en flyttorder.
+Spelet gjorde rätt; testet valde en dålig plats. `buildNearHome` kan nu
+bygga framför Storidet, och det gör fälttesterna.
+
+**Äldre tester som ändrades, och varför**
+
+- Testerna av byggmenyn väntar sig fyra knappar och en beskrivningsrad.
+- Testet att kommandopanelen står "i höjd med" markeringspanelen jämför
+  nu underkanterna, eftersom panelen blev högre.
+- Testhjälpen `buildHouse` bygger på en allmännare `buildNearHome`.
 
 ### Befolkningssystem (2026-11-14)
 

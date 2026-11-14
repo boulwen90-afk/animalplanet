@@ -71,6 +71,7 @@ export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label:
   visthus: { wallHeight: 48, label: 'V' },
   krigshall: { wallHeight: 62, label: 'K' },
   ide: { wallHeight: 22, label: 'I' },
+  odling: { wallHeight: 6, label: 'O' },
 };
 
 /**

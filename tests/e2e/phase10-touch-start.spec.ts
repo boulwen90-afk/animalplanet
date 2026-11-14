@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { BUILDING_DEFS } from '../../src/data/buildings';
+import { UNIT_DEFS } from '../../src/data/units';
 import type { Building, GameState, Unit } from '../../src/sim/state';
 import {
   centerCameraOnMapMiddle,
@@ -425,7 +426,9 @@ test.describe('phase 10: on a phone', () => {
     const at = await unitScreen(page, unit!);
     await touch.tap(at.x, at.y);
     expect(await getSelection(page)).toEqual([unit!.id]);
-    await expect.poll(async () => (await commandPanel(page)).buttons.length).toBe(3);
+    await expect
+      .poll(async () => (await commandPanel(page)).buttons.length)
+      .toBe(UNIT_DEFS.samlare.builds.length);
     for (const button of (await commandPanel(page)).buttons) onScreen(button);
     for (const button of await hudButtons(page)) {
       onScreen(button, button.width / 2, button.height / 2);

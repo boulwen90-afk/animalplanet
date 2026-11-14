@@ -426,7 +426,94 @@ def slab(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
     b.box(name, ((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2), (x1 - x0, y1 - y0, z1 - z0), pal[p.get("material", "timber")])
 
 
+def soil(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """Tilled earth: a low bed with furrows running across it."""
+    x0, y0, x1, y1 = p["box"]
+    h = p.get("height", 0.04)
+    b.box(f"{name}.bed", ((x0 + x1) / 2, (y0 + y1) / 2, h / 2), (x1 - x0, y1 - y0, h), pal["soil"])
+    rows = p.get("rows", 6)
+    along_x = p.get("along", "x") == "x"
+    for i in range(rows):
+        t = (i + 0.5) / rows
+        if along_x:
+            centre, size = ((x0 + x1) / 2, y0 + (y1 - y0) * t, h + 0.012), (x1 - x0 - 0.04, (y1 - y0) / rows * 0.45, 0.03)
+        else:
+            centre, size = (x0 + (x1 - x0) * t, (y0 + y1) / 2, h + 0.012), ((x1 - x0) / rows * 0.45, y1 - y0 - 0.04, 0.03)
+        b.box(f"{name}.ridge_{i}", centre, size, pal["soil_dark"])
+
+
+def crops(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """Rows of plants on a bed: a tuft of leaves each, every other one with a head of grain."""
+    x0, y0, x1, y1 = p["box"]
+    z0 = p.get("z", 0.04)
+    rows, per_row = p.get("rows", 4), p.get("per_row", 5)
+    tall = p.get("height", 0.22)
+    along_x = p.get("along", "x") == "x"
+    for i in range(rows):
+        for j in range(per_row):
+            u, v = (j + 0.5) / per_row, (i + 0.5) / rows
+            x = x0 + (x1 - x0) * (u if along_x else v)
+            y = y0 + (y1 - y0) * (v if along_x else u)
+            # Heights differ a little, in a fixed pattern.
+            grow = tall * (0.85 + 0.1 * ((i * 3 + j * 5) % 4))
+            b.limb(f"{name}.stalk_{i}_{j}", (x, y, z0), (x, y, z0 + grow), 0.05, 0.02, pal["crop"], 5)
+            if (i + j) % 2 == 0:
+                b.ellipsoid(f"{name}.head_{i}_{j}", (x, y, z0 + grow), (0.045, 0.045, 0.07), pal["crop_top"], detail=1)
+
+
+def fence(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """A fence of posts and two rails along a line through the given points."""
+    points = [Vector((x, y, p.get("z", 0.0))) for x, y in p["points"]]
+    h = p.get("height", 0.3)
+    spacing = p.get("spacing", 0.5)
+    index = 0
+    for start, end in zip(points, points[1:]):
+        count = max(1, round((end - start).length / spacing))
+        for i in range(count + 1):
+            at = start.lerp(end, i / count)
+            b.limb(f"{name}.post_{index}", at, at + UP * h, 0.04, 0.035, pal["timber"], 5)
+            index += 1
+        for level, share in enumerate((0.45, 0.85)):
+            b.limb(f"{name}.rail_{index}_{level}", start + UP * h * share, end + UP * h * share, 0.022, 0.022, pal["timber_mid"], 4)
+
+
+def scarecrow(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """A scarecrow: a pole with a crossbar, a stuffed head, and a ragged coat in the team colour."""
+    x, y = p["at"]
+    z0, h = p.get("z", 0.0), p.get("height", 0.85)
+    normal, along = FACES[p.get("face", "-y")]
+    foot = Vector((x, y, z0))
+    b.limb(f"{name}.pole", foot, foot + UP * h, 0.035, 0.03, pal["timber_dark"], 5)
+    shoulder = foot + UP * h * 0.72
+    b.limb(f"{name}.arms", shoulder - along * 0.3, shoulder + along * 0.3, 0.028, 0.028, pal["timber_dark"], 4)
+    # The coat hangs from the crossbar, wider at the hem.
+    rows = [
+        [tuple(shoulder + along * u * 0.26 + normal * 0.03) for u in (-1.0, 0.0, 1.0)],
+        [tuple(shoulder + along * u * 0.2 - UP * h * 0.2 + normal * 0.05) for u in (-1.0, 0.0, 1.0)],
+        [tuple(shoulder + along * u * 0.24 - UP * h * (0.42 - 0.04 * abs(u)) + normal * 0.04) for u in (-1.0, 0.0, 1.0)],
+    ]
+    b.sheet(f"{name}.coat", rows, pal["team"])
+    b.ellipsoid(f"{name}.head", foot + UP * (h + 0.02), (0.1, 0.1, 0.11), pal["sack"], detail=1)
+    b.limb(f"{name}.hat", foot + UP * (h + 0.09), foot + UP * (h + 0.2), 0.15, 0.04, pal["sack_dark"], 8)
+
+
+def stakes(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """A plot marked out for work: a stake at each corner and a cord between them."""
+    x0, y0, x1, y1 = p["box"]
+    h = p.get("height", 0.22)
+    corners = [Vector((x0, y0, 0)), Vector((x1, y0, 0)), Vector((x1, y1, 0)), Vector((x0, y1, 0))]
+    for i, at in enumerate(corners):
+        b.limb(f"{name}.stake_{i}", at, at + UP * h, 0.03, 0.02, pal["timber_new"], 4)
+        nxt = corners[(i + 1) % 4]
+        b.limb(f"{name}.cord_{i}", at + UP * h * 0.8, nxt + UP * h * 0.8, 0.01, 0.01, pal["sack"], 4)
+
+
 PARTS = {
+    "soil": soil,
+    "crops": crops,
+    "fence": fence,
+    "scarecrow": scarecrow,
+    "stakes": stakes,
     "base": base,
     "walls": walls,
     "frame": frame_posts,

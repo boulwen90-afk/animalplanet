@@ -1,6 +1,7 @@
 import type { GameObjects, Scene } from 'phaser';
 import { BUILDING_DEFS } from '../../data/buildings';
 import type { ResourceType } from '../../data/resources';
+import { SIM_CONFIG } from '../../data/sim';
 import { UI_CONFIG } from '../../data/ui';
 import { UNIT_DEFS } from '../../data/units';
 import { buildingCentre, hasSurrendered } from '../../sim/entities';
@@ -20,6 +21,7 @@ import {
   frameName,
   progressFrame,
   travelFrame,
+  workLoops,
   type CharacterAnimation,
 } from '../characters/animation';
 import type { BuildingLibrary, BuildingSheet } from '../buildings/BuildingLibrary';
@@ -49,6 +51,13 @@ const OVERLAY_DEPTH = 900_000;
 /** Depth of the shadows under characters: on the ground, above the selection marks. */
 const SHADOW_DEPTH = -0.45;
 const SHADOW_TEXTURE = 'character-shadow';
+/**
+ * Depth of a building that units walk on, such as a field: on the ground,
+ * under the selection marks and the shadows of the units on it.
+ */
+const FLAT_BUILDING_DEPTH = -0.6;
+/** Depth of the shadow of such a building: under the building itself. */
+const FLAT_SHADOW_DEPTH = -0.62;
 /** How far in front of a building a unit behind it is drawn. */
 const BEHIND_DEPTH_OFFSET = 0.5;
 /** How far in front of its character a load is drawn: less than the gap between any two rows of pixels. */
@@ -198,7 +207,8 @@ export class EntityView {
     for (const entity of state.entities) {
       if (entity.kind !== 'building' || !isShown(entity)) continue;
       const sheet = this.buildingArt?.get(entity.type);
-      // The bare frame of a building just begun hides nothing.
+      // A building that units walk on lies under them. The bare frame of a building just begun hides nothing.
+      if (BUILDING_DEFS[entity.type].walkable) continue;
       if (!sheet || stageOf(entity.complete, buildFraction(entity)) === 'construction_1') continue;
       const centre = buildingCentre(entity);
       const side = BUILDING_DEFS[entity.type].size;
@@ -400,10 +410,14 @@ export class EntityView {
         x = drawing.defeat.x + (ground.x - drawing.defeat.x) * k;
         y = drawing.defeat.y + (ground.y - drawing.defeat.y) * k;
       }
-      const activity = activityOf(unit);
+      const task = unit.task;
+      // The building the unit works at, if it works at one: a field, say.
+      const workSite =
+        task.kind === 'gather' && task.siteId !== null ? byId.get(task.siteId) : undefined;
+      const site = workSite?.kind === 'building' ? workSite : undefined;
+      const activity = activityOf(unit, site?.type);
       animation = animationFor(animations, activity);
       const info = animations[animation] ?? animations.idle;
-      const task = unit.task;
       const face = (at: Point | undefined) => {
         if (at) drawing.direction = facingOf(at.x - unit.x, at.y - unit.y) ?? drawing.direction;
       };
@@ -417,9 +431,12 @@ export class EntityView {
         const cooldown = Math.max(0, unit.attackCooldown - alpha);
         frame = attackFrame(info, cooldown, strikeTicks(unit));
       } else if (task.kind === 'gather' && task.phase === 'gathering') {
-        // One swing or one handful for each unit of the resource: it is taken as the loop starts.
-        face({ x: task.node.x + 0.5, y: task.node.y + 0.5 });
-        frame = progressFrame(info, (task.workTicks + alpha) / ticksPerUnit(unit));
+        // One swing or one handful for each unit of the resource: it is taken
+        // as the loop starts. Slow work, as on a field, takes several strokes.
+        face(site ? buildingCentre(site) : { x: task.node.x + 0.5, y: task.node.y + 0.5 });
+        const ticks = ticksPerUnit(unit, site);
+        const loops = workLoops(info, ticks / SIM_CONFIG.ticksPerSecond);
+        frame = progressFrame(info, (task.workTicks + alpha) / ticks, loops);
       } else if (activity === BUILD_ACTIVITY && task.kind === 'build') {
         const site = byId.get(task.buildingId);
         face(site?.kind === 'building' ? buildingCentre(site) : undefined);
@@ -691,14 +708,16 @@ export class EntityView {
       const ground = tileToWorld(centre.x, centre.y, this.size);
       const texture = sheet.textureKey(building.owner);
       const stage = stageOf(building.complete, buildFraction(building));
+      // A building that units walk on is part of the ground under them.
+      const flat = BUILDING_DEFS[building.type].walkable;
       const image = this.scene.add
         .image(ground.x, ground.y, texture, stage)
         .setScale(sheet.displayScale)
-        .setDepth(ground.y);
+        .setDepth(flat ? FLAT_BUILDING_DEPTH : ground.y);
       const shadow = this.scene.add
         .image(ground.x, ground.y, texture, SHADOW_FRAME)
         .setScale(sheet.displayScale)
-        .setDepth(SHADOW_DEPTH);
+        .setDepth(flat ? FLAT_SHADOW_DEPTH : SHADOW_DEPTH);
       return { image, shadow, kind: 'building', flashing: false, building: sheet };
     }
 

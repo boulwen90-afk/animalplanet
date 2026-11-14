@@ -20,13 +20,15 @@ interface Atlas {
   };
 }
 
-/** A building atlas as built by `npm run build:characters`. The game does not draw them yet. */
+/** A building atlas as built by `npm run build:characters`. */
 const read = (name: string) =>
   JSON.parse(readFileSync(`assets/buildings/${name}/${name}.json`, 'utf8')) as Atlas;
 
 /** The buildings of the bears, and the lowest roof the size standard allows, in tile widths. */
 const BUILDINGS: { name: string; building: BuildingType; sizeClass: string; tileWidths: number }[] =
   [
+    // A field is ground, not a house: the standard asks no height of it.
+    { name: 'bear_field', building: 'odling', sizeClass: 'plot', tileWidths: 0 },
     { name: 'bear_storage', building: 'visthus', sizeClass: 'small', tileWidths: 1.0 },
     { name: 'bear_barracks', building: 'krigshall', sizeClass: 'large', tileWidths: 1.4 },
     { name: 'bear_main', building: 'storide', sizeClass: 'main', tileWidths: 1.8 },
@@ -66,6 +68,15 @@ describe('the buildings against each other and the figures', () => {
 
   it('even the smallest building is clearly taller than a warrior', () => {
     expect(roof('bear_storage')).toBeGreaterThan(warrior.meta.figure.height * 1.8);
+  });
+
+  it('a field is lower than the house beside it, and its fence no higher than a worker', () => {
+    const worker = JSON.parse(
+      readFileSync('assets/characters/bear_worker/bear_worker.json', 'utf8'),
+    ) as { meta: { figure: { height: number } } };
+    expect(roof('bear_field')).toBeLessThan(roof('bear_storage'));
+    // The scarecrow is the tallest thing on it: about as tall as the worker.
+    expect(roof('bear_field')).toBeLessThan(worker.meta.figure.height * 1.3);
   });
 
   it('the main building is the tallest, then the barracks, then the storehouse', () => {

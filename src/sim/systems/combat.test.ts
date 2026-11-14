@@ -136,6 +136,7 @@ describe('striking', () => {
       phase: 'gathering',
       workTicks: 0,
       dropoffId: null,
+      siteId: null,
     };
     expect(attack(state, [worker], enemy)).toEqual({ ok: true });
     tick(state);
@@ -518,6 +519,7 @@ describe('surrender', () => {
       phase: 'gathering',
       workTicks: 0,
       dropoffId: null,
+      siteId: null,
     };
     for (const victim of victims) {
       victim.hp = 1;

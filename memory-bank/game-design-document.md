@@ -51,6 +51,7 @@ En match ska ta ungefär 10–20 minuter.
 | Attackera | Högerklick på fiendeenhet/-byggnad |
 | Samla | Högerklick på resurs (med arbetare markerade) |
 | Hjälp till att bygga | Högerklick på eget bygge (med arbetare markerade) |
+| Arbeta på en Odling | Högerklick på egen färdig Odling (med arbetare markerade) |
 | Bygga / träna | Knappar i kommandopanelen |
 | Avbryt byggplacering | Högerklick eller Esc |
 | Panorera kameran | Piltangenter / WASD, muspekaren mot skärmkanten, eller dra med mittenknappen |
@@ -100,9 +101,19 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 | Resurs | Källa | Mängd per källa | Används till |
 |---|---|---|---|
 | Mat | Bärsnår | 150 | Arbetare, soldater |
+| Mat | Odling (byggnad, se avsnitt 8) | tar aldrig slut | Arbetare, soldater |
 | Trä | Träd | 100 | Byggnader, soldater |
 
-- Källor är ändliga och försvinner när de är tömda. Tömda träd blir gångbar mark.
+- Källor på kartan är ändliga och försvinner när de är tömda. Tömda träd blir
+  gångbar mark.
+- **Odling** (tillagt 2026-11-14 på användarens begäran, eftersom maten tog
+  slut när bärsnåren var tömda): en byggnad som ger mat i oändlighet, men
+  tydligt långsammare än bär. **En Samlare per Odling.** Samlaren hackar
+  fram 1 mat var 2,5 s (24 mat/min utan gångväg, mot 60 för ett bärsnår),
+  bär 10 åt gången och lämnar lasten i närmaste Visthus eller Storide,
+  precis som bär. Uppmätt med en Odling intill Storidet: 20–22 mat/min per
+  Samlare, mot 45–55 för bärsnår 4–6 rutor från Storidet. Värdena ligger i
+  `BUILDING_DEFS.odling` (`cost`, `buildTime`, `work`).
 - **Arbetsplatser:** varje källa har upp till 4 fasta arbetsplatser, på de
   öppna rutorna runt den. En arbetare tar en ledig plats och behåller den
   medan den bär hem lasten. Är alla platser tagna går arbetaren till
@@ -165,18 +176,33 @@ Stridsregler:
 
 ## 8. Byggnader (MVP)
 
-| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) |
-|---|---|---|---|---|
-| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats |
-| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä |
-| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s |
-| Liv | 1500 | 400 | 700 | 300 |
-| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor |
-| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor |
-| Befolkningsplats | 5 | 0 | 0 | 5 |
+| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) |
+|---|---|---|---|---|---|
+| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare |
+| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä |
+| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s |
+| Liv | 1500 | 400 | 700 | 300 | 200 |
+| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor |
+| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor |
+| Befolkningsplats | 5 | 0 | 0 | 5 | 0 |
 
 Bostaden heter olika för varje ras; björnarnas är Idet. Det byggs av
 Samlare. Tills vidare ritas det som ett block med bokstaven I.
+
+**Odlingen** (tillagt 2026-11-14) byggs av Samlare och är en åker, inte ett
+hus:
+- Enheter **går över den**; den spärrar ingen väg. Den kan anfallas och
+  rivas som andra byggnader.
+- **En Samlare åt gången** arbetar där, på åkerns bortre hörnruta, med
+  ansiktet mot grödan. Den som byggde åkern börjar arbeta på den när den
+  är klar. Högerklick på en färdig Odling skickar dit en markerad Samlare.
+  Är åkern upptagen går Samlaren till närmaste egna lediga Odling inom
+  sökradien; finns ingen behåller den sin uppgift.
+- Rivs åkern söker Samlaren upp en annan ledig Odling, annars närmaste
+  bärsnår.
+- Kommandopanelens knappar visar tre rader: vad knappen gör, kostnaden och
+  en kort beskrivning (t.ex. "Bygg Odling / 60 trä / Oändlig mat, 1
+  Samlare"). Knappar som inte ryms på en rad fortsätter på nästa.
 
 Byggregler:
 - Spelaren väljer byggnad i kommandopanelen och placerar en "spökbild" på
@@ -219,11 +245,16 @@ som spelaren (inget fusk med resurser):
    inräknade), så att träningen inte behöver vänta på en bostad. Bostäder
    går före allt annat byggande.
 3. Bygger en Krigshall när den har råd, och ett Visthus vid skogen.
-4. Tränar Ramkrigare kontinuerligt.
-5. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
+4. Bygger Odlingar **innan bären tar slut**: när bärsnåren inom 14 rutor
+   från Storidet har mindre än 600 mat kvar bygger den en Odling för varje
+   150 mat som fattas, högst 5, och ställer en ledig Samlare på varje.
+   Lediga Samlare tar i första hand bär nära basen, sedan en ledig Odling
+   och först därefter bär längre bort. Värdena ligger i `AI_CONFIG.fields`.
+5. Tränar Ramkrigare kontinuerligt.
+6. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
    ligger i en datafil (t.ex. våg 1: 4 krigare tidigast vid 4 min, därefter
    större vågor).
-6. Hemmavarande krigare försvarar basen om den anfalls.
+7. Hemmavarande krigare försvarar basen om den anfalls.
 
 Förenkling: AI:n känner till spelarens startposition och påverkas inte av
 krigsdimman. En svårighetsgrad.
@@ -275,7 +306,8 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 - Fler raser än björnar, rasunika enheter eller bonusar
 - Tidsåldrar, uppgraderingar, forskning
 - Distansenheter, belägringsvapen, hjältar/ledare som enheter
-- Torn, murar, fler byggnadstyper
+- Torn, murar, fler byggnadstyper (Odlingen tillkom 2026-11-14, se avsnitt
+  6 och 8; en Fiskehytta är planerad som nästa steg)
 - ~~Bostadshus som höjer befolkningstaket (planerat efter MVP, maxtak ca
   250)~~ Infört 2026-11-14 med ett hårt tak på 50, se avsnitt 6 och 8.
 - Fler resurser än mat och trä

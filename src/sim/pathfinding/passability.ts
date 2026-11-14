@@ -1,10 +1,14 @@
+import { BUILDING_DEFS } from '../../data/buildings';
 import { TERRAIN_DEFS } from '../../data/terrain';
 import { buildingTiles, isBuilding } from '../entities';
 import type { Point } from '../map/iso';
 import type { GameState } from '../state';
 import { canStep, isPassable, type PathGrid } from './astar';
 
-/** The walkable tiles right now: walkable terrain not covered by a building. */
+/**
+ * The walkable tiles right now: walkable terrain not covered by a building.
+ * A building that is itself walkable, such as a field, covers nothing.
+ */
 export function buildPathGrid(state: GameState): PathGrid {
   const { width, height, terrain } = state.map;
   const blocked = new Uint8Array(width * height);
@@ -13,7 +17,7 @@ export function buildPathGrid(state: GameState): PathGrid {
     if (tile === undefined || !TERRAIN_DEFS[tile].walkable) blocked[i] = 1;
   }
   for (const entity of state.entities) {
-    if (!isBuilding(entity)) continue;
+    if (!isBuilding(entity) || BUILDING_DEFS[entity.type].walkable) continue;
     for (const tile of buildingTiles(entity)) {
       if (tile.x >= 0 && tile.y >= 0 && tile.x < width && tile.y < height) {
         blocked[tile.y * width + tile.x] = 1;
