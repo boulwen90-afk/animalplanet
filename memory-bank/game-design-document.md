@@ -71,7 +71,7 @@ En match ska ta ungefär 10–20 minuter.
   Enheter i kö räknas med i det nuvarande talet. När en enhet inte kan
   tränas för att platsen är full blir talet rött i 2,5 sekunder och ett
   kort meddelande visas: "Ingen plats – bygg ett Ide", eller
-  "Befolkningstaket 50 är nått" när det hårda taket är nått.
+  "Befolkningstaket 200 är nått" när det hårda taket är nått.
 - **Nederkant:** markeringspanel (namn, liv, vad enheten gör) och
   kommandopanel (bygg-/träningsknappar med kostnad, produktionskö).
 - Ingen minikarta i MVP:n.
@@ -135,8 +135,10 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
   - En sida har **plats** för så många enheter som dess färdiga byggnader
     ger: Storiden ger 5 och varje Ide (bostad) ger 5 till. En byggnad under
     uppförande ger ingenting än.
-  - **Hårt tak: 50 per sida**, hur många bostäder man än bygger. (Den
-    tidigare skissen talade om ett maxtak på omkring 250.)
+  - **Hårt tak: 200 per sida**, hur många bostäder man än bygger. Det
+    motsvarar Storidet och 39 Iden. (Höjt från 50 den 2026-11-14 på
+    användarens begäran. Den första skissen talade om ett maxtak på
+    omkring 250.)
   - Varje enhetstyp har en **befolkningskostnad**; i dag kostar alla 1.
   - **Träning blockeras när platsen är full.** Enheter i produktionsköer
     räknas som upptagen plats, eftersom de behöver plats när de är klara.
@@ -381,7 +383,8 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
   2026-11-14, se avsnitt 6 och 8)
 - Båtar och allt annat på vatten
 - ~~Bostadshus som höjer befolkningstaket (planerat efter MVP, maxtak ca
-  250)~~ Infört 2026-11-14 med ett hårt tak på 50, se avsnitt 6 och 8.
+  250)~~ Infört 2026-11-14 med ett hårt tak på 50, samma dag höjt till
+  200, se avsnitt 6 och 8.
 - Fler resurser än mat och trä
 - Riktig grafik, animationer, ljud och musik
 - Minikarta, kontrollgrupper (Ctrl+1 …), patrull/håll position, formationer
@@ -404,7 +407,7 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 4. **Befolkningstak.** Fast tak på 30 i MVP:n. Senare tillkommer bostadshus
    som höjer taket, med ett maxtak på omkring 250. Taket ligger i en datafil
    så att det kan ändras utan kodändring. **Ändrat 2026-11-14:** bostäder
-   finns nu, och det hårda taket är 50 per sida. Se avsnitt 6.
+   finns nu, och det hårda taket är 200 per sida (först 50). Se avsnitt 6.
 5. **Kartan.** Genererad från frö med ett fast standardfrö.
 
 ## 15. Kapitulation och grottor

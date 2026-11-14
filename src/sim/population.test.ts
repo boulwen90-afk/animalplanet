@@ -20,6 +20,8 @@ import { advance } from './tick';
 const HOUSE = BUILDING_DEFS.ide.housing;
 const HOME = BUILDING_DEFS.storide.housing;
 const CAP = POPULATION_CONFIG.hardCap;
+/** As many houses as, with the main building, give all the room a side can have. */
+const HOUSES_TO_CAP = Math.ceil((CAP - HOME) / HOUSE);
 
 /** A wide open map with a Storide for side 0 and plenty of food. */
 function setup() {
@@ -56,8 +58,8 @@ describe('the data', () => {
     expect(BUILDING_DEFS.krigshall.housing).toBe(0);
   });
 
-  it('the hard cap is 50 for each side', () => {
-    expect(CAP).toBe(50);
+  it('the hard cap is 200 for each side', () => {
+    expect(CAP).toBe(200);
   });
 
   it('every unit type takes up one place', () => {
@@ -115,7 +117,7 @@ describe('room', () => {
 
   it('never goes above the hard cap, however many houses there are', () => {
     const { state } = setup();
-    houses(state, 9);
+    houses(state, HOUSES_TO_CAP);
     expect(populationRoom(state, 0)).toBe(CAP);
     houses(state, 6);
     expect(populationRoom(state, 0)).toBe(CAP);
@@ -181,9 +183,9 @@ describe('training against the room', () => {
     expect(train(state, storide)).toEqual({ ok: false, reason: 'housingFull' });
   });
 
-  it('says the cap is reached, not that housing is missing, at 50', () => {
+  it('says the cap is reached, not that housing is missing, at the hard cap', () => {
     const { state, storide } = setup();
-    houses(state, 9);
+    houses(state, HOUSES_TO_CAP);
     people(state, CAP);
     expect(train(state, storide)).toEqual({ ok: false, reason: 'populationCap' });
     // More houses do not help.
@@ -191,9 +193,9 @@ describe('training against the room', () => {
     expect(train(state, storide)).toEqual({ ok: false, reason: 'populationCap' });
   });
 
-  it('fills the room exactly: the fiftieth unit is trained, the fifty-first is not', () => {
+  it('fills the room exactly: the last unit under the cap is trained, the next is not', () => {
     const { state, storide } = setup();
-    houses(state, 9);
+    houses(state, HOUSES_TO_CAP);
     people(state, CAP - 1);
     expect(train(state, storide)).toEqual({ ok: true });
     expect(train(state, storide)).toEqual({ ok: false, reason: 'populationCap' });

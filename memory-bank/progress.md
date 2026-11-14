@@ -827,6 +827,32 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
 
 ## Efter MVP:n
 
+### Befolkningstaket höjt till 200 (2026-11-14)
+
+Användaren: "Uppdatera maxtaket till 200 i population."
+
+- `POPULATION_CONFIG.hardCap` i `src/data/population.ts`: 50 → 200. Det
+  är den enda ändringen i spelet. Taket nås med Storidet och 39 Iden
+  (39 × 30 = 1170 trä).
+- Meddelandet lyder nu "Befolkningstaket 200 är nått"; talet kommer ur
+  datan.
+- Befolkningstesterna hade talet 50 inskrivet på tre ställen (nio Iden
+  för att nå taket). De räknar nu ut antalet hus ur datan.
+- GDD:t avsnitt 4, 6, 13 och 14 och arkitekturdokumentet är ändrade.
+
+**Saknas eller avviker**
+
+- **Datorspelaren påverkas inte.** Den slutar vid 20 soldater och sina
+  arbetare och kom aldrig upp i 50.
+- **Inte mätt: prestanda med 200 enheter per sida.** Med 123 Samlare
+  (`?stress=120`) ger mjukvarurenderingen 14 bilder per sekund vid
+  basen. 400 enheter på kartan är inte prövat, varken för ritningen
+  eller för simuleringen (vägsökning och kollision).
+- **Inte prövat i webbläsare:** hur räknaren ser ut med "200/200".
+  Texten börjar 272 px in och blir uppskattningsvis 145 px bred, två
+  tecken längre än "50/50". På en skärm smalare än cirka 420 px
+  (telefon på högkant) räckte bredden inte heller förut.
+
 ### Miljön får bilder, korgen rätt last och starten blir rättvis (2026-11-14)
 
 Användaren: "Ersätt de sista platshållarna med grafik från

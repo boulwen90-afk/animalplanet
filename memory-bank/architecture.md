@@ -663,7 +663,7 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
   - Nekas en träningsorder för att platsen är full blir befolkningstalet
     rött i 2,5 sekunder (`UI_CONFIG.noticeMs`), och ett meddelande visas
     lika länge mitt under resursraden, 30 px under varningstextens plats:
-    "Ingen plats – bygg ett Ide" eller "Befolkningstaket 50 är nått".
+    "Ingen plats – bygg ett Ide" eller "Befolkningstaket 200 är nått".
   - Markeringspanelen ligger nere till vänster och syns bara när något är
     markerat. För en egen enhet visas även vad den gör, t.ex.
     `Liv 40/40 · Samlar mat 7/10`, `Liv 40/40 · Bygger Visthus` eller
