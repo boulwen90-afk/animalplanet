@@ -22,8 +22,11 @@ import {
   travelFrame,
   type CharacterAnimation,
 } from '../characters/animation';
+import type { BuildingLibrary, BuildingSheet } from '../buildings/BuildingLibrary';
+import { SHADOW_FRAME, buildingCovers, stageOf } from '../buildings/stage';
 import type { CharacterLibrary, CharacterSheet } from '../characters/CharacterLibrary';
 import {
+  BUILDING_COVER_SHARE,
   BUILDING_VISUALS,
   CHARACTER_SHADOW,
   CHARACTER_VISUALS,
@@ -34,6 +37,7 @@ import {
   PLAYER_COLORS,
   RESOURCE_COLORS,
   SELECTION_COLOR,
+  UNIT_BEHIND_BUILDING_ALPHA,
   UNIT_VISUALS,
   unitVisualCentre,
 } from './visuals';
@@ -45,6 +49,8 @@ const OVERLAY_DEPTH = 900_000;
 /** Depth of the shadows under characters: on the ground, above the selection marks. */
 const SHADOW_DEPTH = -0.45;
 const SHADOW_TEXTURE = 'character-shadow';
+/** How far in front of a building a unit behind it is drawn. */
+const BEHIND_DEPTH_OFFSET = 0.5;
 /** How far in front of its character a load is drawn: less than the gap between any two rows of pixels. */
 const LOAD_DEPTH_OFFSET = 0.01;
 /** Side of the square shown on a placeholder unit that carries a resource, in pixels. */
@@ -62,6 +68,8 @@ interface EntitySprite {
   shadow?: GameObjects.Image;
   /** What a character carries, drawn on top of it: its basket filled. Made when first needed. */
   load?: GameObjects.Image;
+  /** Set for a building that is drawn from pictures instead of as a placeholder block. */
+  building?: BuildingSheet;
 }
 
 /** What is remembered about a character between frames. */
@@ -78,8 +86,17 @@ interface CharacterDrawing {
   travelled: number;
   /** Where the unit was at the last frame, in tiles. */
   last?: Point;
+  /** Whether the unit stands behind a building and is drawn faintly on top of it. */
+  behind: boolean;
   /** Where and when the unit was beaten, while it kneels there and then catches up with its real place. */
   defeat?: { x: number; y: number; since: number };
+}
+
+/** What a building drawn from pictures looks like right now, for tests. */
+export interface BuildingSpriteInfo {
+  /** The picture shown: one of the construction stages, or the finished building. */
+  frame: string;
+  texture: string;
 }
 
 /** What a character looks like right now, for tests. */
@@ -90,6 +107,8 @@ export interface UnitSpriteInfo {
   texture: string;
   /** The picture of what it carries, drawn on top of it; null when it carries nothing. */
   load: string | null;
+  /** True while it stands behind a building and is drawn faintly on top of it. */
+  behindBuilding: boolean;
 }
 
 interface Lunge {
@@ -115,15 +134,20 @@ export class EntityView {
   private readonly overlay: GameObjects.Graphics;
   /** Frame time of the latest update, in milliseconds. */
   private now = 0;
+  /** What each building in sight covers on the screen this frame. */
+  private covers: { corner: Point; side: number; heightTiles: number; depth: number }[] = [];
 
   /**
    * @param characters The characters to draw units as. Unit types without
    * one, and all units when it is left out, are placeholder shapes.
+   * @param buildingArt The pictures to draw buildings from. Building types
+   * without one, and all buildings when it is left out, are placeholder blocks.
    */
   constructor(
     private readonly scene: Scene,
     private readonly size: TileSize,
     private readonly characters?: CharacterLibrary,
+    private readonly buildingArt?: BuildingLibrary,
   ) {
     this.marks = scene.add.graphics().setDepth(GROUND_MARK_DEPTH);
     this.overlay = scene.add.graphics().setDepth(OVERLAY_DEPTH);
@@ -168,6 +192,26 @@ export class EntityView {
 
     const byId = new Map<number, Entity>();
     for (const entity of state.entities) byId.set(entity.id, entity);
+
+    // What the buildings in sight cover on the screen, for units to check whether they stand behind one.
+    this.covers = [];
+    for (const entity of state.entities) {
+      if (entity.kind !== 'building' || !isShown(entity)) continue;
+      const sheet = this.buildingArt?.get(entity.type);
+      // The bare frame of a building just begun hides nothing.
+      if (!sheet || stageOf(entity.complete, buildFraction(entity)) === 'construction_1') continue;
+      const centre = buildingCentre(entity);
+      const side = BUILDING_DEFS[entity.type].size;
+      // The roof is measured from the middle of the footprint, and the far
+      // corner already lies half the footprint's depth above that on the screen.
+      const above = sheet.roofHeight * BUILDING_COVER_SHARE - (side * this.size.tileHeight) / 2;
+      this.covers.push({
+        corner: { x: entity.x, y: entity.y },
+        side,
+        heightTiles: Math.max(0, above) / this.size.tileHeight,
+        depth: tileToWorld(centre.x, centre.y, this.size).y,
+      });
+    }
 
     const seen = new Set<number>();
     for (const entity of state.entities) {
@@ -226,6 +270,16 @@ export class EntityView {
     });
   }
 
+  /** What a building drawn from pictures looks like right now, or undefined. */
+  describeBuilding(id: number): BuildingSpriteInfo | undefined {
+    const sprite = this.sprites.get(id);
+    if (!sprite?.building) return undefined;
+    return {
+      frame: sprite.image.frame.name,
+      texture: sprite.image.texture.key,
+    };
+  }
+
   /** What a unit drawn as a character looks like right now, or undefined. */
   describeUnit(id: number): UnitSpriteInfo | undefined {
     const sprite = this.sprites.get(id);
@@ -237,6 +291,7 @@ export class EntityView {
       frame: drawing.frame,
       texture: sprite.image.texture.key,
       load: sprite.load?.visible ? sprite.load.frame.name : null,
+      behindBuilding: drawing.behind,
     };
   }
 
@@ -381,11 +436,19 @@ export class EntityView {
     }
     drawing.animation = animation;
 
+    // A unit behind a building would be hidden by it. It is drawn faintly on
+    // top of the building instead, so the player can still see and follow it.
+    const cover = this.covers.find((c) =>
+      buildingCovers({ x: tileX, y: tileY }, c.corner, c.side, c.heightTiles),
+    );
+    drawing.behind = cover !== undefined;
+
     const lunge = this.lunges.get(unit.id);
     const reach = lunge && this.now < lunge.until ? UI_CONFIG.lungePx : 0;
     sprite.image
       .setPosition(x + (lunge?.dx ?? 0) * reach, y + (lunge?.dy ?? 0) * reach)
-      .setDepth(y);
+      .setDepth(cover ? Math.max(y, cover.depth + BEHIND_DEPTH_OFFSET) : y)
+      .setAlpha(cover ? UNIT_BEHIND_BUILDING_ALPHA : 1);
     sprite.shadow?.setPosition(x + CHARACTER_SHADOW.offsetX, y + CHARACTER_SHADOW.offsetY);
     this.updateLoad(unit, sprite, name);
 
@@ -440,6 +503,7 @@ export class EntityView {
     sprite.load
       .setVisible(true)
       .setPosition(sprite.image.x, sprite.image.y)
+      .setAlpha(sprite.image.alpha)
       .setDepth(sprite.image.depth + LOAD_DEPTH_OFFSET);
   }
 
@@ -451,6 +515,10 @@ export class EntityView {
   }
 
   private updateBuilding(building: Building, sprite: EntitySprite, selected: boolean): void {
+    if (sprite.building) {
+      this.updatePictureBuilding(building, sprite, sprite.building, selected);
+      return;
+    }
     // A building under construction is see-through and turns solid as it is built.
     const solidity =
       CONSTRUCTION_START_ALPHA + (1 - CONSTRUCTION_START_ALPHA) * buildFraction(building);
@@ -467,6 +535,36 @@ export class EntityView {
       this.drawLifeBar(
         top.x,
         roofMiddle - 26,
+        LIFE_BAR.buildingWidth,
+        building.hp,
+        BUILDING_DEFS[building.type].hp,
+      );
+    }
+  }
+
+  /**
+   * Draws a building from its pictures: the stage the work has reached, or
+   * the finished building.
+   */
+  private updatePictureBuilding(
+    building: Building,
+    sprite: EntitySprite,
+    sheet: BuildingSheet,
+    selected: boolean,
+  ): void {
+    const stage = stageOf(building.complete, buildFraction(building));
+    if (sprite.image.frame.name !== stage) sprite.image.setFrame(stage);
+    // The shadow belongs to the finished building; a frame casts next to none.
+    sprite.shadow?.setAlpha(building.complete ? 1 : 0.4);
+
+    if (selected) this.markBuilding(building);
+    // While it is being built its life grows by itself; the bar is for damage.
+    if (building.complete) {
+      const centre = buildingCentre(building);
+      const ground = tileToWorld(centre.x, centre.y, this.size);
+      this.drawLifeBar(
+        ground.x,
+        ground.y - sheet.roofHeight - 12,
         LIFE_BAR.buildingWidth,
         building.hp,
         BUILDING_DEFS[building.type].hp,
@@ -532,6 +630,7 @@ export class EntityView {
           frame,
           fleeing: false,
           travelled: 0,
+          behind: false,
         },
       };
     }
@@ -585,6 +684,24 @@ export class EntityView {
   }
 
   private createBuildingSprite(building: Building): EntitySprite {
+    const sheet = this.buildingArt?.get(building.type);
+    if (sheet) {
+      // Every picture of a building stands on the middle of its footprint.
+      const centre = buildingCentre(building);
+      const ground = tileToWorld(centre.x, centre.y, this.size);
+      const texture = sheet.textureKey(building.owner);
+      const stage = stageOf(building.complete, buildFraction(building));
+      const image = this.scene.add
+        .image(ground.x, ground.y, texture, stage)
+        .setScale(sheet.displayScale)
+        .setDepth(ground.y);
+      const shadow = this.scene.add
+        .image(ground.x, ground.y, texture, SHADOW_FRAME)
+        .setScale(sheet.displayScale)
+        .setDepth(SHADOW_DEPTH);
+      return { image, shadow, kind: 'building', flashing: false, building: sheet };
+    }
+
     const n = BUILDING_DEFS[building.type].size;
     const { wallHeight, label } = BUILDING_VISUALS[building.type];
     const w = n * this.size.tileWidth;

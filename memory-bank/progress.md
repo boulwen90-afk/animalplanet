@@ -9,11 +9,12 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   enhetstyperna ritas som figurer: björnkrigaren (Ramkrigaren) och
   björnarbetaren (Samlaren). Sex förbättringar av Samlaren och grunden är
   gjorda och väntar på att användaren ser skärmdumparna. Se "Efter MVP:n"
-- **Väntar på användaren:** uppdraget "bygg resten av figurerna" är klart
-  i alla tre punkter (björnarbetare, byggnader, tigerkrigare). Punkt 3
-  väntar på att användaren ser översiktsbilden. Punkt 1 och 2 är mergade
-- **Inte gjort:** byggnaderna ritas inte i spelet än, och tigrarna finns
-  inte som ras i spelet. Atlaserna finns för båda
+- **Väntar på användaren:** byggnaderna ritas nu i spelet. Arbetet ligger
+  i en pull request som väntar på granskning
+- **Klart och mergat:** uppdraget "bygg resten av figurerna" i alla tre
+  punkter (björnarbetare, byggnader, tigerkrigare)
+- **Inte gjort:** tigrarna finns inte som ras i spelet. Träd, bärsnår,
+  klippor och grottor är fortfarande platshållare
 - **Beslutat men inte påbörjat:** skarp rendering i skärmens verkliga
   upplösning. Den står som egen punkt sist i `implementation-plan.md`
 - **Mäta på telefon:** `?debug=1` visar bilder per sekund, och
@@ -821,6 +822,70 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Byggnaderna ritas i spelet (2026-11-14)
+
+Efter att tigrarna var klara föreslog Claude tre möjliga nästa steg och
+rekommenderade byggnaderna i spelet. Användaren svarade "Gör så", vilket
+också lästes som klartecken att merga tigrarnas pull request (12).
+
+**Skärmdumpar:** `docs/screenshots/byggnader-klara.png` (Storide,
+Krigshall och Visthus färdiga, med Samlare bakom byggnaderna),
+`byggnader-klara-narbild.png` (utsnitt av den) och `byggnader-bygge.png`
+(Krigshall i första byggstadiet, Visthus i det andra).
+
+**Vad som gjordes**
+
+- **Alla tre byggnaderna ritas från sina atlaser**, för båda sidorna, i
+  spelarens lagfärg. Blocken med bokstäver används inte längre.
+- **Byggstadier:** under halva bygget visas grund och stomme, från halva
+  bygget väggarna med öppet tak, sedan den färdiga byggnaden.
+- **Skugga** som egen bild på marken.
+- **Klick** träffar byggnaden upp till ungefär takets mitt, och
+  träffytan räknas nu exakt.
+- **Livstapeln** sitter över taket.
+- **Enheter bakom en byggnad** ritas svagt (50 %) ovanpå den, så att de
+  inte försvinner. Se "Beslut under arbetet".
+
+**Beslut under arbetet**
+
+- **Enheter bakom byggnader.** De nya byggnaderna är tre till fyra gånger
+  så höga som blocken och dolde Samlare som gick bakom Storiden. Första
+  försöket var att göra byggnaden genomskinlig; det såg urblekt ut,
+  eftersom Samlare är bakom Storiden nästan hela tiden. Lösningen blev
+  den vanliga i strategispel: byggnaden är solid och enheten ritas svagt
+  ovanpå. Detta bad användaren inte om uttryckligen. Det går att ta bort
+  genom att sätta `UNIT_BEHIND_BUILDING_ALPHA` till 0 eller ta bort
+  kontrollen i `EntityView`.
+
+**Saknas eller avviker**
+
+- **Byggplaceringen visar bara fotavtrycket**, inte byggnadens bild.
+- **En byggnad som faller försvinner direkt**, som förut. Det finns ingen
+  ruin och ingen rasanimation.
+- **Storiden och Krigshallen liknar varandra** på håll (hall med torn).
+- **Ingen omfaktorering:** `BuildingLibrary` upprepar cirka 30 rader ur
+  `CharacterLibrary` (inläsning och färgning av en atlas). De kan slås
+  ihop om användaren vill.
+- **Laddning:** 0,5 MB till för byggnadernas atlaser (3,9 MB för allt).
+- **Träd, bärsnår, klippor och grottor** är fortfarande platshållare och
+  ser nu enklare ut än resten.
+
+**Testresultat**
+
+- Vitest: 498 av 498 (8 nya: byggstadier och vad en byggnad täcker)
+- Playwright: 108 av 108 (4 nya), även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+- Prestanda: samma bildfrekvens med och utan byggnadsbilderna, mätt sida
+  vid sida mot `main` på samma maskin (12–14 bilder/s i huvudlös Chromium
+  utan grafikkort; maskinen var långsammare än vid tidigare mätningar).
+
+**En bugg rättad i fps-räknaren.** Räknaren från `?debug=1` började räkna
+från tid noll i stället för från spelets första bild. Den första
+avläsningen tog därför med hela laddningen och kunde visa 0 bilder/s.
+Den börjar nu räkna när spelet har laddat. Felet syntes som ett fallande
+test i den nedbromsade körningen; testet väntar nu också på en avläsning
+över 0, eftersom en enstaka bild kan ta sekunder på en nedbromsad maskin.
 
 ### Figurgrafik: tigrarna och en tigerkrigare (2026-11-14)
 

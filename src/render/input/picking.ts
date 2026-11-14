@@ -5,10 +5,12 @@ import {
   tileCenterToWorld,
   tileToWorld,
   worldToTile,
+  worldToTileExact,
   type Point,
   type TileSize,
 } from '../../sim/map/iso';
 import { resourceAt } from '../../sim/resources';
+import { buildingCovers } from '../buildings/stage';
 import type { Building, Entity, PlayerId, Unit } from '../../sim/state';
 import {
   BUILDING_VISUALS,
@@ -77,24 +79,12 @@ function isOnUnit(unit: Unit, world: Point, size: TileSize): boolean {
   return Math.hypot(world.x - centre.x, world.y - centre.y) <= reach;
 }
 
-/** True if a world position is on a building's drawn block: its footprint or its walls. */
+/** True if a world position is on a building as it is drawn: its footprint, or above it up to its click height. */
 function isOnBuilding(building: Building, world: Point, size: TileSize): boolean {
   const footprint = BUILDING_DEFS[building.type].size;
-  const wallHeight = BUILDING_VISUALS[building.type].wallHeight;
-  // The block is the footprint swept upwards by the wall height, so a point
-  // is on it if some point up to that far below lies on the footprint.
-  for (const below of [0, wallHeight / 2, wallHeight]) {
-    const tile = worldToTile(world.x, world.y + below, size);
-    if (
-      tile.x >= building.x &&
-      tile.y >= building.y &&
-      tile.x < building.x + footprint &&
-      tile.y < building.y + footprint
-    ) {
-      return true;
-    }
-  }
-  return false;
+  const height = BUILDING_VISUALS[building.type].wallHeight;
+  const tile = worldToTileExact(world.x, world.y, size);
+  return buildingCovers(tile, building, footprint, height / size.tileHeight);
 }
 
 /** A player's units, apart from surrendered ones, whose centre is inside a world rectangle. */

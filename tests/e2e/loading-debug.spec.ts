@@ -44,9 +44,12 @@ test.describe('measuring how the game runs', () => {
     await expect
       .poll(async () => (await page.evaluate(() => window.__TEST__!.getDebug())).text)
       .toMatch(/^\d+ bilder\/s · \d+ enheter$/);
+    // A frame can take seconds on a slowed-down machine, which reads as 0; wait for a real reading.
+    await expect
+      .poll(async () => (await page.evaluate(() => window.__TEST__!.getDebug())).fps)
+      .toBeGreaterThan(0);
     const debug = await page.evaluate(() => window.__TEST__!.getDebug());
     expect(debug.visible).toBe(true);
-    expect(debug.fps).toBeGreaterThan(0);
     const units = (await getState(page)).entities.filter((e) => e.kind === 'unit').length;
     expect(debug.text).toContain(`${units} enheter`);
   });

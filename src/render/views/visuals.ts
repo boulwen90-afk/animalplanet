@@ -61,12 +61,28 @@ export const CHARACTER_SHADOW = {
   color: '12, 18, 10',
 } as const;
 
-/** Buildings are drawn as blocks with walls of this height, in pixels, and a letter on the roof. */
+/**
+ * How high above its footprint a click still hits a building, in pixels:
+ * about up to the middle of its roof. A building type without pictures is
+ * drawn as a block with walls of this height and the letter on its roof.
+ */
 export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label: string }> = {
-  storide: { wallHeight: 36, label: 'S' },
-  visthus: { wallHeight: 22, label: 'V' },
-  krigshall: { wallHeight: 30, label: 'K' },
+  storide: { wallHeight: 84, label: 'S' },
+  visthus: { wallHeight: 48, label: 'V' },
+  krigshall: { wallHeight: 62, label: 'K' },
 };
+
+/**
+ * A unit standing behind a building is drawn on top of it, this solid, so
+ * that the player can still see it: faint enough to read as being behind.
+ */
+export const UNIT_BEHIND_BUILDING_ALPHA = 0.5;
+
+/**
+ * How much of a building's height counts as hiding what is behind it. The
+ * roof narrows towards its top, so the upper part covers little.
+ */
+export const BUILDING_COVER_SHARE = 0.8;
 
 /** Colours of the outline shown while placing a building: where it may stand, and where not. */
 export const PLACEMENT_COLORS = { valid: 0x35e06a, invalid: 0xe8384f } as const;

@@ -208,7 +208,7 @@ export class UiScene extends Scene {
   private debugText: GameObjects.Text | undefined;
   /** Frames drawn since the counter was last written, and when that was. */
   private debugFrames = 0;
-  private debugSince = 0;
+  private debugSince: number | undefined;
   private debugFps = 0;
 
   constructor(
@@ -557,6 +557,13 @@ export class UiScene extends Scene {
   /** Counts the frames drawn and writes the rate twice a second. */
   private updateDebug(time: number): void {
     if (!this.debugText) return;
+    // The count starts with the first frame of the finished game: while the
+    // game's files load nothing is drawn, and that is not the game's frame rate.
+    if (this.loadingShown !== undefined || this.debugSince === undefined) {
+      this.debugFrames = 0;
+      this.debugSince = this.loadingShown === undefined ? time : undefined;
+      return;
+    }
     this.debugFrames++;
     const elapsed = time - this.debugSince;
     if (elapsed < UI_CONFIG.debugIntervalMs) return;
