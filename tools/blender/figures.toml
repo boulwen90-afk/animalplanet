@@ -20,6 +20,10 @@ building = "field"
 
 [[building]]
 race = "bear"
+building = "den"
+
+[[building]]
+race = "bear"
 building = "fishery"
 
 [[building]]

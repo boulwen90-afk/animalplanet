@@ -29,6 +29,7 @@ const BUILDINGS: { name: string; building: BuildingType; sizeClass: string; tile
   [
     // A field is ground, not a house: the standard asks no height of it.
     { name: 'bear_field', building: 'odling', sizeClass: 'plot', tileWidths: 0 },
+    { name: 'bear_den', building: 'ide', sizeClass: 'small', tileWidths: 1.0 },
     { name: 'bear_fishery', building: 'fiskehytta', sizeClass: 'small', tileWidths: 1.0 },
     { name: 'bear_storage', building: 'visthus', sizeClass: 'small', tileWidths: 1.0 },
     { name: 'bear_barracks', building: 'krigshall', sizeClass: 'large', tileWidths: 1.4 },
@@ -67,8 +68,10 @@ describe('the buildings against each other and the figures', () => {
     readFileSync('assets/characters/bear_warrior/bear_warrior.json', 'utf8'),
   ) as { meta: { figure: { height: number } } };
 
-  it('even the smallest building is clearly taller than a warrior', () => {
-    expect(roof('bear_storage')).toBeGreaterThan(warrior.meta.figure.height * 1.8);
+  it('even the smallest houses are clearly taller than a warrior', () => {
+    for (const house of ['bear_den', 'bear_fishery', 'bear_storage']) {
+      expect(roof(house), house).toBeGreaterThan(warrior.meta.figure.height * 1.8);
+    }
   });
 
   it('a field is lower than the house beside it, and its fence no higher than a worker', () => {
