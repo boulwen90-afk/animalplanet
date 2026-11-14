@@ -1,4 +1,5 @@
 import { BUILDING_DEFS, type BuildingType } from '../data/buildings';
+import { POPULATION_CONFIG } from '../data/population';
 import { UNIT_DEFS, type UnitType } from '../data/units';
 import type { Point } from './map/iso';
 import type { Building, Entity, GameState, PlayerId, Unit } from './state';
@@ -124,11 +125,32 @@ export function hasSurrendered(unit: Unit): boolean {
   return unit.task.kind === 'flee';
 }
 
-/** Number of units a side has. Units that have surrendered no longer count. */
+/**
+ * The population a side's units take up: the sum of what each costs in
+ * room. Units that have surrendered no longer count.
+ */
 export function populationOf(state: GameState, owner: PlayerId): number {
-  return state.entities.filter(
-    (entity) => isUnit(entity) && entity.owner === owner && !hasSurrendered(entity),
-  ).length;
+  let total = 0;
+  for (const entity of state.entities) {
+    if (isUnit(entity) && entity.owner === owner && !hasSurrendered(entity)) {
+      total += UNIT_DEFS[entity.type].population;
+    }
+  }
+  return total;
+}
+
+/**
+ * How many units a side has room for: what its finished buildings give,
+ * up to the hard cap. A building under construction gives nothing yet.
+ */
+export function populationRoom(state: GameState, owner: PlayerId): number {
+  let room = 0;
+  for (const entity of state.entities) {
+    if (isBuilding(entity) && entity.owner === owner && entity.complete) {
+      room += BUILDING_DEFS[entity.type].housing;
+    }
+  }
+  return Math.min(room, POPULATION_CONFIG.hardCap);
 }
 
 /** Removes an entity from the game. */
@@ -144,7 +166,8 @@ export function removeEntity(state: GameState, id: number): void {
 export function reservedPopulation(state: GameState, owner: PlayerId): number {
   let queued = 0;
   for (const entity of state.entities) {
-    if (isBuilding(entity) && entity.owner === owner) queued += entity.queue.length;
+    if (!isBuilding(entity) || entity.owner !== owner) continue;
+    for (const type of entity.queue) queued += UNIT_DEFS[type].population;
   }
   return populationOf(state, owner) + queued;
 }

@@ -10,6 +10,18 @@ export const AI_CONFIG = {
    * it had 1200 unused wood after ten minutes and no food.
    */
   woodShare: 0.375,
+  /**
+   * It builds more housing when it has this little room left, counting the
+   * units in its queues, so that training does not have to wait for a house.
+   */
+  housingMargin: 3,
+  /**
+   * Fields. It starts on them before the berries near its base run out:
+   * when less than `startWhenFoodLeft` is left in the bushes within
+   * `berryRadius` tiles of its main building, and then one more field for
+   * every `foodPerField` the bushes fall further, up to `max`.
+   */
+  fields: { startWhenFoodLeft: 600, foodPerField: 150, berryRadius: 14, max: 5 },
   /** It stops training soldiers at this many. */
   maxSoldiers: 20,
   /** Soldiers at home go for enemy units that come this close to the main building, in tiles. */

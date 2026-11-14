@@ -20,6 +20,7 @@ import {
   builderUnitIds,
   commandableUnitIds,
   gathererUnitIds,
+  isWorkplace,
   pruneSelection,
   selectByBox,
   selectByClick,
@@ -96,7 +97,8 @@ export class SelectionController {
    * A tap on the map. With units selected it gives them an order for what
    * was tapped, exactly as a right click does. A tap on one of the player's
    * own units or buildings selects it instead, except an unfinished building
-   * when someone who can build it is selected. With no units selected a tap
+   * when someone who can build it is selected, and a field or other building
+   * that gives work when someone who can work there is. With no units selected a tap
    * works as a left click.
    */
   tapAt(screenX: number, screenY: number): void {
@@ -113,7 +115,11 @@ export class SelectionController {
         own &&
         !hit.complete &&
         builderUnitIds(this.selected, state.entities, player, hit.type).length > 0;
-      if (!own || toBuild) {
+      const toWork =
+        hit?.kind === 'building' &&
+        isWorkplace(hit, player) &&
+        gathererUnitIds(this.selected, state.entities, player).length > 0;
+      if (!own || toBuild || toWork) {
         this.giveOrder(world);
         return;
       }
@@ -213,6 +219,18 @@ export class SelectionController {
       const builders = builderUnitIds(this.selected, state.entities, player, hit.type);
       if (builders.length > 0) {
         this.deps.issue({ type: 'construct', player, unitIds: builders, buildingId: hit.id });
+        const centre = buildingCentre(hit);
+        const world = tileToWorld(centre.x, centre.y, tileSize);
+        this.deps.view.addOrderMarker(world.x, world.y);
+        return;
+      }
+    }
+
+    // A finished building of the player's own that gives work, such as a field: work there.
+    if (hit?.kind === 'building' && isWorkplace(hit, player)) {
+      const workers = gathererUnitIds(this.selected, state.entities, player);
+      if (workers.length > 0) {
+        this.deps.issue({ type: 'work', player, unitIds: workers, buildingId: hit.id });
         const centre = buildingCentre(hit);
         const world = tileToWorld(centre.x, centre.y, tileSize);
         this.deps.view.addOrderMarker(world.x, world.y);

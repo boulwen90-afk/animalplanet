@@ -51,6 +51,9 @@ leader = 0.66
 # The lowest a building may be on the screen, from the ground to the top of
 # its roof, by size class. Even the smallest is clearly taller than a warrior.
 [scale.building_height]
+# A field is ground, not a house: it has no lowest height. What marks it as
+# bigger than a unit is its footprint.
+plot = 0.0
 small = 1.0     # 2x2 tiles, such as a Visthus: about 1.8 warriors
 large = 1.4     # 3x3 tiles, such as a Krigshall: about 2.5 warriors
 main = 1.8      # the main building: about 3.3 warriors

@@ -1,4 +1,5 @@
 import { expect, type Page } from '@playwright/test';
+import type { BuildingType } from '../../src/data/buildings';
 import { MAP_CONFIG } from '../../src/data/map';
 import type { GameState } from '../../src/sim/state';
 import type { TestCameraInfo } from '../../src/testing/testHooks';
@@ -140,4 +141,70 @@ export async function finger(page: Page): Promise<Finger> {
     },
   };
   return self;
+}
+
+/**
+ * Has one of the player's workers build a building on the first free place
+ * near the main building, and steps the game on until it stands finished.
+ * The player pays for it as usual. Returns the building and the worker.
+ *
+ * @param side Where to look first: behind the main building as seen on the
+ * screen, or in front of it. A low building behind the main building is
+ * partly hidden by it, and a click there hits the main building instead.
+ */
+export async function buildNearHome(
+  page: Page,
+  building: BuildingType,
+  side: 'behind' | 'front' = 'behind',
+): Promise<{ buildingId: number; workerId: number }> {
+  const built = await page.evaluate(
+    ([type, front]) => {
+      const t = window.__TEST__!;
+      const state = t.getState();
+      const home = state.entities.find((e) => e.kind === 'building' && e.owner === 0);
+      const worker = state.entities.find((e) => e.kind === 'unit' && e.owner === 0);
+      if (!home || !worker) return null;
+      for (let r = 4; r < 12; r++) {
+        for (let i = 0; i <= 2 * r; i++) {
+          for (let j = 0; j <= 2 * r; j++) {
+            // Larger tile coordinates are nearer the viewer.
+            const dy = front ? r - i : i - r;
+            const dx = front ? r - j : j - r;
+            const result = t.command({
+              type: 'build',
+              player: 0,
+              unitIds: [worker.id],
+              building: type,
+              x: home.x + dx,
+              y: home.y + dy,
+            });
+            if (!result.ok) continue;
+            for (let step = 0; step < 3000; step++) {
+              t.advance(1);
+              // The player's own: the computer player may build one too.
+              const site = t
+                .getState()
+                .entities.find((e) => e.kind === 'building' && e.type === type && e.owner === 0);
+              if (site?.kind === 'building' && site.complete) {
+                return { buildingId: site.id, workerId: worker.id };
+              }
+            }
+            return null;
+          }
+        }
+      }
+      return null;
+    },
+    [building, side === 'front'] as const,
+  );
+  expect(built, `a building of type ${building} was built`).not.toBeNull();
+  return built!;
+}
+
+/**
+ * Has one of the player's workers build an Ide near the main building: room
+ * for five more units. It costs the player 30 wood, like any Ide.
+ */
+export async function buildHouse(page: Page): Promise<void> {
+  await buildNearHome(page, 'ide');
 }

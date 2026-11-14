@@ -1,10 +1,18 @@
 import { expect, test, type Page } from '@playwright/test';
 import { PRODUCTION_CONFIG } from '../../src/data/production';
+import { BUILDING_DEFS } from '../../src/data/buildings';
 import { START_CONFIG } from '../../src/data/setup';
 import { SIM_CONFIG } from '../../src/data/sim';
 import { UNIT_DEFS } from '../../src/data/units';
 import type { Building, GameState, Unit } from '../../src/sim/state';
-import { getSelection, getState, openGame, tileToScreen, trackConsoleErrors } from './helpers';
+import {
+  buildHouse,
+  getSelection,
+  getState,
+  openGame,
+  tileToScreen,
+  trackConsoleErrors,
+} from './helpers';
 
 const COST = UNIT_DEFS.samlare.cost.food!;
 const TRAIN_TICKS = UNIT_DEFS.samlare.trainTime * SIM_CONFIG.ticksPerSecond;
@@ -75,7 +83,7 @@ test.describe('phase 5: training workers', () => {
       .toEqual({
         food: `Mat ${START_FOOD - COST}`,
         wood: `Trä ${START_CONFIG.resources.wood}`,
-        population: `Befolkning 4/${START_CONFIG.populationCap}`,
+        population: `Befolkning 4/${BUILDING_DEFS.storide.housing}`,
       });
     expect(errors).toEqual([]);
   });
@@ -134,6 +142,8 @@ test.describe('phase 5: training workers', () => {
     page,
   }) => {
     await openGame(page);
+    // Room for more than the food can pay for, so that food is what runs out.
+    await buildHouse(page);
     await selectStoride(page);
     await expect.poll(async () => (await commandPanel(page)).visible).toBe(true);
 
@@ -158,6 +168,8 @@ test.describe('phase 5: training workers', () => {
 
   test('the test interface reports why a train order was refused', async ({ page }) => {
     await openGame(page);
+    // Room for more than the food can pay for, so that food is what runs out.
+    await buildHouse(page);
     const storide = playerStoride(await getState(page));
     const train = () =>
       page.evaluate(

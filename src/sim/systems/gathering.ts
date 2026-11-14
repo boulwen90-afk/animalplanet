@@ -89,6 +89,7 @@ export function startGathering(
     phase: 'toSource',
     workTicks: 0,
     dropoffId: null,
+    siteId: null,
   };
   unit.task = task;
   if (unit.carryAmount >= capacity) headToDropoff(state, grid, unit, task);
@@ -96,12 +97,115 @@ export function startGathering(
   return true;
 }
 
+/**
+ * Orders a unit to work at a building, such as a field: it works there and
+ * carries what it gets to the nearest drop-off, again and again. If the
+ * building has all the workers it takes, the unit goes to the nearest
+ * building of the same kind and side with room, within the search radius.
+ * Returns false, leaving the unit as it was, if there is nowhere to work.
+ */
+export function startWorking(
+  state: GameState,
+  grid: PathGrid,
+  unit: Unit,
+  building: Building,
+): boolean {
+  const capacity = UNIT_DEFS[unit.type].carryCapacity;
+  if (capacity <= 0 || building.owner !== unit.owner) return false;
+  const site = freeWorkSite(state, unit, building);
+  const work = site && BUILDING_DEFS[site.building.type].work;
+  if (!site || !work) return false;
+
+  // A load of another kind is dropped when the unit switches resource.
+  if (unit.carryType !== work.resource) {
+    unit.carryType = work.resource;
+    unit.carryAmount = 0;
+  }
+  const task: GatherTask = {
+    kind: 'gather',
+    resource: work.resource,
+    node: site.tile,
+    place: site.tile,
+    phase: 'toSource',
+    workTicks: 0,
+    dropoffId: null,
+    siteId: site.building.id,
+  };
+  unit.task = task;
+  if (unit.carryAmount >= capacity) headToDropoff(state, grid, unit, task);
+  else walkToSource(state, grid, unit, task);
+  return true;
+}
+
+/** The tiles of a building that its workers stand on, one each, from its far corner. */
+export function workTiles(building: Building): Point[] {
+  const count = BUILDING_DEFS[building.type].work?.workers ?? 0;
+  const size = BUILDING_DEFS[building.type].size;
+  const tiles: Point[] = [];
+  for (let i = 0; i < count && i < size * size; i++) {
+    tiles.push({ x: building.x + (i % size), y: building.y + Math.floor(i / size) });
+  }
+  return tiles;
+}
+
+/** The units that work at a building, wherever they are on their round. */
+export function workersAt(state: GameState, buildingId: number): Unit[] {
+  return state.entities.filter(
+    (entity): entity is Unit =>
+      isUnit(entity) && entity.task.kind === 'gather' && entity.task.siteId === buildingId,
+  );
+}
+
+/** A finished building of the unit's side where workers can work, or undefined. */
+function workSite(state: GameState, unit: Unit, id: number): Building | undefined {
+  const building = state.entities.find(
+    (entity): entity is Building => entity.id === id && isBuilding(entity),
+  );
+  if (!building || !building.complete || building.owner !== unit.owner) return undefined;
+  return BUILDING_DEFS[building.type].work ? building : undefined;
+}
+
+/**
+ * Where the unit can work: at `wanted` if it has a place free, otherwise at
+ * the nearest building of the same kind and side with one, within the
+ * search radius. Returns the building and the tile to stand on.
+ */
+function freeWorkSite(
+  state: GameState,
+  unit: Unit,
+  wanted: Building,
+): { building: Building; tile: Point } | undefined {
+  let best: { building: Building; tile: Point } | undefined;
+  let bestDistance = Infinity;
+  for (const entity of state.entities) {
+    if (!isBuilding(entity) || entity.type !== wanted.type) continue;
+    if (!workSite(state, unit, entity.id)) continue;
+    const distance = entity === wanted ? -1 : tileDistance(entity.x, entity.y, wanted.x, wanted.y);
+    if (distance > GATHER_CONFIG.searchRadius || distance >= bestDistance) continue;
+    const taken = workersAt(state, entity.id)
+      .filter((other) => other !== unit)
+      .map((other) => (other.task.kind === 'gather' ? other.task.place : null));
+    const tile = workTiles(entity).find(
+      (candidate) => !taken.some((t) => t && t.x === candidate.x && t.y === candidate.y),
+    );
+    if (!tile) continue;
+    best = { building: entity, tile };
+    bestDistance = distance;
+  }
+  return best;
+}
+
 /** Advances a gathering unit. Returns true if it changed phase and should be run again this step. */
 function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
   const task = unit.task;
   if (task.kind !== 'gather') return false;
   const here = unitTile(unit);
-  const sourceLeft = resourceAt(state.map, task.node.x, task.node.y) === task.resource;
+  // The source is either a building the unit works at, or a tile of the map.
+  const site = task.siteId === null ? undefined : workSite(state, unit, task.siteId);
+  const sourceLeft =
+    task.siteId === null
+      ? resourceAt(state.map, task.node.x, task.node.y) === task.resource
+      : site !== undefined;
 
   switch (task.phase) {
     case 'toSource': {
@@ -118,15 +222,20 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
     case 'gathering': {
       if (!sourceLeft) return retarget(state, grids.get(), unit, task);
       task.workTicks++;
-      if (task.workTicks >= ticksPerUnit(unit)) {
+      if (task.workTicks >= ticksPerUnit(unit, site)) {
         task.workTicks = 0;
-        unit.carryAmount += takeFromSource(state.map, task.node.x, task.node.y, 1);
-        if (resourceAt(state.map, task.node.x, task.node.y) === undefined) grids.invalidate();
+        if (site) {
+          // A building never runs out.
+          unit.carryAmount += 1;
+        } else {
+          unit.carryAmount += takeFromSource(state.map, task.node.x, task.node.y, 1);
+          if (resourceAt(state.map, task.node.x, task.node.y) === undefined) grids.invalidate();
+        }
       }
       if (unit.carryAmount >= UNIT_DEFS[unit.type].carryCapacity) {
         return headToDropoff(state, grids.get(), unit, task);
       }
-      if (resourceAt(state.map, task.node.x, task.node.y) === undefined) {
+      if (!site && resourceAt(state.map, task.node.x, task.node.y) === undefined) {
         return retarget(state, grids.get(), unit, task);
       }
       return false;
@@ -152,8 +261,13 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
   }
 }
 
-/** Simulation steps a unit works for each unit of resource. */
-export function ticksPerUnit(unit: Unit): number {
+/**
+ * Simulation steps a unit works for each unit of resource: at a building,
+ * what the building says; at a source on the map, the unit's own pace.
+ */
+export function ticksPerUnit(unit: Unit, site?: Building): number {
+  const work = site && BUILDING_DEFS[site.type].work;
+  if (work) return Math.max(1, Math.round(SIM_CONFIG.ticksPerSecond * work.secondsPerUnit));
   return Math.max(1, Math.round(SIM_CONFIG.ticksPerSecond / UNIT_DEFS[unit.type].gatherRate));
 }
 
@@ -209,6 +323,34 @@ function freePlaces(
  * kind near the unit, otherwise home with whatever it carries, otherwise idle.
  */
 function retarget(state: GameState, grid: PathGrid, unit: Unit, task: GatherTask): boolean {
+  // A building it worked at is gone, or was never reached: another of the
+  // same kind nearby, if there is one with room.
+  if (task.siteId !== null) {
+    const lost = state.entities.find((entity) => entity.id === task.siteId);
+    const others = state.entities.filter(
+      (entity): entity is Building =>
+        isBuilding(entity) &&
+        entity.id !== task.siteId &&
+        entity.owner === unit.owner &&
+        BUILDING_DEFS[entity.type].work?.resource === task.resource &&
+        (!lost || !isBuilding(lost) || entity.type === lost.type),
+    );
+    const near = unitTile(unit);
+    others.sort(
+      (a, b) =>
+        tileDistance(a.x, a.y, near.x, near.y) - tileDistance(b.x, b.y, near.x, near.y) ||
+        a.id - b.id,
+    );
+    const load = unit.carryAmount;
+    for (const other of others) {
+      if (tileDistance(other.x, other.y, near.x, near.y) > GATHER_CONFIG.searchRadius) break;
+      if (startWorking(state, grid, unit, other)) {
+        unit.carryAmount = load;
+        return false;
+      }
+    }
+    task.siteId = null;
+  }
   // It gives up its place, and looks for a source with a place to spare.
   task.place = null;
   const next = findSource(state, grid, unit, task.resource, unitTile(unit));
@@ -267,6 +409,11 @@ function findSource(
  */
 function walkToSource(state: GameState, grid: PathGrid, unit: Unit, task: GatherTask): void {
   const here = unitTile(unit);
+  // At a building the place is a tile of the building itself, and stays the same.
+  if (task.siteId !== null) {
+    unit.path = task.place ? findPath(grid, here, task.place) : [];
+    return;
+  }
   const reach = reachableTiles(grid, here);
   const held = task.place;
   const stillThere =

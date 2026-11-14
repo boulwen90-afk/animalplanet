@@ -1,7 +1,17 @@
-import type { Cost } from './resources';
+import type { Cost, ResourceType } from './resources';
 import type { BuildingType, UnitType } from './types';
 
 export type { BuildingType } from './types';
+
+/** Work that workers do at a building, which gives a resource without end. */
+export interface WorkDef {
+  /** What a worker gets from working here. */
+  resource: ResourceType;
+  /** How many workers can work here at a time. */
+  workers: number;
+  /** Seconds a worker works for one unit of the resource. */
+  secondsPerUnit: number;
+}
 
 export interface BuildingDef {
   /** Unit types this building can train. */
@@ -20,6 +30,15 @@ export interface BuildingDef {
   armor: number;
   /** How far the finished building sees, in tiles, measured from its centre. */
   sight: number;
+  /** How many units the finished building gives room for. See POPULATION_CONFIG. */
+  housing: number;
+  /**
+   * True for a building that units can walk across, such as a field. It
+   * still takes up its tiles: nothing else can be built there.
+   */
+  walkable: boolean;
+  /** What workers can do at the finished building, if anything. */
+  work?: WorkDef;
 }
 
 /** Building types. See GDD section 8. */
@@ -34,6 +53,8 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     cost: {},
     buildTime: 0,
     armor: 0,
+    housing: 5,
+    walkable: false,
   },
   /** Storehouse: a drop-off point to place near resources. */
   visthus: {
@@ -45,6 +66,8 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     cost: { wood: 80 },
     buildTime: 20,
     armor: 0,
+    housing: 0,
+    walkable: false,
   },
   /** Barracks: trains soldiers. */
   krigshall: {
@@ -56,6 +79,38 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     cost: { wood: 150 },
     buildTime: 35,
     armor: 0,
+    housing: 0,
+    walkable: false,
+  },
+  /** Housing: the bears' den. It only gives room for more units. */
+  ide: {
+    trains: [],
+    hp: 300,
+    sight: 4,
+    size: 2,
+    dropoff: false,
+    cost: { wood: 30 },
+    buildTime: 15,
+    armor: 0,
+    housing: 5,
+    walkable: false,
+  },
+  /**
+   * A field. One worker tills it and carries the food to the nearest
+   * drop-off, as with berries. It never runs out, but gives food more slowly.
+   */
+  odling: {
+    trains: [],
+    hp: 200,
+    sight: 3,
+    size: 2,
+    dropoff: false,
+    cost: { wood: 60 },
+    buildTime: 20,
+    armor: 0,
+    housing: 0,
+    walkable: true,
+    work: { resource: 'food', workers: 1, secondsPerUnit: 2.5 },
   },
 };
 

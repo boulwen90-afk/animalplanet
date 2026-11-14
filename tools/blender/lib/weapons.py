@@ -72,6 +72,13 @@ def build_weapon(b: Builder, weapon: dict, hand: Vector, pal: Palette, group: st
         b.limb(f"{group}.blade", top + d * 0.03, belly, width * 0.42, width * 0.55, pal["blade"], 4, 0.2, wide)
         b.limb(f"{group}.blade_tip", belly, tip, width * 0.55, 0.0, pal["blade"], 4, 0.2, wide)
         b.limb(f"{group}.tassel", top - d * 0.04, top - d * 0.3 + across * 0.05, 0.06, 0.02, pal["team"], 6)
+    elif kind == "hoe":
+        # A long haft with a flat iron blade set across its end, turned back towards the hand.
+        top = hand + d * length
+        b.limb(f"{group}.haft", hand - d * 0.3, top, 0.04, 0.038, pal["wood"], 6)
+        blade = top + across * 0.13 - d * 0.02
+        b.box(f"{group}.hoe_blade", blade, (0.26, 0.2, 0.035), pal["steel_dark"], turn)
+        b.box(f"{group}.hoe_edge", blade + across * 0.13, (0.03, 0.22, 0.045), pal["blade"], turn)
     elif kind == "hammer":
         # A mallet: a short haft with a block of iron across its end.
         top = hand + d * length

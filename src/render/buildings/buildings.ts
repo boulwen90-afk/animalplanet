@@ -2,6 +2,9 @@ import type { BuildingType } from '../../data/types';
 import bearBarracksAtlasUrl from '../../../assets/buildings/bear_barracks/bear_barracks.json?url';
 import bearBarracksBaseUrl from '../../../assets/buildings/bear_barracks/bear_barracks.png';
 import bearBarracksMaskUrl from '../../../assets/buildings/bear_barracks/bear_barracks_mask.png';
+import bearFieldAtlasUrl from '../../../assets/buildings/bear_field/bear_field.json?url';
+import bearFieldBaseUrl from '../../../assets/buildings/bear_field/bear_field.png';
+import bearFieldMaskUrl from '../../../assets/buildings/bear_field/bear_field_mask.png';
 import bearMainAtlasUrl from '../../../assets/buildings/bear_main/bear_main.json?url';
 import bearMainBaseUrl from '../../../assets/buildings/bear_main/bear_main.png';
 import bearMainMaskUrl from '../../../assets/buildings/bear_main/bear_main_mask.png';
@@ -40,5 +43,11 @@ export const BUILDING_ART: Partial<Record<BuildingType, BuildingSource>> = {
     atlasUrl: bearBarracksAtlasUrl,
     baseUrl: bearBarracksBaseUrl,
     maskUrl: bearBarracksMaskUrl,
+  },
+  odling: {
+    name: 'bear_field',
+    atlasUrl: bearFieldAtlasUrl,
+    baseUrl: bearFieldBaseUrl,
+    maskUrl: bearFieldMaskUrl,
   },
 };

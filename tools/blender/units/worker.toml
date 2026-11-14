@@ -12,7 +12,7 @@ speed = 2.5
 # The animations this unit is drawn with, from the shared library in animations/.
 # It has no attack of its own: the game shows a worker that strikes chopping.
 [animations]
-list = ["idle", "walk", "chop", "pick", "hammer", "defeat"]
+list = ["idle", "walk", "chop", "pick", "till", "hammer", "defeat"]
 
 [armor]
 tunic = true            # team colour: over the body, with a skirt and short sleeves
@@ -32,7 +32,7 @@ hand = "right"
 length = 0.8
 direction = [-0.15, 0.45, 0.9]    # the haft leans back over the shoulder
 flat_axis = [-0.15, -0.9, 0.45]   # the edge faces forward
-hidden_in = ["pick", "hammer"]    # animations where the hand is free or holds another tool
+hidden_in = ["pick", "till", "hammer"]   # animations where the hand is free or holds another tool
 
 # Other tools, held in the same hand in the animations listed.
 [[tool]]
@@ -41,6 +41,13 @@ type = "hammer"
 hand = "right"
 length = 0.55
 shown_in = ["hammer"]
+
+[[tool]]
+name = "hoe"
+type = "hoe"
+hand = "right"
+length = 0.85
+shown_in = ["till"]
 
 # Pictures of their own in the atlas, drawn by the game on top of the figure:
 # the basket filled with what the unit carries.

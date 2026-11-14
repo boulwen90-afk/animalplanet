@@ -52,7 +52,8 @@ test.describe('phase 3: units, selection and movement', () => {
     page,
   }) => {
     const errors = trackConsoleErrors(page);
-    await openGame(page);
+    // Without the computer player: it starts on its first house in its first step.
+    await openGame(page, '&ai=0');
 
     const state = await getState(page);
     for (const owner of [0, 1]) {

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { BUILDING_DEFS } from '../../data/buildings';
 import { PRODUCTION_CONFIG } from '../../data/production';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG } from '../../data/sim';
@@ -22,10 +23,15 @@ import { trainTicksFor } from './production';
 const COST = UNIT_DEFS.samlare.cost.food!;
 const TRAIN_TICKS = UNIT_DEFS.samlare.trainTime * SIM_CONFIG.ticksPerSecond;
 const START_FOOD = START_CONFIG.resources.food;
+/** The room a Storide gives on its own. */
+const ROOM = BUILDING_DEFS.storide.housing;
 
+/** A Storide, and two houses so that room is not what these tests run into: 15 in all. */
 function setup() {
   const state = openState(12, 12);
   const storide = createBuilding(state, 'storide', 0, 4, 4);
+  createBuilding(state, 'ide', 0, 0, 0);
+  createBuilding(state, 'ide', 0, 0, 2);
   return { state, storide };
 }
 
@@ -183,41 +189,35 @@ describe('refusing to queue', () => {
     expect(food(state)).toBe(0);
   });
 
-  it('refuses at the population cap and takes nothing', () => {
+  it('refuses when there is no room and takes nothing', () => {
     const state = openState(20, 20);
     const storide = createBuilding(state, 'storide', 0, 8, 8);
-    for (let i = 0; i < START_CONFIG.populationCap; i++) {
-      createUnit(state, 'samlare', 0, i % 20, 0);
-    }
-    expect(populationOf(state, 0)).toBe(30);
-    expect(train(state, storide)).toEqual({ ok: false, reason: 'populationCap' });
+    for (let i = 0; i < ROOM; i++) createUnit(state, 'samlare', 0, i, 0);
+    expect(populationOf(state, 0)).toBe(ROOM);
+    expect(train(state, storide)).toEqual({ ok: false, reason: 'housingFull' });
     expect(storide.queue).toEqual([]);
     expect(food(state)).toBe(START_FOOD);
   });
 
-  it('counts queued units towards the population cap', () => {
+  it('counts queued units towards the room', () => {
     const state = openState(20, 20);
     const storide = createBuilding(state, 'storide', 0, 8, 8);
-    for (let i = 0; i < START_CONFIG.populationCap - 2; i++) {
-      createUnit(state, 'samlare', 0, i % 20, 0);
-    }
+    for (let i = 0; i < ROOM - 2; i++) createUnit(state, 'samlare', 0, i, 0);
     expect(train(state, storide)).toEqual({ ok: true });
     expect(train(state, storide)).toEqual({ ok: true });
-    expect(reservedPopulation(state, 0)).toBe(30);
-    expect(train(state, storide)).toEqual({ ok: false, reason: 'populationCap' });
+    expect(reservedPopulation(state, 0)).toBe(ROOM);
+    expect(train(state, storide)).toEqual({ ok: false, reason: 'housingFull' });
     expect(food(state)).toBe(START_FOOD - 2 * COST);
 
-    // The population never passes the cap.
+    // The population never passes the room.
     advance(state, 3 * TRAIN_TICKS);
-    expect(populationOf(state, 0)).toBe(30);
+    expect(populationOf(state, 0)).toBe(ROOM);
   });
 
-  it("does not count the other side's units towards the cap", () => {
+  it("does not count the other side's units towards the room", () => {
     const state = openState(20, 20);
     const storide = createBuilding(state, 'storide', 0, 8, 8);
-    for (let i = 0; i < START_CONFIG.populationCap; i++) {
-      createUnit(state, 'samlare', 1, i % 20, 0);
-    }
+    for (let i = 0; i < 12; i++) createUnit(state, 'samlare', 1, i, 0);
     expect(train(state, storide)).toEqual({ ok: true });
   });
 
@@ -299,11 +299,9 @@ describe('cancelling', () => {
   it('frees the population it had reserved', () => {
     const state = openState(20, 20);
     const storide = createBuilding(state, 'storide', 0, 8, 8);
-    for (let i = 0; i < START_CONFIG.populationCap - 1; i++) {
-      createUnit(state, 'samlare', 0, i % 20, 0);
-    }
+    for (let i = 0; i < ROOM - 1; i++) createUnit(state, 'samlare', 0, i, 0);
     train(state, storide);
-    expect(train(state, storide)).toMatchObject({ ok: false, reason: 'populationCap' });
+    expect(train(state, storide)).toMatchObject({ ok: false, reason: 'housingFull' });
     cancel(state, storide, 0);
     expect(train(state, storide)).toEqual({ ok: true });
   });

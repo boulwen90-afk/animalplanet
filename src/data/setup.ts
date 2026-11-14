@@ -7,7 +7,6 @@ export const START_CONFIG: {
   building: BuildingType;
   units: readonly { type: UnitType; count: number }[];
   resources: Record<ResourceType, number>;
-  populationCap: number;
 } = {
   /** Main building, centred on the side's start position. */
   building: 'storide',
@@ -15,6 +14,4 @@ export const START_CONFIG: {
   units: [{ type: 'samlare', count: 3 }],
   /** Resources in stock at the start. */
   resources: { food: 200, wood: 100 },
-  /** Most units a side can have. Fixed in the MVP; housing raises it later. */
-  populationCap: 30,
 };

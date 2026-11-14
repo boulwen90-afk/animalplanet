@@ -104,14 +104,18 @@ async function mouseFor2x2(page: Page, origin: { x: number; y: number }) {
 }
 
 test.describe('phase 6: building', () => {
-  test('a selected Samlare gets a build menu with prices', async ({ page }) => {
+  test('a selected Samlare gets a build menu with prices and a few words about each building', async ({
+    page,
+  }) => {
     await openGame(page);
     await selectWorker(page);
 
     const panel = await commandPanel(page);
-    expect(panel.buttons.map((b) => [b.label, b.cost])).toEqual([
-      ['Bygg Visthus', '80 trä'],
-      ['Bygg Krigshall', '150 trä'],
+    expect(panel.buttons.map((b) => [b.label, b.cost, b.info])).toEqual([
+      ['Bygg Visthus', '80 trä', 'Lämna mat och trä'],
+      ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
+      ['Bygg Ide', '30 trä', '+5 befolkning'],
+      ['Bygg Odling', '60 trä', 'Oändlig mat, 1 Samlare'],
     ]);
     expect(panel.queue).toEqual([]);
     expect(await placement(page)).toBeNull();

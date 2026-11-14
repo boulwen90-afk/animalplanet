@@ -51,6 +51,7 @@ En match ska ta ungefär 10–20 minuter.
 | Attackera | Högerklick på fiendeenhet/-byggnad |
 | Samla | Högerklick på resurs (med arbetare markerade) |
 | Hjälp till att bygga | Högerklick på eget bygge (med arbetare markerade) |
+| Arbeta på en Odling | Högerklick på egen färdig Odling (med arbetare markerade) |
 | Bygga / träna | Knappar i kommandopanelen |
 | Avbryt byggplacering | Högerklick eller Esc |
 | Panorera kameran | Piltangenter / WASD, muspekaren mot skärmkanten, eller dra med mittenknappen |
@@ -66,7 +67,11 @@ En match ska ta ungefär 10–20 minuter.
 | Avmarkera | Knappen "Avmarkera" i HUD:en |
 
 ### HUD
-- **Överkant:** mat, trä, befolkning (t.ex. `12/30`).
+- **Överkant:** mat, trä, befolkning som nuvarande/plats (t.ex. `12/15`).
+  Enheter i kö räknas med i det nuvarande talet. När en enhet inte kan
+  tränas för att platsen är full blir talet rött i 2,5 sekunder och ett
+  kort meddelande visas: "Ingen plats – bygg ett Ide", eller
+  "Befolkningstaket 50 är nått" när det hårda taket är nått.
 - **Nederkant:** markeringspanel (namn, liv, vad enheten gör) och
   kommandopanel (bygg-/träningsknappar med kostnad, produktionskö).
 - Ingen minikarta i MVP:n.
@@ -96,9 +101,19 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 | Resurs | Källa | Mängd per källa | Används till |
 |---|---|---|---|
 | Mat | Bärsnår | 150 | Arbetare, soldater |
+| Mat | Odling (byggnad, se avsnitt 8) | tar aldrig slut | Arbetare, soldater |
 | Trä | Träd | 100 | Byggnader, soldater |
 
-- Källor är ändliga och försvinner när de är tömda. Tömda träd blir gångbar mark.
+- Källor på kartan är ändliga och försvinner när de är tömda. Tömda träd blir
+  gångbar mark.
+- **Odling** (tillagt 2026-11-14 på användarens begäran, eftersom maten tog
+  slut när bärsnåren var tömda): en byggnad som ger mat i oändlighet, men
+  tydligt långsammare än bär. **En Samlare per Odling.** Samlaren hackar
+  fram 1 mat var 2,5 s (24 mat/min utan gångväg, mot 60 för ett bärsnår),
+  bär 10 åt gången och lämnar lasten i närmaste Visthus eller Storide,
+  precis som bär. Uppmätt med en Odling intill Storidet: 20–22 mat/min per
+  Samlare, mot 45–55 för bärsnår 4–6 rutor från Storidet. Värdena ligger i
+  `BUILDING_DEFS.odling` (`cost`, `buildTime`, `work`).
 - **Arbetsplatser:** varje källa har upp till 4 fasta arbetsplatser, på de
   öppna rutorna runt den. En arbetare tar en ledig plats och behåller den
   medan den bär hem lasten. Är alla platser tagna går arbetaren till
@@ -106,8 +121,21 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 - Arbetare bär högst 10 enheter åt gången, samlar 1 enhet/s och måste lämna
   lasten vid Storide eller Visthus innan resursen räknas.
 - Startresurser: 200 mat, 100 trä.
-- Befolkningstak: fast 30 i MVP:n (inga bostadshus). Efter MVP:n höjs taket
-  med bostadshus, upp till ett maxtak på omkring 250.
+- **Befolkning** (ändrat 2026-11-14 på användarens begäran; tidigare ett
+  fast tak på 30):
+  - En sida har **plats** för så många enheter som dess färdiga byggnader
+    ger: Storiden ger 5 och varje Ide (bostad) ger 5 till. En byggnad under
+    uppförande ger ingenting än.
+  - **Hårt tak: 50 per sida**, hur många bostäder man än bygger. (Den
+    tidigare skissen talade om ett maxtak på omkring 250.)
+  - Varje enhetstyp har en **befolkningskostnad**; i dag kostar alla 1.
+  - **Träning blockeras när platsen är full.** Enheter i produktionsköer
+    räknas som upptagen plats, eftersom de behöver plats när de är klara.
+  - **Förlorad bostad:** om en bostad förstörs och befolkningen överstiger
+    platsen dör inga enheter, men ingen ny kan tränas förrän det finns
+    plats igen. En enhet som redan står i kö tränas klart.
+  - Alla värden ligger i datafilerna: `housing` per byggnad, `population`
+    per enhet och `POPULATION_CONFIG.hardCap`.
 
 ## 7. Enheter (MVP)
 
@@ -125,6 +153,7 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 | Fart | 2,5 rutor/s | 2,2 rutor/s |
 | Synfält | 6 rutor | 7 rutor |
 | Kan | Samla, bygga, slåss på order | Slåss |
+| Befolkningskostnad | 1 | 1 |
 
 Stridsregler:
 - Skada = anfallarens skada − målets rustning, minst 1.
@@ -147,14 +176,33 @@ Stridsregler:
 
 ## 8. Byggnader (MVP)
 
-| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) |
-|---|---|---|---|
-| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare |
-| Kostnad | – (finns från start) | 80 trä | 150 trä |
-| Byggtid (1 arbetare) | – | 20 s | 35 s |
-| Liv | 1500 | 400 | 700 |
-| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor |
-| Synfält | 9 rutor | 5 rutor | 6 rutor |
+| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) |
+|---|---|---|---|---|---|
+| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare |
+| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä |
+| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s |
+| Liv | 1500 | 400 | 700 | 300 | 200 |
+| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor |
+| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor |
+| Befolkningsplats | 5 | 0 | 0 | 5 | 0 |
+
+Bostaden heter olika för varje ras; björnarnas är Idet. Det byggs av
+Samlare. Tills vidare ritas det som ett block med bokstaven I.
+
+**Odlingen** (tillagt 2026-11-14) byggs av Samlare och är en åker, inte ett
+hus:
+- Enheter **går över den**; den spärrar ingen väg. Den kan anfallas och
+  rivas som andra byggnader.
+- **En Samlare åt gången** arbetar där, på åkerns bortre hörnruta, med
+  ansiktet mot grödan. Den som byggde åkern börjar arbeta på den när den
+  är klar. Högerklick på en färdig Odling skickar dit en markerad Samlare.
+  Är åkern upptagen går Samlaren till närmaste egna lediga Odling inom
+  sökradien; finns ingen behåller den sin uppgift.
+- Rivs åkern söker Samlaren upp en annan ledig Odling, annars närmaste
+  bärsnår.
+- Kommandopanelens knappar visar tre rader: vad knappen gör, kostnaden och
+  en kort beskrivning (t.ex. "Bygg Odling / 60 trä / Oändlig mat, 1
+  Samlare"). Knappar som inte ryms på en rad fortsätter på nästa.
 
 Byggregler:
 - Spelaren väljer byggnad i kommandopanelen och placerar en "spökbild" på
@@ -193,12 +241,20 @@ En enkel, regelstyrd motståndare som spelar med samma regler och kostnader
 som spelaren (inget fusk med resurser):
 
 1. Tränar Samlare upp till 8 och fördelar dem på mat och trä.
-2. Bygger en Krigshall när den har råd, och ett Visthus vid skogen.
-3. Tränar Ramkrigare kontinuerligt.
-4. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
+2. Bygger ett Ide när den har högst 3 lediga platser kvar (enheter i kö
+   inräknade), så att träningen inte behöver vänta på en bostad. Bostäder
+   går före allt annat byggande.
+3. Bygger en Krigshall när den har råd, och ett Visthus vid skogen.
+4. Bygger Odlingar **innan bären tar slut**: när bärsnåren inom 14 rutor
+   från Storidet har mindre än 600 mat kvar bygger den en Odling för varje
+   150 mat som fattas, högst 5, och ställer en ledig Samlare på varje.
+   Lediga Samlare tar i första hand bär nära basen, sedan en ledig Odling
+   och först därefter bär längre bort. Värdena ligger i `AI_CONFIG.fields`.
+5. Tränar Ramkrigare kontinuerligt.
+6. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
    ligger i en datafil (t.ex. våg 1: 4 krigare tidigast vid 4 min, därefter
    större vågor).
-5. Hemmavarande krigare försvarar basen om den anfalls.
+7. Hemmavarande krigare försvarar basen om den anfalls.
 
 Förenkling: AI:n känner till spelarens startposition och påverkas inte av
 krigsdimman. En svårighetsgrad.
@@ -250,8 +306,10 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 - Fler raser än björnar, rasunika enheter eller bonusar
 - Tidsåldrar, uppgraderingar, forskning
 - Distansenheter, belägringsvapen, hjältar/ledare som enheter
-- Torn, murar, fler byggnadstyper
-- Bostadshus som höjer befolkningstaket (planerat efter MVP, maxtak ca 250)
+- Torn, murar, fler byggnadstyper (Odlingen tillkom 2026-11-14, se avsnitt
+  6 och 8; en Fiskehytta är planerad som nästa steg)
+- ~~Bostadshus som höjer befolkningstaket (planerat efter MVP, maxtak ca
+  250)~~ Infört 2026-11-14 med ett hårt tak på 50, se avsnitt 6 och 8.
 - Fler resurser än mat och trä
 - Riktig grafik, animationer, ljud och musik
 - Minikarta, kontrollgrupper (Ctrl+1 …), patrull/håll position, formationer
@@ -273,7 +331,8 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
    innan spelet sprids offentligt.
 4. **Befolkningstak.** Fast tak på 30 i MVP:n. Senare tillkommer bostadshus
    som höjer taket, med ett maxtak på omkring 250. Taket ligger i en datafil
-   så att det kan ändras utan kodändring.
+   så att det kan ändras utan kodändring. **Ändrat 2026-11-14:** bostäder
+   finns nu, och det hårda taket är 50 per sida. Se avsnitt 6.
 5. **Kartan.** Genererad från frö med ett fast standardfrö.
 
 ## 15. Kapitulation och grottor

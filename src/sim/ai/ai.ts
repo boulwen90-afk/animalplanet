@@ -1,15 +1,22 @@
 import { AI_CONFIG } from '../../data/ai';
 import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
+import { POPULATION_CONFIG } from '../../data/population';
 import type { ResourceType } from '../../data/resources';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
 import { applyCommand } from '../commands';
 import { missingResources } from '../economy';
-import { buildingCentre, hasSurrendered, isBuilding, isUnit } from '../entities';
+import {
+  buildingCentre,
+  hasSurrendered,
+  isBuilding,
+  isUnit,
+  reservedPopulation,
+} from '../entities';
 import { inBounds, isWalkable, tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
-import { resourceAt } from '../resources';
+import { resourceAmountAt, resourceAt } from '../resources';
 import type { AiState, Building, GameState, PlayerId, Unit } from '../state';
 import { canPlaceBuilding } from '../systems/construction';
 
@@ -109,8 +116,8 @@ function trainSoldiers(
 }
 
 /**
- * Builds what is missing: first a barracks, then a storehouse by the forest.
- * A site left without a builder gets a new one.
+ * Builds what is missing: housing when room is running out, then a barracks,
+ * then a storehouse by the forest. A site left without a builder gets a new one.
  */
 function build(
   state: GameState,
@@ -138,6 +145,12 @@ function build(
 
   const centre = buildingCentre(base);
   const wanted: { type: BuildingType; near: Point }[] = [];
+  // Housing comes first: without room it can train nothing else. It builds
+  // the next house while there is still a little room left.
+  const housing = buildableHousing();
+  if (housing && needsHousing(state, player, buildings)) {
+    wanted.push({ type: housing, near: centre });
+  }
   if (
     !buildings.some((b) => BUILDING_DEFS[b.type].trains.some((t) => UNIT_DEFS[t].aggroRadius > 0))
   ) {
@@ -147,6 +160,12 @@ function build(
     const storehouse = buildableStorehouse();
     const forest = nearestSource(state, 'wood', centre);
     if (storehouse && forest) wanted.push({ type: storehouse, near: forest });
+  }
+
+  // Fields last: they are for when the berries run low, not instead of the rest.
+  const field = buildableField('food');
+  if (field && fieldsWanted(state, centre, workers.length) > fieldsOf(buildings, 'food').length) {
+    wanted.push({ type: field, near: centre });
   }
 
   for (const { type, near } of wanted) {
@@ -164,6 +183,69 @@ function build(
     });
     return;
   }
+}
+
+/** The building type that only gives room for more units. */
+function buildableHousing(): BuildingType | undefined {
+  return (Object.keys(BUILDING_DEFS) as BuildingType[]).find(
+    (type) =>
+      BUILDING_DEFS[type].buildTime > 0 &&
+      BUILDING_DEFS[type].housing > 0 &&
+      BUILDING_DEFS[type].trains.length === 0 &&
+      !BUILDING_DEFS[type].dropoff,
+  );
+}
+
+/**
+ * True if the side is about to run out of room: counting the houses already
+ * under construction, it has no more than the margin left, and it has not
+ * reached the most room a side can have.
+ */
+function needsHousing(state: GameState, player: PlayerId, buildings: readonly Building[]): boolean {
+  let room = 0;
+  for (const building of buildings) room += BUILDING_DEFS[building.type].housing;
+  if (room >= POPULATION_CONFIG.hardCap) return false;
+  return room - reservedPopulation(state, player) <= AI_CONFIG.housingMargin;
+}
+
+/** The building type where workers work for a resource without end. */
+function buildableField(resource: ResourceType): BuildingType | undefined {
+  return (Object.keys(BUILDING_DEFS) as BuildingType[]).find(
+    (type) => BUILDING_DEFS[type].buildTime > 0 && BUILDING_DEFS[type].work?.resource === resource,
+  );
+}
+
+/** A side's fields for a resource, finished or not. */
+function fieldsOf(buildings: readonly Building[], resource: ResourceType): Building[] {
+  return buildings.filter((b) => BUILDING_DEFS[b.type].work?.resource === resource);
+}
+
+/** How much food is left in the berry bushes within reach of a point. */
+function berriesLeft(state: GameState, centre: Point): number {
+  const { map } = state;
+  const radius = AI_CONFIG.fields.berryRadius;
+  let left = 0;
+  for (let y = Math.floor(centre.y - radius); y <= centre.y + radius; y++) {
+    for (let x = Math.floor(centre.x - radius); x <= centre.x + radius; x++) {
+      if (resourceAt(map, x, y) !== 'food') continue;
+      if (tileDistance(x, y, centre.x, centre.y) > radius) continue;
+      left += resourceAmountAt(map, x, y);
+    }
+  }
+  return left;
+}
+
+/**
+ * How many fields the side should have by now: none while there are plenty
+ * of berries near its base, then more the lower they run, and never more
+ * than it has workers for food.
+ */
+function fieldsWanted(state: GameState, centre: Point, workers: number): number {
+  const { startWhenFoodLeft, foodPerField, max } = AI_CONFIG.fields;
+  const short = startWhenFoodLeft - berriesLeft(state, centre);
+  if (short <= 0) return 0;
+  const onFood = workers - Math.round(workers * AI_CONFIG.woodShare);
+  return Math.min(Math.ceil(short / foodPerField), max, onFood);
 }
 
 /** The building type that trains soldiers. */
@@ -289,20 +371,43 @@ function assignIdleWorkers(
   for (const worker of workers) {
     if (worker.task.kind !== 'idle' || worker.path.length > 0) continue;
     const resource: ResourceType = onWood < wantedOnWood ? 'wood' : 'food';
-    // If one kind has run out near and far, the worker takes the other.
     const source = nearestSource(state, resource, centre);
-    const fallback = resource === 'wood' ? 'food' : 'wood';
-    const target = source ?? nearestSource(state, fallback, centre);
-    if (!target) continue;
-    applyCommand(state, {
-      type: 'gather',
-      player,
-      unitIds: [worker.id],
-      x: target.x,
-      y: target.y,
-    });
+    // Berries near the base come first: they give food faster than a field.
+    const near =
+      source !== undefined &&
+      tileDistance(source.x, source.y, centre.x, centre.y) <= AI_CONFIG.fields.berryRadius;
+    if (source && (resource === 'wood' || near)) gather(state, player, worker, source);
+    // With none near, or none with a place free, it works a field.
+    if (worker.task.kind === 'idle' && resource === 'food') {
+      const field = state.entities.find(
+        (entity): entity is Building =>
+          isBuilding(entity) &&
+          entity.owner === player &&
+          entity.complete &&
+          BUILDING_DEFS[entity.type].work?.resource === 'food',
+      );
+      if (field) {
+        applyCommand(state, { type: 'work', player, unitIds: [worker.id], buildingId: field.id });
+      }
+    }
+    // Then berries however far away, and last the other resource.
+    if (worker.task.kind === 'idle' && source) gather(state, player, worker, source);
+    if (worker.task.kind === 'idle') {
+      const other = nearestSource(state, resource === 'wood' ? 'food' : 'wood', centre);
+      if (other) gather(state, player, worker, other);
+    }
     if (gatheredResource(worker) === 'wood') onWood++;
   }
+}
+
+function gather(state: GameState, player: PlayerId, worker: Unit, source: Point): void {
+  applyCommand(state, {
+    type: 'gather',
+    player,
+    unitIds: [worker.id],
+    x: source.x,
+    y: source.y,
+  });
 }
 
 /** What a unit is gathering right now, if anything. */

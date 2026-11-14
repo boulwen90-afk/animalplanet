@@ -9,6 +9,11 @@ export const UI_CONFIG = {
   orderMarkerEndRadius: 6,
   /** How long a resource bar number stays red when an order is refused for lack of it, in milliseconds. */
   refusalFlashMs: 300,
+  /**
+   * How long the message that explains a refused order stays on the screen,
+   * in milliseconds. The population number stays red as long.
+   */
+  noticeMs: 2500,
   /** How long a struck unit or building is drawn white, in milliseconds. */
   hitFlashMs: 80,
   /** How far, in pixels, and for how long an attacker lunges at its target when it strikes. */

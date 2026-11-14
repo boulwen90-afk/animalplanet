@@ -1,16 +1,16 @@
-import { hasSurrendered, isUnit, unitDestination, unitTile } from './entities';
+import { hasSurrendered, isBuilding, isUnit, unitDestination, unitTile } from './entities';
 import { tileDistance } from './map/grid';
 import type { Point } from './map/iso';
 import { findPath, isPassable, nearestReachable, type PathGrid } from './pathfinding/astar';
 import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
-import type { BuildingType } from '../data/buildings';
+import { BUILDING_DEFS, type BuildingType } from '../data/buildings';
 import type { ResourceType } from '../data/resources';
 import { COLLISION_CONFIG, type UnitType } from '../data/units';
 import { resourceAt } from './resources';
-import type { GameState, PlayerId, Unit } from './state';
+import type { Building, GameState, PlayerId, Unit } from './state';
 import { orderAttack } from './systems/combat';
 import { assistConstruction, placeBuilding } from './systems/construction';
-import { startGathering } from './systems/gathering';
+import { startGathering, startWorking } from './systems/gathering';
 import { cancelQueuedUnit, queueUnit } from './systems/production';
 
 /** Orders the given units to walk to a tile. */
@@ -36,6 +36,14 @@ export interface GatherCommand {
 }
 
 /** Adds a unit to a building's production queue. Its price is taken at once. */
+/** Work at one of the player's own finished buildings where workers can work, such as a field. */
+export interface WorkCommand {
+  type: 'work';
+  player: PlayerId;
+  unitIds: number[];
+  buildingId: number;
+}
+
 export interface TrainCommand {
   type: 'train';
   /** The player giving the order. The building must be that player's. */
@@ -89,6 +97,7 @@ export interface AttackCommand {
 export type Command =
   | MoveCommand
   | GatherCommand
+  | WorkCommand
   | TrainCommand
   | CancelTrainCommand
   | BuildCommand
@@ -99,7 +108,14 @@ export type Command =
 export type CommandResult =
   | { ok: true }
   | { ok: false; reason: 'insufficientResources'; missing: ResourceType[] }
-  | { ok: false; reason: 'populationCap' | 'queueFull' | 'invalidPlacement' | 'invalid' };
+  | {
+      ok: false;
+      /**
+       * `housingFull`: no room for the unit until more housing is built.
+       * `populationCap`: no room, and the side already has the most it can ever have.
+       */
+      reason: 'housingFull' | 'populationCap' | 'queueFull' | 'invalidPlacement' | 'invalid';
+    };
 
 const OK: CommandResult = { ok: true };
 
@@ -111,6 +127,8 @@ export function applyCommand(state: GameState, command: Command): CommandResult 
     case 'gather':
       applyGather(state, command);
       return OK;
+    case 'work':
+      return applyWork(state, command);
     case 'train':
       return queueUnit(state, command.player, command.buildingId, command.unit);
     case 'cancelTrain':
@@ -144,6 +162,26 @@ function orderedUnits(state: GameState, player: PlayerId, unitIds: readonly numb
   return state.entities
     .filter(isUnit)
     .filter((unit) => unit.owner === player && unitIds.includes(unit.id) && !hasSurrendered(unit));
+}
+
+/**
+ * Sends units to work at a building. Each takes a place there if one is
+ * free; the rest go to the nearest building of the same kind with room, and
+ * those that find none keep doing what they did.
+ */
+function applyWork(state: GameState, command: WorkCommand): CommandResult {
+  const building = state.entities.find(
+    (entity): entity is Building => entity.id === command.buildingId && isBuilding(entity),
+  );
+  if (!building || building.owner !== command.player || !building.complete) {
+    return { ok: false, reason: 'invalid' };
+  }
+  if (!BUILDING_DEFS[building.type].work) return { ok: false, reason: 'invalid' };
+  const grid = buildPathGrid(state);
+  for (const unit of orderedUnits(state, command.player, command.unitIds)) {
+    startWorking(state, grid, unit, building);
+  }
+  return OK;
 }
 
 function applyGather(state: GameState, command: GatherCommand): void {

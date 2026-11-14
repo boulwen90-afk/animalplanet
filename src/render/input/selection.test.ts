@@ -6,6 +6,7 @@ import {
   builderUnitIds,
   commandableUnitIds,
   gathererUnitIds,
+  isWorkplace,
   pruneSelection,
   selectByBox,
   selectByClick,
@@ -168,5 +169,21 @@ describe('attackerUnitIds', () => {
     expect(attackerUnitIds(selected, entities, 0)).toEqual([a.id, b.id]);
     expect(attackerUnitIds(selected, entities, 1)).toEqual([enemy.id]);
     expect(attackerUnitIds(new Set([building.id]), entities, 0)).toEqual([]);
+  });
+});
+
+describe('isWorkplace', () => {
+  it("is a finished field of the player's own, and nothing else", () => {
+    const state = openState(16, 16);
+    const field = createBuilding(state, 'odling', 0, 2, 2);
+    const store = createBuilding(state, 'visthus', 0, 6, 2);
+    const theirs = createBuilding(state, 'odling', 1, 10, 2);
+    const begun = createBuilding(state, 'odling', 0, 2, 8);
+    begun.complete = false;
+
+    expect(isWorkplace(field, 0)).toBe(true);
+    expect(isWorkplace(store, 0)).toBe(false);
+    expect(isWorkplace(theirs, 0)).toBe(false);
+    expect(isWorkplace(begun, 0)).toBe(false);
   });
 });

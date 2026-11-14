@@ -32,7 +32,12 @@ describe('describeCommandPanel', () => {
     expect(describeCommandPanel(state.entities, new Set([storide.id]), 0)).toEqual({
       buildingId: storide.id,
       buttons: [
-        { action: { kind: 'train', unit: 'samlare' }, label: 'Träna Samlare', cost: '50 mat' },
+        {
+          action: { kind: 'train', unit: 'samlare' },
+          label: 'Träna Samlare',
+          cost: '50 mat',
+          info: 'Samlar och bygger',
+        },
       ],
       queue: [],
       progress: 0,
@@ -83,6 +88,7 @@ describe('describeCommandPanel', () => {
           action: { kind: 'train', unit: 'ramkrigare' },
           label: 'Träna Ramkrigare',
           cost: '60 mat, 25 trä',
+          info: 'Slåss i närstrid',
         },
       ],
       queue: [],
@@ -99,17 +105,35 @@ describe('describeCommandPanel', () => {
     expect(describeCommandPanel(state.entities, new Set([beaten.id]), 0)).toBeUndefined();
   });
 
-  it('shows a build menu with prices for selected Samlare', () => {
+  it('shows a build menu with prices and a few words about each building for selected Samlare', () => {
     const { state } = setup();
     const a = createUnit(state, 'samlare', 0, 1, 1);
     const b = createUnit(state, 'samlare', 0, 2, 1);
     const expected = {
       buttons: [
-        { action: { kind: 'build', building: 'visthus' }, label: 'Bygg Visthus', cost: '80 trä' },
+        {
+          action: { kind: 'build', building: 'visthus' },
+          label: 'Bygg Visthus',
+          cost: '80 trä',
+          info: 'Lämna mat och trä',
+        },
         {
           action: { kind: 'build', building: 'krigshall' },
           label: 'Bygg Krigshall',
           cost: '150 trä',
+          info: 'Tränar Ramkrigare',
+        },
+        {
+          action: { kind: 'build', building: 'ide' },
+          label: 'Bygg Ide',
+          cost: '30 trä',
+          info: '+5 befolkning',
+        },
+        {
+          action: { kind: 'build', building: 'odling' },
+          label: 'Bygg Odling',
+          cost: '60 trä',
+          info: 'Oändlig mat, 1 Samlare',
         },
       ],
       progress: 0,
@@ -130,7 +154,8 @@ describe('commandPanelLayout', () => {
     const layout = commandPanelLayout(1280, 720, 1);
     const selection = selectionPanelRect(1280, 720);
     expect(layout.panel.x).toBeGreaterThan(selection.x + selection.width);
-    expect(layout.panel.y).toBe(selection.y);
+    // Their lower edges are level.
+    expect(layout.panel.y + layout.panel.height).toBe(selection.y + selection.height);
     expect(layout.panel.x + layout.panel.width).toBeLessThanOrEqual(1280);
   });
 
@@ -180,8 +205,11 @@ describe('commandPanelLayout on a phone', () => {
   it.each([
     [390, 844, 1, true],
     [390, 844, 2, false],
+    [390, 844, 4, false],
     [360, 640, 1, true],
+    [360, 640, 5, false],
     [320, 568, 2, false],
+    [320, 568, 4, false],
   ])('fits a %i×%i screen with %i button(s)', (width, height, buttonCount, withQueue) => {
     const layout = commandPanelLayout(width, height, buttonCount, withQueue);
     expect(layout.panel.x).toBeGreaterThanOrEqual(0);
@@ -202,6 +230,35 @@ describe('commandPanelLayout on a phone', () => {
     expect(layout.panel.y + layout.panel.height).toBeLessThanOrEqual(
       selectionPanelRect(width, height).y,
     );
+  });
+
+  it('puts the buttons that do not fit in one row in the next', () => {
+    const layout = commandPanelLayout(390, 844, 4, false);
+    const [a, b, c, d] = layout.buttons;
+    expect(b!.y).toBe(a!.y);
+    expect(c!.y).toBeGreaterThanOrEqual(a!.y + a!.height);
+    expect(c!.x).toBe(a!.x);
+    expect(d!.y).toBe(c!.y);
+  });
+
+  it('keeps four buttons in one row beside the selection panel on a wide screen', () => {
+    const layout = commandPanelLayout(1280, 720, 4, false);
+    const selection = selectionPanelRect(1280, 720);
+    expect(new Set(layout.buttons.map((rect) => rect.y)).size).toBe(1);
+    expect(layout.panel.x).toBeGreaterThan(selection.x + selection.width);
+    expect(layout.panel.x + layout.panel.width).toBeLessThanOrEqual(1280);
+  });
+
+  it('keeps the panel on the screen however many rows it has', () => {
+    for (const [width, height] of [
+      [320, 568],
+      [844, 390],
+      [1280, 720],
+    ] as const) {
+      const layout = commandPanelLayout(width, height, 6, false);
+      expect(layout.panel.y).toBeGreaterThanOrEqual(0);
+      expect(layout.panel.y + layout.panel.height).toBeLessThanOrEqual(height);
+    }
   });
 
   it('puts the queue under the buttons when one row cannot hold both', () => {

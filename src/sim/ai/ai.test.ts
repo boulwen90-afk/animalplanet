@@ -3,9 +3,17 @@ import { AI_CONFIG } from '../../data/ai';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
-import { buildingCentre, createUnit, hasSurrendered, populationOf } from '../entities';
+import {
+  buildingCentre,
+  createUnit,
+  hasSurrendered,
+  populationOf,
+  populationRoom,
+  reservedPopulation,
+} from '../entities';
 import { createGame } from '../game';
 import { tileDistance } from '../map/grid';
+import { resourceAmountAt, resourceAt, takeFromSource } from '../resources';
 import type { Building, GameState, Unit } from '../state';
 import { isEntityVisibleTo, visibilityAt } from '../systems/visibility';
 import { VISIBLE } from '../state';
@@ -106,11 +114,80 @@ describe('the computer opponent plays by the rules', () => {
     );
   });
 
-  it('never has more units than the population cap', () => {
+  it('never has more units than it has room for', () => {
     const state = againstNobody(2);
     for (let i = 0; i < 5 * MINUTE && state.winner === null; i++) {
       tick(state);
-      expect(populationOf(state, 1)).toBeLessThanOrEqual(START_CONFIG.populationCap);
+      expect(populationOf(state, 1)).toBeLessThanOrEqual(populationRoom(state, 1));
+    }
+  });
+
+  it('builds housing in time: it is never left waiting for room for long', () => {
+    const state = againstNobody(2);
+    // Steps in a row in which it has no room for another unit.
+    let stuck = 0;
+    let longest = 0;
+    for (let i = 0; i < 8 * MINUTE && state.winner === null; i++) {
+      tick(state);
+      const full = reservedPopulation(state, 1) >= populationRoom(state, 1);
+      stuck = full ? stuck + 1 : 0;
+      longest = Math.max(longest, stuck);
+    }
+    // A house takes 15 seconds to raise; it is never without room for much longer than that.
+    expect(longest).toBeLessThan(30 * SIM_CONFIG.ticksPerSecond);
+    // And it did grow: well past the room its main building gives.
+    expect(populationOf(state, 1)).toBeGreaterThan(15);
+    expect(buildingsOf(state, 1, 'ide').length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('builds fields before the berries near its base run out, and then lives on them', () => {
+    for (const seed of SEEDS) {
+      const state = againstNobody(seed);
+      const base = buildingsOf(state, 1, 'storide')[0]!;
+      const centre = buildingCentre(base);
+      const r = AI_CONFIG.fields.berryRadius;
+      const bushes = () => {
+        const found: { x: number; y: number; left: number }[] = [];
+        for (let y = Math.floor(centre.y - r); y <= centre.y + r; y++) {
+          for (let x = Math.floor(centre.x - r); x <= centre.x + r; x++) {
+            if (resourceAt(state.map, x, y) !== 'food') continue;
+            if (tileDistance(x, y, centre.x, centre.y) > r) continue;
+            found.push({ x, y, left: resourceAmountAt(state.map, x, y) });
+          }
+        }
+        return found;
+      };
+      const berriesNear = () => bushes().reduce((sum, bush) => sum + bush.left, 0);
+      const fields = () => buildingsOf(state, 1, 'odling').filter((b) => b.complete);
+
+      // Some maps have berries for a whole match. Leave it 700, a little more
+      // than where it starts on fields, so that this is about running low.
+      for (const bush of bushes()) {
+        const spare = berriesNear() - 700;
+        if (spare > 0) takeFromSource(state.map, bush.x, bush.y, Math.min(spare, bush.left - 1));
+      }
+      expect(berriesNear(), `seed ${seed}`).toBeLessThanOrEqual(700);
+      expect(berriesNear(), `seed ${seed}`).toBeGreaterThan(AI_CONFIG.fields.startWhenFoodLeft);
+      // And the other side's main building cannot fall, so that the match goes on.
+      buildingsOf(state, 0, 'storide')[0]!.hp = 1e9;
+
+      let leftAtFirstField: number | undefined;
+      for (let i = 0; i < 12 * MINUTE && berriesNear() > 0; i++) {
+        tick(state);
+        if (leftAtFirstField === undefined && fields().length > 0) leftAtFirstField = berriesNear();
+      }
+      expect(state.winner, `seed ${seed}`).toBeNull();
+      expect(berriesNear(), `seed ${seed}`).toBe(0);
+      // The first field stood finished while there were still berries to pick.
+      expect(leftAtFirstField, `seed ${seed}`).toBeGreaterThan(0);
+
+      // With the berries gone, workers are on the fields and food keeps coming in.
+      advance(state, 2 * MINUTE);
+      const farmers = unitsOf(state, 1, 'samlare').filter(
+        (u) => u.task.kind === 'gather' && u.task.siteId !== null,
+      );
+      expect(fields().length, `seed ${seed}`).toBeGreaterThanOrEqual(2);
+      expect(farmers.length, `seed ${seed}`).toBeGreaterThanOrEqual(2);
     }
   });
 
