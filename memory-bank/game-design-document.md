@@ -196,7 +196,9 @@ Stridsregler:
 | Befolkningsplats | 5 | 0 | 0 | 5 | 0 | 0 |
 
 Bostaden heter olika för varje ras; björnarnas är Idet. Det byggs av
-Samlare. Tills vidare ritas det som ett block med bokstaven I.
+Samlare. Det är en låg timmerstuga under ett djupt halmtak, med ljus i
+fönstren, skorsten, vedtrave och en bikupa på gården (bild sedan
+2026-11-14; dessförinnan ett block med bokstaven I).
 
 **Odlingen** (tillagt 2026-11-14) byggs av Samlare och är en åker, inte ett
 hus:

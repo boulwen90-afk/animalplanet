@@ -5,16 +5,15 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 ## Nuläge
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
-- **Väntar på användaren:** ekonomibyggnader, steg 2 av 2:
-  **Fiskehyttan** är införd och dess värden godkända (2026-11-14). Pull
-  request 15 väntar på att användaren mergar. Se "Efter MVP:n"
+- **Väntar på användaren:** Idet har fått ett riktigt hus i stället för
+  platshållarblocket. Användaren ska se bilderna. Se "Efter MVP:n"
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare), björnarnas byggnader, att byggnaderna ritas i spelet,
-  befolkningssystemet med bostaden Ide, och Odlingen (pull request 14;
-  Odlingens startvärden godkända av användaren 2026-11-14)
-- **Inte gjort:** Idet har ingen egen bild (block med bokstaven I).
-  Tigrarna finns inte som ras i spelet. Träd, bärsnår, klippor och grottor
-  är fortfarande platshållare
+  befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
+  request 14) och Fiskehyttan (pull request 15). Båda ekonomibyggnadernas
+  värden är godkända av användaren (2026-11-14)
+- **Inte gjort:** Tigrarna finns inte som ras i spelet. Träd, bärsnår,
+  klippor, vatten och grottor är fortfarande platshållare
 - **Beslutat men inte påbörjat:** skarp rendering i skärmens verkliga
   upplösning. Den står som egen punkt sist i `implementation-plan.md`
 - **Mäta på telefon:** `?debug=1` visar bilder per sekund, och
@@ -822,6 +821,72 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Idet får ett riktigt hus (2026-11-14)
+
+Användaren: "Ide saknar fortfarande ett ordentligt hus, skapa det."
+Pull request 15 (Fiskehyttan) mergades först, på användarens begäran.
+
+**Skärmdumpar:** `docs/screenshots/ide-stadier.png` (tre Iden bredvid
+Storidet: färdigt, halvbyggt och nyss påbörjat), `ide-narbild.png`
+(närbild av de tre stadierna), `ide-fardiga.png` (tre färdiga Iden,
+räknaren 3/20) och `ide-placering.png` (Idets bild vid placering).
+`assets/previews/bear_den/` har pipelinens förhandsbilder, och
+`assets/previews/overview.png` visar Idet bland övriga byggnader i
+verklig skala.
+
+**Vad som gjordes**
+
+- `tools/blender/buildings/bear/den.toml`: en låg timmerstuga under ett
+  djupt halmtak som går nästan ned till marken, med nocken och en vimpel
+  i lagfärg. I gaveln sitter dörren och två fönster med ljus inifrån.
+  Genom taket går en stenskorsten, och på gården ligger en vedtrave och
+  står en bikupa av halm. Storleksklass `small`: taket är 75 px mot
+  kravet 64.
+- Tre byggstadier som för övriga hus: stomme, väggar med takstolar, och
+  det färdiga huset.
+- Halmtaket är bostadens kännetecken. Hallarna har skiffertak, så Idet
+  går att skilja från Visthuset och Fiskehyttan på färg och form.
+- Två nya delar i `lib/structures.py`: fönster och bikupa. Halmens och
+  ljusets färger står i `den.toml`, inte i den gemensamma stilen.
+- I spelet: `BUILDING_ART.ide`, och klickhöjden (`BUILDING_VISUALS.ide`)
+  höjd från 22 till 46 px så att den följer det nya huset.
+
+**Saknas eller avviker**
+
+- **Idet är högre än blocket var** (75 px mot 22), så det skymmer mer.
+  Enheter bakom det ritas blekt, som bakom övriga hus.
+- **Fönstren lyser alltid.** Spelet har ingen natt, och ljuset hör till
+  bilden.
+- **Platshållarblocken finns kvar i koden** som reserv för en byggnadstyp
+  utan bild. Ingen byggnadstyp använder dem längre.
+- **Den gemensamma pipelinen fick tillägg** (fönster och bikupa). Alla
+  övriga atlaser byggdes om och är oförändrade byte för byte.
+- **En rad i den här loggen var inaktuell på `main`:** den sa att pull
+  request 15 väntade på merge efter att den hade mergats. Rättad här.
+
+**Testresultat**
+
+- Vitest: 602 av 602 (3 nya, för Idets atlas)
+- Playwright: 121 av 121 i normal fart. Med webbläsaren nedbromsad 8
+  gånger: 120 av 121 i hela körningen; det sista (se nedan) gick sedan
+  igenom 4 av 4 gånger med längre tidsgräns
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+
+**Äldre tester som ändrades, och varför**
+
+- **Testet "hela vägen" fick längre tidsgräns.** Det laddar spelet tre
+  gånger, och i den nedbromsade webbläsaren tar varje laddning cirka 7 s
+  (1,3 s i normal fart). Testet har därför legat nära gränsen på 30 s
+  länge: 25–27 s i de tre senaste nedbromsade körningarna och 31 s nu.
+  Mätt mot spelet före ekonomibyggnaderna har laddningen gått från 6,7
+  till 7,0 s nedbromsat; stridens längd i testet är oförändrad (438
+  steg). Testet har nu `test.slow()`, som dimtestet redan hade av samma
+  skäl. Inget test är avstängt.
+- Befolkningstestet väntade sig att Idet saknade bild. Det kontrollerar
+  nu att det färdiga Idet ritas från sin atlas i spelarens färg.
+- Atlastestet "även den minsta byggnaden är tydligt högre än en krigare"
+  prövar nu alla tre små hus, inte bara Visthuset.
 
 ### Ekonomibyggnader, steg 2: Fiskehytta (2026-11-14)
 

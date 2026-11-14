@@ -2,6 +2,9 @@ import type { BuildingType } from '../../data/types';
 import bearBarracksAtlasUrl from '../../../assets/buildings/bear_barracks/bear_barracks.json?url';
 import bearBarracksBaseUrl from '../../../assets/buildings/bear_barracks/bear_barracks.png';
 import bearBarracksMaskUrl from '../../../assets/buildings/bear_barracks/bear_barracks_mask.png';
+import bearDenAtlasUrl from '../../../assets/buildings/bear_den/bear_den.json?url';
+import bearDenBaseUrl from '../../../assets/buildings/bear_den/bear_den.png';
+import bearDenMaskUrl from '../../../assets/buildings/bear_den/bear_den_mask.png';
 import bearFieldAtlasUrl from '../../../assets/buildings/bear_field/bear_field.json?url';
 import bearFieldBaseUrl from '../../../assets/buildings/bear_field/bear_field.png';
 import bearFieldMaskUrl from '../../../assets/buildings/bear_field/bear_field_mask.png';
@@ -46,6 +49,12 @@ export const BUILDING_ART: Partial<Record<BuildingType, BuildingSource>> = {
     atlasUrl: bearBarracksAtlasUrl,
     baseUrl: bearBarracksBaseUrl,
     maskUrl: bearBarracksMaskUrl,
+  },
+  ide: {
+    name: 'bear_den',
+    atlasUrl: bearDenAtlasUrl,
+    baseUrl: bearDenBaseUrl,
+    maskUrl: bearDenMaskUrl,
   },
   fiskehytta: {
     name: 'bear_fishery',

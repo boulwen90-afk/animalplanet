@@ -1,0 +1,138 @@
+# The bears' housing, the Ide: a low, snug log cabin under a deep thatched
+# roof that comes almost down to the ground, with a lit window, a stone
+# chimney, firewood by the door and a beehive in the yard.
+# Lengths are in tiles; see lib/structures.py for the frame.
+name = "den"
+game_building = "ide"
+size_class = "small"
+footprint = 2
+
+# A home has thatch where the halls have slate, and a light in the window.
+[colors]
+roof = "#c2a052"
+roof_dark = "#a3843f"
+glow = "#f6cf6a"
+straw = "#d6b65e"
+straw_dark = "#ad8c40"
+
+[[part]]
+type = "base"
+box = [-0.9, -0.9, 0.9, 0.9]
+height = 0.1
+corner = 0.12
+from = "construction_1"
+
+[[part]]
+type = "frame"
+box = [-0.6, -0.5, 0.6, 0.72]
+z = [0.1, 0.58]
+spacing = 0.6
+thickness = 0.08
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "planks"
+at = [0.0, -0.74]
+z = 0.1
+along = "x"
+length = 0.5
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "scaffold"
+box = [-0.6, -0.5, 0.6, 0.72]
+height = 0.7
+out = 0.1
+from = "construction_1"
+until = "construction_2"
+
+# Low walls: most of the house is roof.
+[[part]]
+type = "walls"
+box = [-0.6, -0.5, 0.6, 0.72]
+z = [0.1, 0.58]
+log = 0.115
+ends = 0.05
+from = "construction_2"
+
+[[part]]
+type = "rafters"
+box = [-0.6, -0.5, 0.6, 0.72]
+eave = 0.4
+ridge = 1.6
+along = "y"
+overhang = 0.2
+count = 5
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "door"
+face = "-y"
+wall = -0.5
+at = -0.2
+z = 0.1
+width = 0.34
+height = 0.5
+from = "construction_2"
+
+[[part]]
+type = "gable_roof"
+box = [-0.6, -0.5, 0.6, 0.72]
+eave = 0.4
+ridge = 1.6
+along = "y"
+overhang = 0.2
+courses = 5
+thickness = 0.1
+cap = "team"
+
+[[part]]
+type = "window"
+face = "-y"
+wall = -0.5
+at = 0.26
+z = 0.36
+width = 0.22
+height = 0.22
+
+# A second light, high in the gable.
+[[part]]
+type = "window"
+face = "-y"
+wall = -0.5
+at = 0.0
+z = 0.95
+width = 0.16
+height = 0.16
+
+[[part]]
+type = "chimney"
+at = [0.32, 0.25]
+z = [0.7, 1.55]
+size = 0.22
+
+[[part]]
+type = "pennant"
+at = [0.0, -0.72]
+z = 1.62
+height = 0.38
+face = "-y"
+
+# The yard in front: firewood by the door and a beehive.
+[[part]]
+type = "logpile"
+at = [-0.62, -0.74]
+z = 0.1
+along = "x"
+length = 0.34
+
+[[part]]
+type = "skep"
+at = [0.62, -0.72]
+z = 0.1
+radius = 0.13
+height = 0.28
+face = "-y"

@@ -816,8 +816,9 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
 - **Byggnader i spelet (`render/buildings/`).** Byggnadstyper som finns i
   `BUILDING_ART` ritas från sina atlaser. I dag gäller det Storide
   (`bear_main`), Krigshall (`bear_barracks`), Visthus (`bear_storage`),
-  Odling (`bear_field`) och Fiskehytta (`bear_fishery`), för båda sidorna. Idet är fortfarande ett
-  platshållarblock.
+  Odling (`bear_field`), Fiskehytta (`bear_fishery`) och Ide (`bear_den`),
+  för båda sidorna. Alla byggnadstyper har därmed bilder; en typ utan
+  bild ritas fortfarande som ett platshållarblock.
   - `BuildingLibrary` laddar atlaserna och gör en färgad kopia per
     spelare, på samma sätt som `CharacterLibrary`.
   - **Bild efter stadium** (`stageOf`): under halva bygget visas grund och
@@ -1004,7 +1005,7 @@ alla figurer från konfigfilerna. En figurs atlas tar cirka 1,5 minut.
 | `buildings.py` | Bygger och renderar byggnader: läser konfig, ställer upp scenen, kontrollerar storleksstandarden, renderar stadierna och skriver atlas och förhandsbilder |
 | `buildings/<ras>/style.toml` | Rasens byggnadsstil: färgerna som alla dess byggnader delar |
 | `buildings/<ras>/<namn>.toml` | En byggnad: storleksklass, fotavtryck och listan av delar med mått och stadier |
-| `lib/structures.py` | Byggnadsdelarna: stengrund, timmerväggar, stomme, sadeltak, takstolar, tornspira, dörr, sköld, baner, vimpel, palissad, tunna, låda, säck, vedtrave, brädhög, vapenställ, träningsdocka, byggnadsställning, skorsten, åkerjord, gröda, gärdsgård, fågelskrämma, utstakning, torkställning med fisk, nät |
+| `lib/structures.py` | Byggnadsdelarna: stengrund, timmerväggar, stomme, sadeltak, takstolar, tornspira, dörr, sköld, baner, vimpel, palissad, tunna, låda, säck, vedtrave, brädhög, vapenställ, träningsdocka, byggnadsställning, skorsten, åkerjord, gröda, gärdsgård, fågelskrämma, utstakning, torkställning med fisk, nät, fönster, bikupa |
 | `animations/` | Det gemensamma animationsbiblioteket: `base.py` (byggstenar), `idle.py`, `walk.py`, `attack.py`, `chop.py`, `pick.py`, `till.py`, `fish.py`, `hammer.py`, `defeat.py` |
 | `lib/atlas.py` | Packar bildrutorna till en atlas och skriver JSON-filen |
 | `lib/scale.py` | Storleksstandarden: räknar ut hur mycket en figur skalas, och kontrollerar bredden |
@@ -1264,6 +1265,7 @@ lagfärgsmask som figurerna (`buildings.py`).
 |---|---|---|---|---|---|
 | `field` | Odling | 2×2 | `plot` | – | 31 px |
 | `fishery` | Fiskehytta | 2×2 | `small` | 64 px | 69 px |
+| `den` | Ide | 2×2 | `small` | 64 px | 75 px |
 | `storage` | Visthus | 2×2 | `small` | 64 px | 79 px |
 | `barracks` | Krigshall | 3×3 | `large` | 90 px | 112 px |
 | `main` | Storide | 3×3 | `main` | 115 px | 137 px |
@@ -1281,6 +1283,13 @@ längst bak på ett plankdäck, med nocken på tvären, så att den inte liknar
 Visthuset. Framför den står en torkställning med fisk, vid sidan hänger
 ett nät på tork, och på däcket står tunnor och en låda. Hyttan kan stå med
 vilken sida som helst mot vattnet, så ingenting i bilden pekar mot det.
+
+Idet (`den`, 2×2, storleksklass `small`) är en låg timmerstuga där det
+mesta är tak: ett djupt halmtak som går nästan ned till marken, med
+nocken i lagfärg. I gaveln sitter dörren och två fönster med ljus
+inifrån, genom taket går en stenskorsten, och på gården framför ligger en
+vedtrave och står en bikupa av halm. Halmtaket (egna färger i
+`den.toml`) skiljer bostaden från hallarnas skiffertak.
 
 Björnarnas stil (`buildings/bear/style.toml`): timmerhus på stengrund,
 branta skiffergrå tak, järnbeslag och korsade vindskidor på gavlarna.

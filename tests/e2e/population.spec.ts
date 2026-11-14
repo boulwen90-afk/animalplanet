@@ -127,8 +127,10 @@ test.describe('population', () => {
     )!;
     expect(site.complete).toBe(true);
     await expect.poll(() => population(page)).toBe(`Befolkning 3/${HOME + HOUSE}`);
-    // It has no pictures yet: a placeholder block.
-    expect(await page.evaluate((id) => window.__TEST__!.getBuildingSprite(id), site.id)).toBeNull();
+    // It stands as the finished den, in the player's colour.
+    await expect
+      .poll(() => page.evaluate((id) => window.__TEST__!.getBuildingSprite(id), site.id))
+      .toEqual({ frame: 'complete', texture: 'building-bear_den-player-0' });
     expect(errors).toEqual([]);
   });
 

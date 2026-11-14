@@ -100,6 +100,10 @@ test.describe('phase 10: start screen', () => {
   });
 
   test('the whole way: start screen, match, end screen and "Spela igen"', async ({ page }) => {
+    // The game is loaded three times here. On a machine eight times slower
+    // (E2E_CPU_THROTTLE=8) each load takes about seven seconds, which leaves
+    // nothing of the usual thirty for the match in between.
+    test.slow();
     const errors = trackConsoleErrors(page);
     await openGame(page, '', { startScreen: true });
     await page.mouse.click((await startScreen(page)).button.x, (await startScreen(page)).button.y);

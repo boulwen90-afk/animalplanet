@@ -550,7 +550,39 @@ def net(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
         b.ellipsoid(f"{name}.float_{i}", at, (0.04, 0.04, 0.04), pal["timber_new"], detail=1)
 
 
+def window(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """A small window in a wall: a heavy frame, a pane lit from inside, a cross of bars and a sill."""
+    face, wall, at = p["face"], p["wall"], p["at"]
+    z0, w, h = p["z"], p.get("width", 0.24), p.get("height", 0.24)
+    middle = z0 + h / 2
+    face_box(b, f"{name}.frame", face, on_face(face, wall, at, middle, 0.02), w + 0.1, 0.05, h + 0.1, pal["timber_dark"])
+    face_box(b, f"{name}.pane", face, on_face(face, wall, at, middle, 0.045), w, 0.02, h, pal["glow"])
+    face_box(b, f"{name}.bar_up", face, on_face(face, wall, at, middle, 0.06), 0.03, 0.02, h, pal["timber_dark"])
+    face_box(b, f"{name}.bar_across", face, on_face(face, wall, at, middle, 0.06), w, 0.02, 0.03, pal["timber_dark"])
+    face_box(b, f"{name}.sill", face, on_face(face, wall, at, z0 - 0.07, 0.06), w + 0.16, 0.1, 0.04, pal["timber_mid"])
+
+
+def skep(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """A beehive of coiled straw on a low stand: rings that narrow to a rounded top, and a dark hole to fly in by."""
+    x, y = p["at"]
+    z0, r, h = p.get("z", 0.0), p.get("radius", 0.13), p.get("height", 0.3)
+    normal, _ = FACES[p.get("face", "-y")]
+    b.box(f"{name}.stand", (x, y, z0 + 0.03), (r * 2.4, r * 2.4, 0.06), pal["timber_mid"])
+    rings = p.get("rings", 5)
+    for i in range(rings):
+        t0, t1 = i / rings, (i + 1) / rings
+        # The outline of half an egg.
+        r0 = r * math.sqrt(max(0.0, 1 - (t0 * 0.92) ** 2))
+        r1 = r * math.sqrt(max(0.0, 1 - (t1 * 0.92) ** 2))
+        material = pal["straw"] if i % 2 == 0 else pal["straw_dark"]
+        b.limb(f"{name}.ring_{i}", (x, y, z0 + 0.06 + h * t0), (x, y, z0 + 0.06 + h * t1), r0, r1, material, 8)
+    hole = Vector((x, y, z0 + 0.06 + h * 0.18)) + normal * (r * 0.95)
+    b.ellipsoid(f"{name}.hole", hole, (0.03, 0.03, 0.03), pal["timber_dark"], detail=1)
+
+
 PARTS = {
+    "window": window,
+    "skep": skep,
     "fish_rack": fish_rack,
     "net": net,
     "soil": soil,
