@@ -1,0 +1,133 @@
+# The bears' fishing hut, the Fiskehytta: a low log hut on a plank deck, with
+# fish hung to dry, a net and barrels for the catch. It stands by water, on
+# any side of it, so nothing here points at the water.
+# Lengths are in tiles; see lib/structures.py for the frame.
+name = "fishery"
+game_building = "fiskehytta"
+size_class = "small"
+footprint = 2
+
+# A deck of planks on short stone footings, instead of a stone floor.
+[[part]]
+type = "base"
+box = [-0.9, -0.9, 0.9, 0.9]
+height = 0.06
+corner = 0.1
+from = "construction_1"
+
+[[part]]
+type = "slab"
+box = [-0.86, -0.86, 0.86, 0.86]
+z = [0.06, 0.12]
+material = "timber_mid"
+from = "construction_1"
+
+[[part]]
+type = "frame"
+box = [-0.7, -0.1, 0.55, 0.72]
+z = [0.12, 0.72]
+spacing = 0.6
+thickness = 0.08
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "planks"
+at = [0.2, -0.55]
+z = 0.12
+along = "x"
+length = 0.5
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "scaffold"
+box = [-0.7, -0.1, 0.55, 0.72]
+height = 0.8
+out = 0.1
+from = "construction_1"
+until = "construction_2"
+
+# The hut stands at the back of the deck, with its ridge across.
+[[part]]
+type = "walls"
+box = [-0.7, -0.1, 0.55, 0.72]
+z = [0.12, 0.72]
+log = 0.115
+ends = 0.05
+from = "construction_2"
+
+[[part]]
+type = "rafters"
+box = [-0.7, -0.1, 0.55, 0.72]
+eave = 0.68
+ridge = 1.45
+along = "x"
+overhang = 0.14
+count = 5
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "door"
+face = "-y"
+wall = -0.1
+at = -0.1
+z = 0.12
+width = 0.42
+height = 0.5
+from = "construction_2"
+
+[[part]]
+type = "gable_roof"
+box = [-0.7, -0.1, 0.55, 0.72]
+eave = 0.68
+ridge = 1.45
+along = "x"
+overhang = 0.14
+courses = 4
+cap = "team"
+
+[[part]]
+type = "pennant"
+at = [0.6, 0.31]
+z = 1.45
+height = 0.4
+face = "-y"
+
+# The catch: fish drying on a rack in front of the hut, a net beside it,
+# and barrels and a crate on the deck.
+[[part]]
+type = "fish_rack"
+at = [-0.25, -0.55]
+z = 0.12
+width = 0.75
+height = 0.5
+count = 5
+face = "-y"
+
+[[part]]
+type = "net"
+at = [0.74, 0.25]
+z = 0.12
+width = 0.7
+height = 0.55
+face = "+x"
+
+[[part]]
+type = "barrel"
+at = [0.45, -0.3]
+z = 0.12
+
+[[part]]
+type = "barrel"
+at = [0.68, -0.52]
+z = 0.12
+radius = 0.12
+height = 0.26
+
+[[part]]
+type = "crate"
+at = [0.42, -0.66]
+z = 0.12
+size = 0.22

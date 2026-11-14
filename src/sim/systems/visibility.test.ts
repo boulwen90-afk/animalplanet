@@ -7,7 +7,7 @@ import { createGame } from '../game';
 import { EXPLORED, UNEXPLORED, VISIBLE, type GameState } from '../state';
 import { addCave, openState } from '../testUtils';
 import { advance, tick } from '../tick';
-import { canPlaceBuilding } from './construction';
+import { canPlaceBuilding, placementProblem } from './construction';
 import {
   isEntityVisibleTo,
   isTileExplored,
@@ -224,7 +224,11 @@ describe('fog of war and orders', () => {
       });
 
     expect(canPlaceBuilding(state, 'visthus', 20, 5, 0)).toBe(false);
-    expect(order(20)).toEqual({ ok: false, reason: 'invalidPlacement' });
+    expect(order(20)).toEqual({
+      ok: false,
+      reason: 'invalidPlacement',
+      problem: 'unexplored',
+    });
     // Partly explored is not enough: the footprint's far column is still unseen.
     expect(isTileExplored(state, 0, 11, 5)).toBe(true);
     expect(isTileExplored(state, 0, 12, 5)).toBe(false);
@@ -239,6 +243,25 @@ describe('fog of war and orders', () => {
     // Explored but no longer in sight: building there is allowed.
     expect(visibilityAt(state, 0, 20, 5)).toBe(EXPLORED);
     expect(order(20)).toEqual({ ok: true });
+  });
+
+  it('does not tell what stands on ground that has never been seen', () => {
+    const state = foggyState(40, 10);
+    createUnit(state, 'samlare', 0, 5, 5);
+    // A rock far out in the dark, and a tree in sight.
+    state.map.terrain[5 * state.map.width + 30] = 'rock';
+    state.map.terrain[5 * state.map.width + 7] = 'tree';
+    updateVisibility(state);
+
+    // On the unseen rock the answer is the same as on unseen open ground beside it.
+    expect(placementProblem(state, 'visthus', 30, 5, 0)).toBe('unexplored');
+    expect(placementProblem(state, 'visthus', 33, 5, 0)).toBe('unexplored');
+    // A fishing hut too: whether there is water there is not given away.
+    expect(placementProblem(state, 'fiskehytta', 30, 5, 0)).toBe('unexplored');
+    // In sight, the tree is what is in the way.
+    expect(placementProblem(state, 'visthus', 7, 5, 0)).toBe('blocked');
+    // Off the map is simply not a place.
+    expect(placementProblem(state, 'visthus', 39, 5, 0)).toBe('blocked');
   });
 
   it('the other side having explored the ground does not help', () => {

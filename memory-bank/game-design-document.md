@@ -51,7 +51,7 @@ En match ska ta ungefär 10–20 minuter.
 | Attackera | Högerklick på fiendeenhet/-byggnad |
 | Samla | Högerklick på resurs (med arbetare markerade) |
 | Hjälp till att bygga | Högerklick på eget bygge (med arbetare markerade) |
-| Arbeta på en Odling | Högerklick på egen färdig Odling (med arbetare markerade) |
+| Arbeta på en Odling eller fiska | Högerklick på egen färdig Odling eller Fiskehytta (med arbetare markerade) |
 | Bygga / träna | Knappar i kommandopanelen |
 | Avbryt byggplacering | Högerklick eller Esc |
 | Panorera kameran | Piltangenter / WASD, muspekaren mot skärmkanten, eller dra med mittenknappen |
@@ -102,6 +102,7 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 |---|---|---|---|
 | Mat | Bärsnår | 150 | Arbetare, soldater |
 | Mat | Odling (byggnad, se avsnitt 8) | tar aldrig slut | Arbetare, soldater |
+| Mat | Fiske vid en Fiskehytta (byggnad, se avsnitt 8) | tar aldrig slut | Arbetare, soldater |
 | Trä | Träd | 100 | Byggnader, soldater |
 
 - Källor på kartan är ändliga och försvinner när de är tömda. Tömda träd blir
@@ -113,7 +114,15 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
   bär 10 åt gången och lämnar lasten i närmaste Visthus eller Storide,
   precis som bär. Uppmätt med en Odling intill Storidet: 20–22 mat/min per
   Samlare, mot 45–55 för bärsnår 4–6 rutor från Storidet. Värdena ligger i
-  `BUILDING_DEFS.odling` (`cost`, `buildTime`, `work`).
+  `BUILDING_DEFS.odling` (`cost`, `buildTime`, `work`). Startvärdena
+  godkändes av användaren 2026-11-14.
+- **Fiske** (tillagt 2026-11-14 på användarens begäran): Samlare fiskar
+  från fasta platser på stranden nära en Fiskehytta och bär fångsten till
+  hyttan. Fisken tar aldrig slut. Fiske ger mat **snabbare än en Odling
+  men långsammare än bär**: 1 mat var 1,6 s (37,5 mat/min utan gångväg).
+  Uppmätt på sex kartor: 33–38 mat/min per Samlare. En hytta har högst 3
+  fiskeplatser. Inga båtar, och ingen går på vatten. Värdena ligger i
+  `BUILDING_DEFS.fiskehytta`.
 - **Arbetsplatser:** varje källa har upp till 4 fasta arbetsplatser, på de
   öppna rutorna runt den. En arbetare tar en ledig plats och behåller den
   medan den bär hem lasten. Är alla platser tagna går arbetaren till
@@ -176,15 +185,15 @@ Stridsregler:
 
 ## 8. Byggnader (MVP)
 
-| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) |
-|---|---|---|---|---|---|
-| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare |
-| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä |
-| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s |
-| Liv | 1500 | 400 | 700 | 300 | 200 |
-| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor |
-| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor |
-| Befolkningsplats | 5 | 0 | 0 | 5 | 0 |
+| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) | Fiskehytta |
+|---|---|---|---|---|---|---|
+| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare | Fiske vid vatten, upp till 3 Samlare; avlämningsplats för fisk |
+| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä | 100 trä |
+| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s | 25 s |
+| Liv | 1500 | 400 | 700 | 300 | 200 | 350 |
+| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor | 2×2 rutor |
+| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor | 5 rutor |
+| Befolkningsplats | 5 | 0 | 0 | 5 | 0 | 0 |
 
 Bostaden heter olika för varje ras; björnarnas är Idet. Det byggs av
 Samlare. Tills vidare ritas det som ett block med bokstaven I.
@@ -204,10 +213,36 @@ hus:
   en kort beskrivning (t.ex. "Bygg Odling / 60 trä / Oändlig mat, 1
   Samlare"). Knappar som inte ryms på en rad fortsätter på nästa.
 
+**Fiskehyttan** (tillagt 2026-11-14) byggs av Samlare:
+- Den **får bara stå intill vatten**: minst en ruta av fotavtrycket ska ha
+  vatten sida vid sida med sig (hörn mot hörn räcker inte). Hyttan står på
+  land.
+- **Fiskeplatser:** de öppna strandrutorna (gräs med vatten på någon av
+  fyra sidor) närmast hyttan, högst 3 rutor från den och **högst 3
+  stycken**. En plats räknas bara om Samlaren kan gå dit; en strandremsa
+  som är instängd av träd, klippor eller hyttan själv är ingen fiskeplats.
+  En plats är en ruta: två hyttor som når samma strand delar på platserna.
+- **En Samlare per plats.** Den står på land, vänd mot vattnet, och fiskar
+  med spö. Den bär 10 åt gången till **hyttan**, inte till närmaste förråd.
+  Hyttan tar bara emot fisk; bär och trä lämnas inte där.
+- Den som byggde hyttan börjar fiska när den är klar. Högerklick på en
+  färdig hytta skickar dit markerade Samlare. Är hyttan full går Samlaren
+  till närmaste egna hytta med ledig plats inom sökradien; finns ingen
+  behåller den sin uppgift.
+- Rivs hyttan söker fiskarna upp en annan hytta, och blir annars
+  sysslolösa eller går till närmaste bärsnår.
+- Inga båtar, och ingen vägsökning på vatten.
+
 Byggregler:
 - Spelaren väljer byggnad i kommandopanelen och placerar en "spökbild" på
-  kartan: grön om platsen är giltig, röd annars. Giltigt = alla rutor
-  gångbara, utforskade och fria från enheter/byggnader/resurser.
+  kartan: byggnadens bild, halvgenomskinlig, på sitt fotavtryck. Där den
+  får stå är fotavtrycket grönt. Där den inte får stå är bild och
+  fotavtryck **röda**, och under fotavtrycket står en kort förklaring:
+  "Platsen är upptagen", "Outforskad mark" eller "Måste stå intill
+  vatten". För en Fiskehytta som får stå visas i stället antalet
+  fiskeplatser ("3 fiskeplatser") och en ring på varje plats. Giltigt =
+  alla rutor gångbara, utforskade och fria från
+  enheter/byggnader/resurser.
 - Kostnaden dras när bygget placeras. Bygget börjar på 10 % av sitt liv och växer
   medan arbetare bygger. Fler arbetare bygger snabbare (varje extra arbetare
   ger +50 % av en arbetares takt).
@@ -250,6 +285,12 @@ som spelaren (inget fusk med resurser):
    150 mat som fattas, högst 5, och ställer en ledig Samlare på varje.
    Lediga Samlare tar i första hand bär nära basen, sedan en ledig Odling
    och först därefter bär längre bort. Värdena ligger i `AI_CONFIG.fields`.
+   **Har den vatten inom räckhåll** (en plats vid vatten högst 18 rutor
+   från Storidet, som dess Samlare kan gå till och som ger alla tre
+   fiskeplatser) bygger den först en Fiskehytta, högst en, och räknar
+   den som tre Odlingar. Samlare som plockar bär långt från basen flyttas
+   till en ledig fiskeplats eller Odling. Värdena ligger i
+   `AI_CONFIG.fishing`.
 5. Tränar Ramkrigare kontinuerligt.
 6. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
    ligger i en datafil (t.ex. våg 1: 4 krigare tidigast vid 4 min, därefter
@@ -306,8 +347,9 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 - Fler raser än björnar, rasunika enheter eller bonusar
 - Tidsåldrar, uppgraderingar, forskning
 - Distansenheter, belägringsvapen, hjältar/ledare som enheter
-- Torn, murar, fler byggnadstyper (Odlingen tillkom 2026-11-14, se avsnitt
-  6 och 8; en Fiskehytta är planerad som nästa steg)
+- Torn, murar, fler byggnadstyper (Odlingen och Fiskehyttan tillkom
+  2026-11-14, se avsnitt 6 och 8)
+- Båtar och allt annat på vatten
 - ~~Bostadshus som höjer befolkningstaket (planerat efter MVP, maxtak ca
   250)~~ Infört 2026-11-14 med ett hårt tak på 50, se avsnitt 6 och 8.
 - Fler resurser än mat och trä

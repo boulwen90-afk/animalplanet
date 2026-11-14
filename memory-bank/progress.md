@@ -5,17 +5,13 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 ## Nuläge
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
-- **Pågår:** riktig figurgrafik, byggd med kod i Blender. Båda
-  enhetstyperna ritas som figurer: björnkrigaren (Ramkrigaren) och
-  björnarbetaren (Samlaren). Sex förbättringar av Samlaren och grunden är
-  gjorda och väntar på att användaren ser skärmdumparna. Se "Efter MVP:n"
-- **Väntar på användaren:** befolkningssystemet (plats från byggnader,
-  bostaden Ide, hårt tak 50) är infört och väntar på granskning
-- **Väntar på användaren:** ekonomibyggnader, steg 1 av 2: **Odlingen**
-  är införd. Användaren ska se skärmdumparna och godkänna startvärdena
-  innan steg 2 (Fiskehyttan) påbörjas
+- **Väntar på användaren:** ekonomibyggnader, steg 2 av 2:
+  **Fiskehyttan** är införd. Användaren ska se skärmdumparna av giltig
+  och ogiltig placering och av Samlare som fiskar. Se "Efter MVP:n"
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
-  tigerkrigare), björnarnas byggnader och att byggnaderna ritas i spelet
+  tigerkrigare), björnarnas byggnader, att byggnaderna ritas i spelet,
+  befolkningssystemet med bostaden Ide, och Odlingen (pull request 14;
+  Odlingens startvärden godkända av användaren 2026-11-14)
 - **Inte gjort:** Idet har ingen egen bild (block med bokstaven I).
   Tigrarna finns inte som ras i spelet. Träd, bärsnår, klippor och grottor
   är fortfarande platshållare
@@ -826,6 +822,154 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Ekonomibyggnader, steg 2: Fiskehytta (2026-11-14)
+
+Användaren godkände Odlingens startvärden, bad Claude merga pull request
+14 först och sedan gå vidare med steg 2.
+
+**Skärmdumpar:** `docs/screenshots/fiske-ogiltig.png` (hyttan inåt land:
+röd, med texten "Måste stå intill vatten"), `fiske-giltig.png` (hyttan
+vid vatten: grönt fotavtryck, "3 fiskeplatser" och en ring på varje
+plats), `fiske-arbete.png` (tre Samlare fiskar vid en färdig hytta) och
+`fiske-narbild.png` (närbild av två fiskare med spö).
+
+**Värden (förslag)**
+
+| | Fiskehytta | Odling | Bärsnår |
+|---|---|---|---|
+| Kostnad | 100 trä | 60 trä | – |
+| Byggtid, 1 Samlare | 25 s | 20 s | – |
+| Liv | 350 | 200 | – |
+| Yta | 2×2 rutor, intill vatten | 2×2 rutor | 1 ruta |
+| Samlare samtidigt | upp till 3 | 1 | upp till 4 |
+| Tid per mat | 1,6 s | 2,5 s | 1 s |
+| Mat per minut och Samlare, utan gångväg | 37,5 | 24 | 60 |
+| Uppmätt med gångväg (sex frön) | 33–38 | 20–22 | 45–55 |
+| En full byggnad ger | 100–112 mat/min | 20–22 mat/min | – |
+
+**Avstämning mot uppdraget, steg 2**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| Får bara placeras intill vatten | Klar | Minst en ruta av fotavtrycket ska ha vatten sida vid sida. `shore: true` i `BUILDING_DEFS` |
+| Ogiltig plats: förhandsvisningen i rött med en kort förklaring | Klar | Byggnadens bild visas nu vid placering, röd där den inte får stå, med "Måste stå intill vatten", "Platsen är upptagen" eller "Outforskad mark". Gäller alla byggnader |
+| Avlämningsplats för fisk | Klar | Fiskarna bär fångsten till hyttan (`deliverTo: 'here'`). Hyttan tar inte emot bär eller trä |
+| Fasta fiskeplatser längs stranden nära hyttan, samma system som arbetsplatser | Klar | Samma `GatherTask.place` som vid träd och bärsnår; en Samlare per ruta |
+| Inga båtar, ingen vägsökning på vatten | Klar | Vatten är alltid ett hinder. Ett test kontrollerar att ingen står på vatten |
+| Snabbare än odling, långsammare än bär | Klar | 37,5 mot 24 och 60 mat/min utan gångväg |
+| Begränsat antal fiskeplatser per hytta | Klar | Högst 3, och aldrig längre än 3 rutor från hyttan |
+| AI:n bygger fiskehytta om den har vatten inom räckhåll | Klar | Inom 18 rutor från Storidet, högst en hytta |
+| Enhetstester för placeringsregeln och produktionen | Klar | `src/sim/systems/fishing.test.ts`, 32 tester, och ett AI-test |
+| Grafik via figurpipelinen enligt skalstandarden | Klar | `buildings/bear/fishery.toml` (klass `small`, tak 69 px mot kravet 64), metspö och animationen `fish` |
+| Syns i byggmenyn med kostnad och kort beskrivning | Klar | "Bygg Fiskehytta / 100 trä / Fiske vid vatten, 3 Samlare" |
+| Alla värden i datafilerna | Klar | `BUILDING_DEFS.fiskehytta`, `AI_CONFIG.fishing`, `STRINGS` |
+| Tester gröna, inga konsolfel, skärmdumpar | Klar | Se "Testresultat" |
+| progress.md, architecture.md och GDD:t uppdaterade | Klar | GDD avsnitt 4, 6, 8, 10 och 13 |
+
+**Så fungerar det**
+
+- `WorkDef` har fått `places` (`inside` för Odlingen, `shore` för
+  hyttan), `reach` och `deliverTo`. Resten är samma kod som för Odlingen:
+  kommandot `work`, högerklick, byggaren börjar arbeta, nästa lediga
+  byggnad av samma typ.
+- En fiskeplats är en öppen ruta med vatten på någon av fyra sidor,
+  högst 3 rutor från hyttan. De tre närmaste gäller.
+- Fiskaren står på land, vänd mot vattnet, och rycker upp spöet en gång
+  per fisk.
+
+**Fyra fel som mätningar och tester avslöjade, och deras grundorsaker**
+
+1. **Fiskare lämnade hyttan och gick till bärsnår.** På frö 1 och 6 låg
+   den närmaste strandrutan i en ficka, instängd av träd, klippor eller
+   hyttan själv. Platsen valdes ändå, vägen dit blev tom, och koden som
+   hanterar "kom inte fram" skickade Samlaren till närmaste källa på
+   kartan. Rättat: en fiskeplats räknas bara om Samlaren kan gå dit
+   (`reachableTiles`), och en Samlare som inte kom fram försöker samma
+   hytta igen innan den söker något annat.
+2. **Datorspelaren kunde börja ett bygge den inte kan nå.** På frö 5 låg
+   närmaste strandplats bakom skog. Bygget hade aldrig blivit klart, och
+   eftersom ett ofärdigt bygge går före allt annat byggande hade
+   datorspelaren slutat bygga. Felet fanns i princip för alla byggnader
+   men hade inte slagit till, eftersom övriga byggen ligger vid basen.
+   Rättat: datorspelaren bygger bara där en av dess Samlare kan gå fram.
+3. **Datorspelarens Samlare blev kvar vid bärsnår 25 rutor bort** fast
+   hyttan hade en ledig plats, eftersom bara sysslolösa Samlare fick nytt
+   arbete. Rättat: den som plockar bär långt från basen flyttas till en
+   ledig fiskeplats eller Odling.
+4. **Förklaringen kunde avslöja outforskad mark.** När orsakerna till en
+   ogiltig plats infördes kontrollerades "platsen är upptagen" före
+   "outforskad mark". Spelet hade då sagt om det står något på mark som
+   spelaren aldrig har sett. Ett äldre webbläsartest fångade det.
+   Rättat: outforskad mark kontrolleras först, och ett enhetstest håller
+   fast det.
+
+**Val som uppdraget inte avgjorde**
+
+- **Fiskeplatserna visas vid placeringen**: en ring på varje plats och
+  antalet under fotavtrycket. Det lades till efter fel 1: på
+  standardkartan ger stranden närmast basen bara en fiskeplats som går
+  att nå, och det ska spelaren se innan den betalar 100 trä.
+- **Byggnadens bild visas vid placering för alla byggnader**, inte bara
+  hyttan. Förut visades bara fotavtrycket.
+- **Hyttan tar bara emot fisk.** Uppdraget sa "avlämningsplats för fisk";
+  bär och trä lämnas alltså inte där.
+- **Två hyttor delar på stranden.** En plats är en ruta, så två hyttor
+  bredvid varandra får färre platser var.
+- **Datorspelaren bygger högst en hytta**, och bara på en strand som ger
+  alla tre platser.
+
+**Saknas eller avviker**
+
+- **Hyttan kan byggas där den ger få eller inga fiskeplatser.**
+  Placeringsregeln kräver bara vatten intill. Spelaren ser antalet
+  ("1 fiskeplats", "0 fiskeplatser") men hindras inte.
+- **På standardkartan ligger den bästa stranden en bit bort.** Stranden
+  närmast spelarens bas (9 rutor) ger en fiskeplats. Skärmdumparna är
+  därför tagna på frö 2, där närmaste strand ger tre.
+- **Antalet fiskeplatser syns inte på en färdig hytta**, bara vid
+  placeringen.
+- **Ingen strandgrafik.** Vatten är fortfarande blå rutor, och fiskaren
+  står på en vanlig gräsruta. Inget stänk och ingen fisk syns på linan.
+- **Korgen visar bär** även för fisk, som för Odlingen.
+- **Fiskaren bakom hyttan ritas blekt**, som alla enheter bakom höga
+  byggnader. En av tre fiskeplatser hamnar ofta där.
+- **Inget meddelande när hyttan är full.**
+- **Matcher mellan två datorspelare:** 13,3–20,8 minuter på sex frön,
+  samma spann som efter Odlingen. På tre av sex frön bygger båda sidor en
+  hytta och en Odling; på de övriga, utan vatten inom räckhåll, fyra
+  Odlingar. Frö 6 ligger fortfarande strax över målet 10–20 minuter.
+- **Balansen mot en mänsklig spelare är inte speltestad.**
+- **Den gemensamma pipelinen fick tillägg:** redskapet metspö, animationen
+  `fish` och delarna torkställning och nät. Alla övriga atlaser byggdes om
+  och är oförändrade byte för byte.
+- **Idet är fortfarande ett platshållarblock.**
+
+**Testresultat**
+
+- Vitest: 595 av 595 (39 nya: 32 för Fiskehyttans regler, övriga för
+  datorspelaren, fiskeanimationen, hyttans atlas och outforskad mark)
+- Playwright: 121 av 121 (5 nya), även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+
+**Äldre tester som ändrades, och varför**
+
+- En nekad byggorder anger nu orsaken (`problem`), så tre tester som
+  jämförde hela svaret har fått orsaken tillagd.
+- Testerna av byggmenyn väntar sig fem knappar.
+- AI-testet för Odlingar räknar arbetsplatser för mat i stället för
+  antalet Odlingar, eftersom datorspelaren nu kan välja en hytta.
+- Atlastestet för Samlaren kontrollerar även `till` och `fish`; `till`
+  saknades i listan från steg 1.
+
+**Egna misstag under arbetet**
+
+- Ett ändringsskript avbröts på sin första rad, och ingenting av det togs
+  emot. Det upptäcktes direkt eftersom skriptet skrev ut vad som saknades.
+  Skripten kontrollerar nu alla ändringar innan någon görs.
+- Två nya tester hade fel förväntad ordning på fiskeplatserna, och ett
+  webbläsartest antog tre fiskeplatser på en strand som ger en. Testerna
+  är rättade; spelet gjorde rätt.
 
 ### Ekonomibyggnader, steg 1: Odling (2026-11-14)
 

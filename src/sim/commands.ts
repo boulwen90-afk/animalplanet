@@ -9,7 +9,7 @@ import { COLLISION_CONFIG, type UnitType } from '../data/units';
 import { resourceAt } from './resources';
 import type { Building, GameState, PlayerId, Unit } from './state';
 import { orderAttack } from './systems/combat';
-import { assistConstruction, placeBuilding } from './systems/construction';
+import { assistConstruction, placeBuilding, type PlacementProblem } from './systems/construction';
 import { startGathering, startWorking } from './systems/gathering';
 import { cancelQueuedUnit, queueUnit } from './systems/production';
 
@@ -114,8 +114,10 @@ export type CommandResult =
        * `housingFull`: no room for the unit until more housing is built.
        * `populationCap`: no room, and the side already has the most it can ever have.
        */
-      reason: 'housingFull' | 'populationCap' | 'queueFull' | 'invalidPlacement' | 'invalid';
-    };
+      reason: 'housingFull' | 'populationCap' | 'queueFull' | 'invalid';
+    }
+  /** The building cannot stand there; `problem` says why. */
+  | { ok: false; reason: 'invalidPlacement'; problem: PlacementProblem };
 
 const OK: CommandResult = { ok: true };
 

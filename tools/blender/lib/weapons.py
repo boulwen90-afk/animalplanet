@@ -79,6 +79,17 @@ def build_weapon(b: Builder, weapon: dict, hand: Vector, pal: Palette, group: st
         blade = top + across * 0.13 - d * 0.02
         b.box(f"{group}.hoe_blade", blade, (0.26, 0.2, 0.035), pal["steel_dark"], turn)
         b.box(f"{group}.hoe_edge", blade + across * 0.13, (0.03, 0.22, 0.045), pal["blade"], turn)
+    elif kind == "rod":
+        # A fishing rod: a long pole that thins towards its tip, and from the
+        # tip a line with a float on it. The line hangs straight down when
+        # the rod is held out over the water, pointing forward and a little up.
+        top = hand + d * length
+        b.limb(f"{group}.rod", hand - d * 0.25, top, 0.04, 0.018, pal["wood"], 6)
+        b.limb(f"{group}.rod_grip", hand - d * 0.2, hand + d * 0.12, 0.05, 0.05, pal["leather"], 6)
+        drop = (across * 0.8 - d * 0.6).normalized()
+        line = weapon.get("line", 1.6)
+        b.limb(f"{group}.line", top, top + drop * line, 0.014, 0.014, pal["blade"], 4)
+        b.ellipsoid(f"{group}.float", top + drop * line, (0.07, 0.07, 0.09), pal["team"], detail=1)
     elif kind == "hammer":
         # A mallet: a short haft with a block of iron across its end.
         top = hand + d * length

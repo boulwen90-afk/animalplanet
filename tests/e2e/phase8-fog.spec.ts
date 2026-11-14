@@ -152,7 +152,7 @@ test.describe('phase 8: fog of war', () => {
         }),
       worker!.id,
     );
-    expect(result).toEqual({ ok: false, reason: 'invalidPlacement' });
+    expect(result).toEqual({ ok: false, reason: 'invalidPlacement', problem: 'unexplored' });
   });
 
   test('?fog=0 turns the fog of war off in test mode', async ({ page }) => {

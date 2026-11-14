@@ -78,7 +78,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/render/views/MapView.ts` | Ritar mark, träd, bärsnår och klippor; tar bort tömda källor | 1, 2, 4 |
 | `src/render/views/EntityView.ts` | Ritar enheter och byggnader, interpolerar rörelse, ritar markeringar, livstaplar, vita flaggor och stridseffekter | 3, 4, 6, 7 |
 | `src/render/views/SelectionView.ts` | Ritar dragrutan, orderringar och ringen under ett finger som hållits kvar | 3, 10 |
-| `src/render/views/PlacementView.ts` | Ritar konturen av en byggnad som placeras | 6 |
+| `src/render/views/PlacementView.ts` | Ritar byggnaden som placeras: fotavtryck, bild, förklaring och arbetsplatser | 6 |
 | `src/render/views/CaveView.ts` | Ritar grottorna och antalet djur i dem | 7, 8 |
 | `src/render/views/FogView.ts` | Ritar krigsdimman | 8 |
 | `src/render/views/visuals.ts` | Platshållargrafikens mått och färger, delade av ritning och klickträffar | 3 |
@@ -207,7 +207,8 @@ spelare, AI och tester. Kommandon utförs direkt, mellan två steg.
 
 Svaret är en `CommandResult`: `{ ok: true }`, eller `{ ok: false, reason }`
 där `reason` är `insufficientResources` (med `missing`, listan över resurser
-som fattas), `populationCap`, `queueFull`, `invalidPlacement` eller
+som fattas), `populationCap`, `queueFull`, `invalidPlacement` (med
+`problem`: `blocked`, `unexplored` eller `needsShore`) eller
 `invalid`. En nekad order
 ändrar ingenting i tillståndet.
 
@@ -215,7 +216,7 @@ som fattas), `populationCap`, `queueFull`, `invalidPlacement` eller
 |---|---|---|
 | `move` | `player`, `unitIds`, `x`, `y` (målruta) | Spelarens egna enheter i listan får en väg till målet. Avbryter pågående insamling; lasten behålls |
 | `gather` | `player`, `unitIds`, `x`, `y` (källans ruta) | Spelarens egna enheter i listan börjar samla från källan. Ingen verkan om rutan saknar resurs |
-| `work` | `player`, `unitIds`, `buildingId` | Enheterna börjar arbeta på en egen färdig byggnad som ger en resurs (en Odling). `invalid` om byggnaden inte är egen, färdig eller saknar `work`. En enhet som inte får plats behåller sin uppgift |
+| `work` | `player`, `unitIds`, `buildingId` | Enheterna börjar arbeta på en egen färdig byggnad som ger en resurs (en Odling eller en Fiskehytta). `invalid` om byggnaden inte är egen, färdig eller saknar `work`. En enhet som inte får plats behåller sin uppgift |
 | `train` | `player`, `buildingId`, `unit` | Lägger enheten i byggnadens kö och drar kostnaden direkt |
 | `cancelTrain` | `player`, `buildingId`, `index` (plats i kön) | Tar bort enheten ur kön och återbetalar hela kostnaden |
 | `build` | `player`, `unitIds`, `building`, `x`, `y` (fotavtryckets lägsta hörn) | Placerar ett bygge, drar kostnaden och skickar enheterna att bygga |
@@ -247,7 +248,8 @@ Så fördelas en grupp vid `move`:
 - Är målet fri mark som inte går att nå blir vägen tom och enheten står kvar.
 - `buildPathGrid(state)` räknar ut hindren: icke gångbar terräng och
   byggnaders fotavtryck. En byggnad med `walkable` i `BUILDING_DEFS` (en
-  Odling) är inget hinder: enheter går över den. Enheter blockerar inte (GDD avsnitt 10). Rutnätet
+  Odling) är inget hinder: enheter går över den. Vatten är alltid ett
+  hinder; det finns ingen vägsökning på vatten. Enheter blockerar inte (GDD avsnitt 10). Rutnätet
   byggs om vid varje kommando och sparas inte.
 - Vägar räknas inte om när kartan ändras. Ett träd som försvinner gör bara
   fler rutor gångbara, så befintliga vägar förblir giltiga. Nya byggnader
@@ -405,10 +407,22 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
      `AI_CONFIG.fields.berryRadius` (14) rutor från huvudbyggnaden mindre
      än `startWhenFoodLeft` (600) mat kvar vill den ha en Odling för varje
      `foodPerField` (150) som fattas, högst `max` (5), en i taget.
+     **Fiskehytta före Odling:** finns en plats vid vatten högst
+     `AI_CONFIG.fishing.reach` (18) rutor från huvudbyggnaden, mätt från
+     hyttans mitt, bygger den en hytta där, högst `fishing.max` (1). En
+     hytta räknas som en Odling per fiskare. Platsen ska ge en fiskeplats
+     åt varje fiskare (`plannedWorkTiles`).
+     **Alla byggplatser ska gå att nå:** någon ruta i eller intill
+     fotavtrycket ska vara nåbar från en av sidans arbetare. Annars kunde
+     ett bygge bli stående ofärdigt, och eftersom ett ofärdigt bygge går
+     före allt annat byggande skulle sidan sluta bygga.
   3. **Sysslolösa arbetare** skickas att samla vid källan närmast basen.
      Tre av åtta hålls på trä och resten på mat (`woodShare` 0,375). En
      som ska samla mat tar i första hand bär inom `berryRadius`, sedan en
-     ledig Odling (kommandot `work`) och först därefter bär längre bort.
+     ledig fiskeplats eller Odling (kommandot `work`, där maten kommer
+     fortast först) och först därefter bär längre bort. En arbetare som
+     redan plockar bär utanför `berryRadius` flyttas till en fiskeplats
+     eller Odling så snart en är ledig.
   4. **Soldater:** träna en i taget i varje färdig kasern, upp till 20.
   5. **Försvar:** hemmavarande soldater anfaller fiendeenheter inom 12 rutor
      från huvudbyggnaden.
@@ -514,15 +528,44 @@ händelserna efter varje steg. Simuleringen själv använder dem inte.
 - Byter enheten resursslag tappas den gamla lasten. Saknar sidan
   avlämningsbyggnad blir enheten sysslolös med lasten kvar.
 - Vägrutnätet byggs högst en gång per steg och byggs om när en källa töms.
-- **Byggnader som källa (Odlingen).** En byggnad med `work` i
-  `BUILDING_DEFS` (`resource`, `workers`, `secondsPerUnit`) ger sin resurs
-  utan att ta slut. Arbetet är samma `GatherTask` med samma tre faser;
+- **Byggnader som källa (Odlingen och Fiskehyttan).** En byggnad med
+  `work` i `BUILDING_DEFS` (`resource`, `workers`, `secondsPerUnit`,
+  `places`, `reach`, `deliverTo`) ger sin resurs utan att ta slut. Arbetet är samma `GatherTask` med samma tre faser;
   skillnaden är `siteId`, byggnadens id. Då är `node` och `place` båda den
   ruta i byggnaden där arbetaren står.
-  - `workTiles(building)` ger arbetsrutorna: fotavtryckets rutor i fast
-    ordning med början i det bortre hörnet `(x, y)`, så många som
-    `work.workers`. `workersAt` ger dem som arbetar där, oavsett fas: en
+  - `workTiles(state, grid, building, canReach?)` ger arbetsrutorna, så
+    många som `work.workers`. Med `places: 'inside'` (Odlingen) är det
+    fotavtryckets rutor i fast ordning med början i det bortre hörnet
+    `(x, y)`. Med `places: 'shore'` (Fiskehyttan) är det de öppna
+    strandrutorna närmast byggnaden, högst `reach` rutor bort
+    (`shorePlaces`): en strandruta är en öppen ruta med vatten på någon
+    av sina fyra sidor. Ordningen är närmast först, och lika avstånd
+    avgörs av rutornas ordning, så resultatet är alltid detsamma.
+  - **Platsen måste gå att nå.** Med `canReach` (från `reachableTiles`)
+    räknas bara rutor som enheten kan gå till. En strandremsa instängd av
+    träd, klippor eller hyttan själv är ingen fiskeplats. `freeWorkSite`
+    räknar alltid så, från enhetens egen ruta.
+  - **En plats är en ruta**, vem den än hör till: upptagna platser räknas
+    över alla samlande enheter (`takenPlaces`), så två hyttor som når
+    samma strand delar på platserna. Dessutom tar en byggnad aldrig fler
+    än `work.workers`.
+  - `plannedWorkTiles(state, type, corner, from)` svarar på vad en
+    byggnad *skulle* ge om den stod på en plats, med byggnaden själv
+    räknad som hinder. Byggplaceringen visar det, och datorspelaren
+    väljer plats efter det.
+  - **Avlämning.** Med `deliverTo: 'nearest'` bärs lasten till sidans
+    närmaste avlämningsbyggnad. Med `deliverTo: 'here'` bärs den till
+    byggnaden själv och ingen annanstans: fisk till hyttan, även om ett
+    förråd står närmare. Hyttan har `dropoff: false` och tar alltså inte
+    emot bär eller trä.
+  - `workFocus(state, unit, building)` är punkten arbetaren ser på:
+    vattenrutan den fiskar i, eller åkerns mitt.
+  - `workersAt` ger dem som arbetar vid en byggnad, oavsett fas: en
     arbetare behåller sin ruta medan den bär hem lasten.
+  - **Kommer arbetaren inte fram till sin plats** (någon står i vägen,
+    eller den har knuffats undan) försöker `retarget` först samma byggnad
+    igen, med vilken ledig plats som helst, innan den söker en annan
+    byggnad eller en källa på kartan.
   - `startWorking(state, grid, unit, building)` ger enheten en ledig ruta
     på den önskade byggnaden, annars på sidans närmaste byggnad av samma
     typ med ledig ruta inom `GATHER_CONFIG.searchRadius`. Finns ingen
@@ -686,6 +729,19 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   `build` med de markerade byggarna och avslutar läget. Klick på ogiltig
   plats gör ingenting. Högerklick och Esc avbryter. Läget avbryts också om
   ingen markerad enhet längre kan bygga typen.
+  - **Byggnadens bild** visas på fotavtrycket, 70 % täckande
+    (`PLACEMENT_PREVIEW`): som den är där byggnaden får stå, och tonad
+    röd där den inte får det. Byggnadstyper utan bild visar bara
+    fotavtrycket.
+  - **Förklaringen.** `placementProblem` säger varför en plats inte går:
+    `blocked`, `unexplored` eller `needsShore`. Texten till varje orsak
+    står i `STRINGS.hud.placement` och skrivs under fotavtryckets
+    närmaste hörn. `Placement` bär `problem` och `note`.
+  - **Arbetsplatser.** För en byggnad som arbetas från stranden
+    (Fiskehyttan) räknas `plannedWorkTiles` ut för platsen, från den
+    byggare som är markerad. Varje plats får en vit ring, och texten
+    under fotavtrycket anger antalet ("3 fiskeplatser"). Uträkningen görs
+    om när konturen flyttas, och annars högst varannan halvsekund.
   - Den måste skapas **efter** `SelectionController`. Phaser anropar
     lyssnare i den ordning de registrerades, och markeringslogiken ska hinna
     se att placering pågår och strunta i klicket, innan placeringen avslutas.
@@ -702,8 +758,8 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - högerklick på ett eget ofärdigt bygge skickar markerade Samlare att
     hjälpa till
   - högerklick på en egen färdig byggnad som ger arbete (`isWorkplace`:
-    en Odling) skickar markerade Samlare att arbeta där, med kommandot
-    `work`
+    en Odling eller en Fiskehytta) skickar markerade Samlare att arbeta
+    där, med kommandot `work`
   - högerklick på ett träd eller bärsnår ger egna markerade Samlare en
     insamlingsorder; annars en flyttorder. Båda visar en ring. Träd är
     högre än en ruta, så `pickResourceTile` räknar på trädets ritade yta.
@@ -745,8 +801,8 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   avslutar placeringen.
 - **Byggnader i spelet (`render/buildings/`).** Byggnadstyper som finns i
   `BUILDING_ART` ritas från sina atlaser. I dag gäller det Storide
-  (`bear_main`), Krigshall (`bear_barracks`), Visthus (`bear_storage`)
-  och Odling (`bear_field`), för båda sidorna. Idet är fortfarande ett
+  (`bear_main`), Krigshall (`bear_barracks`), Visthus (`bear_storage`),
+  Odling (`bear_field`) och Fiskehytta (`bear_fishery`), för båda sidorna. Idet är fortfarande ett
   platshållarblock.
   - `BuildingLibrary` laddar atlaserna och gör en färgad kopia per
     spelare, på samma sätt som `CharacterLibrary`.
@@ -773,8 +829,7 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     som skymmer enheter. Grödan ritas alltså inte framför en enhet som
     går genom den.
   - Livstapeln sitter 12 px över taket. Markering är fortfarande en grön
-    kontur runt fotavtrycket, och byggplaceringen visar fortfarande bara
-    fotavtrycket, inte byggnadens bild.
+    kontur runt fotavtrycket.
 - **Figurer (`render/characters/`).** Enhetstyper som finns i `CHARACTERS`
   ritas som figurer; övriga är platshållare. I dag gäller det båda
   enhetstyperna: Samlaren (`bear_worker`) och Ramkrigaren (`bear_warrior`).
@@ -802,16 +857,20 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     resurs samlas: trä huggs (`chop`) och mat plockas (`pick`). Ett bygge
     hamras (`hammer`, `BUILD_ACTIVITY`). `SITE_ACTIVITY` säger hur en
     byggnad som ger en resurs arbetas, när det skiljer sig från resursen
-    på kartan: en Odling hackas (`till`). En ny resurs eller ett nytt
-    arbete läggs till i tabellerna, inte i ritkoden.
+    på kartan: en Odling hackas (`till`) och vid en Fiskehytta fiskas det
+    (`fish`). En ny resurs eller ett nytt arbete läggs till i tabellerna,
+    inte i ritkoden.
   - **Flera tag per enhet.** Långsamt arbete spelar loopen flera gånger
     för varje enhet av resursen: `workLoops` väljer det antal som håller
     tagen närmast animationens egen takt (Odlingen: 2,5 s per mat och en
     loop på 1 s ger 3 tag), och `progressFrame` tar antalet som tredje
-    argument. På en Odling vänder sig arbetaren mot åkerns mitt.
+    argument. Vid en byggnad vänder sig arbetaren mot `workFocus`: åkerns
+    mitt, eller vattnet den fiskar i. Fiskeloopen är 1,6 s, lika lång som
+    tiden per fisk, så spöet rycks upp en gång för varje fisk.
   - **Alla figurer har inte alla animationer.** `idle`, `walk` och
-    `defeat` är obligatoriska; `attack`, `chop`, `pick`, `till` och
-    `hammer` är valfria. En figur utan `till` plockar i stället. `animationFor` väljer en ersättare när en saknas: en arbetare
+    `defeat` är obligatoriska; `attack`, `chop`, `pick`, `till`, `fish`
+    och `hammer` är valfria. En figur utan `till` eller `fish` plockar i
+    stället. `animationFor` väljer en ersättare när en saknas: en arbetare
     som beordras att slåss visar `chop` (den hugger med sin yxa), i takt
     med sin nedkylning precis som ett anfall. En figur som bara har `chop`
     använder den för allt arbete.
@@ -931,8 +990,8 @@ alla figurer från konfigfilerna. En figurs atlas tar cirka 1,5 minut.
 | `buildings.py` | Bygger och renderar byggnader: läser konfig, ställer upp scenen, kontrollerar storleksstandarden, renderar stadierna och skriver atlas och förhandsbilder |
 | `buildings/<ras>/style.toml` | Rasens byggnadsstil: färgerna som alla dess byggnader delar |
 | `buildings/<ras>/<namn>.toml` | En byggnad: storleksklass, fotavtryck och listan av delar med mått och stadier |
-| `lib/structures.py` | Byggnadsdelarna: stengrund, timmerväggar, stomme, sadeltak, takstolar, tornspira, dörr, sköld, baner, vimpel, palissad, tunna, låda, säck, vedtrave, brädhög, vapenställ, träningsdocka, byggnadsställning, skorsten, åkerjord, gröda, gärdsgård, fågelskrämma, utstakning |
-| `animations/` | Det gemensamma animationsbiblioteket: `base.py` (byggstenar), `idle.py`, `walk.py`, `attack.py`, `chop.py`, `pick.py`, `till.py`, `hammer.py`, `defeat.py` |
+| `lib/structures.py` | Byggnadsdelarna: stengrund, timmerväggar, stomme, sadeltak, takstolar, tornspira, dörr, sköld, baner, vimpel, palissad, tunna, låda, säck, vedtrave, brädhög, vapenställ, träningsdocka, byggnadsställning, skorsten, åkerjord, gröda, gärdsgård, fågelskrämma, utstakning, torkställning med fisk, nät |
+| `animations/` | Det gemensamma animationsbiblioteket: `base.py` (byggstenar), `idle.py`, `walk.py`, `attack.py`, `chop.py`, `pick.py`, `till.py`, `fish.py`, `hammer.py`, `defeat.py` |
 | `lib/atlas.py` | Packar bildrutorna till en atlas och skriver JSON-filen |
 | `lib/scale.py` | Storleksstandarden: räknar ut hur mycket en figur skalas, och kontrollerar bredden |
 | `game.toml` | Gemensamt för alla figurer: rutstorlek, kameravinkel, skala, bildruta, kontur, skugga, kantmjukhet per delgrupp, ljus, lagfärger och sigillens färg |
@@ -1045,6 +1104,7 @@ använder (`[animations] list`).
 | `attack` | 10 | 10/s | Ja | Hugg ovanifrån. Loopen börjar när hugget träffar och slutar med uppladdningen inför nästa |
 | `chop` | 8 | 8/s | Ja | Yxhugg: redskapet svingas ned från axeln, med eggen först. Loopen börjar när det träffar |
 | `pick` | 8 | 8/s | Ja | Plock: figuren lutar sig fram och plockar med en hand i taget; den andra lyfter det plockade över axeln till korgen. Loopen börjar när höger hand plockar |
+| `fish` | 8 | 5/s | Ja | Fiske: spöet hålls ut över vattnet och guppar lite medan figuren väntar; sedan rycks det upp. Loopen börjar när spöet rycks upp |
 | `till` | 8 | 8/s | Ja | Hacka: redskapet lyfts över axeln, slås ned i jorden framför fötterna och dras mot kroppen. Loopen börjar när bladet biter |
 | `hammer` | 6 | 10/s | Ja | Hammarslag i midjehöjd, från armbågen, medan andra handen håller emot. Loopen börjar när hammaren träffar |
 | `defeat` | 7 | 10/s | Nej | Vacklar bakåt och går ned på knä med sänkt vapen och böjt huvud |
@@ -1091,7 +1151,8 @@ enhets fart i spelet måste figuren byggas om, annars faller testet.
 `[weapon]` hålls som standard; `hidden_in` listar animationer där den
 inte syns. Varje `[[tool]]` är ett annat verktyg med `shown_in`: de
 animationer där det hålls i stället. Björnarbetaren har yxan i handen
-utom i `pick` (tomma händer), `till` (hacka) och `hammer` (hammare). Alla verktyg byggs
+utom i `pick` (tomma händer), `till` (hacka), `fish` (metspö med lina
+och flöte i lagfärg) och `hammer` (hammare). Alla verktyg byggs
 på figuren och följer handen; bygget visar ett i taget.
 
 **Lager.** Ett `[[layer]]` i enhetens konfig är en grupp delar som inte
@@ -1188,6 +1249,7 @@ lagfärgsmask som figurerna (`buildings.py`).
 | Byggnad | I spelet | Fotavtryck | Klass | Krav | Takhöjd |
 |---|---|---|---|---|---|
 | `field` | Odling | 2×2 | `plot` | – | 31 px |
+| `fishery` | Fiskehytta | 2×2 | `small` | 64 px | 69 px |
 | `storage` | Visthus | 2×2 | `small` | 64 px | 79 px |
 | `barracks` | Krigshall | 3×3 | `large` | 90 px | 112 px |
 | `main` | Storide | 3×3 | `main` | 115 px | 137 px |
@@ -1199,6 +1261,12 @@ rader av säd på tre fjärdedelar, en gärdsgård längs de två bortre sidorna
 och en fågelskrämma med rock i lagfärg. Fjärdedelen vid det bortre hörnet
 är bar jord: där står arbetaren. Byggstadierna är utstakad mark med en
 första fåra, sedan hela bädden med gärdsgård, sedan grödan.
+
+Fiskehyttan (`fishery`, 2×2, storleksklass `small`) är en låg timmerhytta
+längst bak på ett plankdäck, med nocken på tvären, så att den inte liknar
+Visthuset. Framför den står en torkställning med fisk, vid sidan hänger
+ett nät på tork, och på däcket står tunnor och en låda. Hyttan kan stå med
+vilken sida som helst mot vattnet, så ingenting i bilden pekar mot det.
 
 Björnarnas stil (`buildings/bear/style.toml`): timmerhus på stengrund,
 branta skiffergrå tak, järnbeslag och korsade vindskidor på gavlarna.
@@ -1374,7 +1442,8 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getResourceBar()` | Texterna i resursraden: `food`, `wood`, `population` |
 | `getFlashing()` | Vilka av resursradens texter som blinkar rött just nu |
 | `getCommandPanel()` | Kommandopanelen: `visible`, `buttons` (`label`, `cost`, `info`, mittpunkt `x`/`y`), `queue` (`label`, mittpunkt `x`/`y`), `progress` |
-| `getPlacement()` | Byggnaden som placeras: `building`, `x`, `y`, `valid`; `null` när ingen placering pågår |
+| `getPlacement()` | Byggnaden som placeras: `building`, `x`, `y`, `valid`, och när de finns `problem` (varför platsen inte går), `note` (texten under fotavtrycket) och `places` (arbetsplatserna runt byggnaden); `null` när ingen placering pågår |
+| `getPlacementPreview()` | Bilden av byggnaden som placeras: `texture` och `red` (sant när den visas röd); `null` utan placering eller utan bild |
 | `getOrderMarkerCount()` | Antal synliga orderringar |
 | `tileToScreen(x, y)` | Skärmposition för en punkt i rutkoordinater. Heltal är ruthörn; lägg till 0,5 för rutans mitt. Enheters `x`/`y` kan skickas som de är |
 | `centerCameraOnTile(x, y)` | Centrerar kameran på en punkt i rutkoordinater |

@@ -14,7 +14,7 @@ import {
   tileGapToBuilding,
   unitTile,
 } from '../entities';
-import { inBounds, isWalkable } from '../map/grid';
+import { inBounds, isWalkable, isWater } from '../map/grid';
 import type { Point } from '../map/iso';
 import { canStep, findPath, type PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
@@ -39,10 +39,16 @@ export function buildFraction(building: Building): number {
 }
 
 /**
+ * Why a building cannot stand somewhere. `blocked`: the ground is off the
+ * map, not open, taken by a building or a unit, or too close to a cave.
+ * `unexplored`: the side has not seen the ground. `needsShore`: the building
+ * must stand by water, and this place does not.
+ */
+export type PlacementProblem = 'blocked' | 'unexplored' | 'needsShore';
+
+/**
  * True if a building of this type may be placed with its footprint's
- * lowest corner on tile (x, y): every tile must be on the map, walkable
- * ground, free of buildings, resources and units, and not on or next to a
- * cave. If `player` is given, that side must also have explored every tile.
+ * lowest corner on tile (x, y). See `placementProblem` for the rules.
  */
 export function canPlaceBuilding(
   state: GameState,
@@ -51,16 +57,46 @@ export function canPlaceBuilding(
   y: number,
   player?: PlayerId,
 ): boolean {
+  return placementProblem(state, type, x, y, player) === undefined;
+}
+
+/**
+ * What stops a building of this type from being placed with its footprint's
+ * lowest corner on tile (x, y), or undefined if it may stand there. Every
+ * tile must be on the map, walkable ground, free of buildings, resources
+ * and units, and not on or next to a cave. If `player` is given, that side
+ * must also have explored every tile. A building that needs the shore must
+ * have a tile of its footprint side by side with water.
+ */
+export function placementProblem(
+  state: GameState,
+  type: BuildingType,
+  x: number,
+  y: number,
+  player?: PlayerId,
+): PlacementProblem | undefined {
   const size = BUILDING_DEFS[type].size;
   const inFootprint = (tx: number, ty: number) =>
     tx >= x && ty >= y && tx < x + size && ty < y + size;
 
   for (let ty = y; ty < y + size; ty++) {
     for (let tx = x; tx < x + size; tx++) {
+      if (!inBounds(tx, ty, state.map)) return 'blocked';
+    }
+  }
+  // A side can only build on ground it has seen. This comes before what is
+  // on the ground: a side is not told what stands where it has never looked.
+  if (player !== undefined) {
+    for (let ty = y; ty < y + size; ty++) {
+      for (let tx = x; tx < x + size; tx++) {
+        if (!isTileExplored(state, player, tx, ty)) return 'unexplored';
+      }
+    }
+  }
+  for (let ty = y; ty < y + size; ty++) {
+    for (let tx = x; tx < x + size; tx++) {
       // Walkable terrain excludes trees, berries, rocks and water.
-      if (!inBounds(tx, ty, state.map) || !isWalkable(state.map, tx, ty)) return false;
-      // A side can only build on ground it has seen.
-      if (player !== undefined && !isTileExplored(state, player, tx, ty)) return false;
+      if (!isWalkable(state.map, tx, ty)) return 'blocked';
     }
   }
   // Nothing may be built on a cave or right next to one, so its entrance stays open.
@@ -72,18 +108,34 @@ export function canPlaceBuilding(
       cave.x < x + size + keepClear &&
       cave.y < y + size + keepClear
     ) {
-      return false;
+      return 'blocked';
     }
   }
   for (const entity of state.entities) {
     if (isBuilding(entity)) {
-      if (buildingTiles(entity).some((tile) => inFootprint(tile.x, tile.y))) return false;
+      if (buildingTiles(entity).some((tile) => inFootprint(tile.x, tile.y))) return 'blocked';
     } else {
       const tile = unitTile(entity);
-      if (inFootprint(tile.x, tile.y)) return false;
+      if (inFootprint(tile.x, tile.y)) return 'blocked';
     }
   }
-  return true;
+  if (BUILDING_DEFS[type].shore && !touchesWater(state.map, x, y, size)) return 'needsShore';
+  return undefined;
+}
+
+/** True if a tile of a square footprint lies side by side with water. */
+function touchesWater(map: GameState['map'], x: number, y: number, size: number): boolean {
+  for (let i = 0; i < size; i++) {
+    if (
+      isWater(map, x + i, y - 1) ||
+      isWater(map, x + i, y + size) ||
+      isWater(map, x - 1, y + i) ||
+      isWater(map, x + size, y + i)
+    ) {
+      return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -103,9 +155,8 @@ export function placeBuilding(
   if (!stock || builders.length === 0 || !Number.isInteger(x) || !Number.isInteger(y)) {
     return { ok: false, reason: 'invalid' };
   }
-  if (!canPlaceBuilding(state, type, x, y, player)) {
-    return { ok: false, reason: 'invalidPlacement' };
-  }
+  const problem = placementProblem(state, type, x, y, player);
+  if (problem) return { ok: false, reason: 'invalidPlacement', problem };
   const missing = missingResources(stock, BUILDING_DEFS[type].cost);
   if (missing.length > 0) return { ok: false, reason: 'insufficientResources', missing };
 

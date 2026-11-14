@@ -42,6 +42,11 @@ export function terrainAt(map: GameMap, x: number, y: number): Terrain | undefin
   return inBounds(x, y, map) ? map.terrain[tileIndex(x, y, map)] : undefined;
 }
 
+/** True for a water tile. Tiles off the map are not water. */
+export function isWater(map: GameMap, x: number, y: number): boolean {
+  return terrainAt(map, x, y) === 'water';
+}
+
 export function isWalkable(map: GameMap, x: number, y: number): boolean {
   const terrain = terrainAt(map, x, y);
   return terrain !== undefined && TERRAIN_DEFS[terrain].walkable;

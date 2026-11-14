@@ -22,6 +22,13 @@ export const AI_CONFIG = {
    * every `foodPerField` the bushes fall further, up to `max`.
    */
   fields: { startWhenFoodLeft: 600, foodPerField: 150, berryRadius: 14, max: 5 },
+  /**
+   * Fishing. When it wants more food than the berries give, it first builds
+   * a fishing hut, if there is a place by water within `reach` tiles of its
+   * main building, and never more than `max` huts. A hut counts as one field
+   * for each worker it takes.
+   */
+  fishing: { reach: 18, max: 1 },
   /** It stops training soldiers at this many. */
   maxSoldiers: 20,
   /** Soldiers at home go for enemy units that come this close to the main building, in tiles. */

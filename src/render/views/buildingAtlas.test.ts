@@ -29,6 +29,7 @@ const BUILDINGS: { name: string; building: BuildingType; sizeClass: string; tile
   [
     // A field is ground, not a house: the standard asks no height of it.
     { name: 'bear_field', building: 'odling', sizeClass: 'plot', tileWidths: 0 },
+    { name: 'bear_fishery', building: 'fiskehytta', sizeClass: 'small', tileWidths: 1.0 },
     { name: 'bear_storage', building: 'visthus', sizeClass: 'small', tileWidths: 1.0 },
     { name: 'bear_barracks', building: 'krigshall', sizeClass: 'large', tileWidths: 1.4 },
     { name: 'bear_main', building: 'storide', sizeClass: 'main', tileWidths: 1.8 },

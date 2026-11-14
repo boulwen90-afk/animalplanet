@@ -132,6 +132,7 @@ describe('the build command', () => {
     expect(build(state, [worker], 'visthus', 2, 1)).toEqual({
       ok: false,
       reason: 'invalidPlacement',
+      problem: 'blocked',
     });
     expect(buildings(state)).toHaveLength(0);
     expect(wood(state)).toBe(START_WOOD);
