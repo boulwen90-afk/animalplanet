@@ -5,5 +5,5 @@
  */
 export const POPULATION_CONFIG = {
   /** The most room a side can ever have, however much housing it builds. */
-  hardCap: 50,
+  hardCap: 200,
 } as const;

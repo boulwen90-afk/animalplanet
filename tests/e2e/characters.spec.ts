@@ -343,7 +343,7 @@ test.describe('characters: the bear worker', () => {
     }, worker.id);
     expect(working).toBe(true);
     await expect.poll(() => sprite(page, worker.id)).toMatchObject({ animation: 'pick' });
-    expect((await sprite(page, worker.id))!.load).toMatch(/^load_food\.pick_[a-z]+_\d$/);
+    expect((await sprite(page, worker.id))!.load).toMatch(/^load_berries\.pick_[a-z]+_\d$/);
   });
 
   test('a worker that raises a building hammers, facing the site', async ({ page }) => {

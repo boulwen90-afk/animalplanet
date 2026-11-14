@@ -1,4 +1,8 @@
 import { expect, test, type Page } from '@playwright/test';
+import { BUILDING_DEFS } from '../../src/data/buildings';
+import { MAP_CONFIG } from '../../src/data/map';
+import { buildingCovers } from '../../src/render/buildings/stage';
+import { BUILDING_VISUALS } from '../../src/render/views/visuals';
 import { UNIT_DEFS } from '../../src/data/units';
 import type { Unit } from '../../src/sim/state';
 import { getSelection, getState, openGame, tileToScreen, trackConsoleErrors } from './helpers';
@@ -37,14 +41,56 @@ async function boxSelect(page: Page, units: Unit[], modifiers: { shift?: boolean
 const tileOf = (unit: Unit) => ({ x: Math.floor(unit.x), y: Math.floor(unit.y) });
 
 /**
- * An open tile near the player's base with nothing on it. It lies in front
- * of the Storide to the left, inside the radius of four tiles that map
- * generation keeps clear, and away from the tiles where the units start.
+ * An open tile near the player's base with open ground all round it: grass
+ * on the tile and its eight neighbours, no building or unit there, and not
+ * behind a building. Of
+ * those it is the one nearest a point in front of the Storide to the left,
+ * where the first maps had such a tile; the lie of the land decides.
  */
 async function openTileNearBase(page: Page): Promise<{ x: number; y: number }> {
   const state = await getState(page);
   const start = state.map.startPositions[0]!;
-  return { x: start.x - 3, y: start.y + 2 };
+  const taken = new Set<string>();
+  for (const entity of state.entities) {
+    if (entity.kind === 'unit') {
+      taken.add(`${Math.floor(entity.x)},${Math.floor(entity.y)}`);
+      continue;
+    }
+    const side = BUILDING_DEFS[entity.type].size;
+    for (let y = entity.y; y < entity.y + side; y++) {
+      for (let x = entity.x; x < entity.x + side; x++) taken.add(`${x},${y}`);
+    }
+  }
+  const open = (x: number, y: number) =>
+    state.map.terrain[y * state.map.width + x] === 'grass' && !taken.has(`${x},${y}`);
+  const wanted = { x: start.x - 3, y: start.y + 2 };
+  let best: { x: number; y: number } | undefined;
+  let bestDistance = Infinity;
+  for (let y = start.y - 6; y <= start.y + 6; y++) {
+    for (let x = start.x - 6; x <= start.x + 6; x++) {
+      let clear = true;
+      for (let dy = -1; dy <= 1 && clear; dy++) {
+        for (let dx = -1; dx <= 1 && clear; dx++) clear = open(x + dx, y + dy);
+      }
+      // Nor behind a building, where a click lands on its walls or roof.
+      const hidden = state.entities.some(
+        (entity) =>
+          entity.kind === 'building' &&
+          buildingCovers(
+            { x: x + 0.5, y: y + 0.5 },
+            entity,
+            BUILDING_DEFS[entity.type].size,
+            BUILDING_VISUALS[entity.type].wallHeight / MAP_CONFIG.tileHeight,
+          ),
+      );
+      const distance = Math.hypot(x - wanted.x, y - wanted.y);
+      if (clear && !hidden && distance < bestDistance) {
+        [best, bestDistance] = [{ x, y }, distance];
+      }
+    }
+  }
+  expect(best, 'an open tile near the base').toBeDefined();
+  return best!;
 }
 
 test.describe('phase 3: units, selection and movement', () => {

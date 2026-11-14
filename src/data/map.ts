@@ -1,3 +1,8 @@
+import { BUILDING_DEFS } from './buildings';
+
+/** The building that is worked from the shore: its size and what its workers need. */
+const FISHING = BUILDING_DEFS.fiskehytta;
+
 /** Map dimensions and isometric tile size. See GDD section 9. */
 export const MAP_CONFIG = {
   /** Map width in tiles. */
@@ -36,6 +41,29 @@ export const MAP_GEN_CONFIG = {
   startTrees: 14,
   /** Lakes and rocks keep at least this distance from start positions, leaving room to build. */
   obstacleStartDistance: 10,
+  /**
+   * Water near each start position, so that both sides can fish from the
+   * start: a pond of about `size` tiles whose first tile lies between
+   * `minDistance` and `maxDistance` from the start position, with the
+   * ground within `keepOpen` tiles of it left open. A map is only accepted
+   * if a place for a fishing hut with all its fishing places lies within
+   * `siteDistance` of the start position and can be walked to from there.
+   */
+  startWater: {
+    minDistance: 9,
+    maxDistance: 11,
+    /** No tile of the pond is nearer the start position than this: there is room to build before it. */
+    nearest: 7,
+    size: 9,
+    keepOpen: 2,
+    siteDistance: 13,
+    /** What a fishing hut needs: the side of its footprint, its fishing places and how far they may be. */
+    site: {
+      size: FISHING.size,
+      places: FISHING.work?.workers ?? 0,
+      reach: FISHING.work?.reach ?? 0,
+    },
+  },
   forests: { count: 12, minSize: 12, maxSize: 30 },
   berryPatches: { count: 4, minSize: 3, maxSize: 6 },
   rocks: { count: 5, minSize: 3, maxSize: 8 },

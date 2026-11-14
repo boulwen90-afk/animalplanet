@@ -26,12 +26,28 @@ export interface MapGenConfig {
   startBerries: number;
   startTrees: number;
   obstacleStartDistance: number;
+  /** Water near each start position; left out, no such water is placed or asked for. */
+  startWater?: StartWaterConfig;
   forests: FeatureConfig;
   berryPatches: FeatureConfig;
   rocks: FeatureConfig;
   lakes: FeatureConfig;
   caves: CaveGenConfig;
   maxAttempts: number;
+}
+
+export interface StartWaterConfig {
+  minDistance: number;
+  maxDistance: number;
+  /** No tile of the pond is nearer the start position than this. */
+  nearest: number;
+  /** Tiles of water in the pond. */
+  size: number;
+  /** Ground within this many tiles of the pond is kept free of trees, rocks and berries. */
+  keepOpen: number;
+  /** A place for a fishing hut must lie within this distance of the start position. */
+  siteDistance: number;
+  site: { size: number; places: number; reach: number };
 }
 
 export interface CaveGenConfig {
@@ -59,21 +75,166 @@ export function generateMap(rng: RngState, size: MapSize, config: MapGenConfig):
 
   for (let attempt = 0; attempt < config.maxAttempts; attempt++) {
     const map = emptyMap(size, starts);
+    const keepOpen = new Set<number>();
     if (!placeStartResources(rng, map, config)) continue;
-    placeRandomFeatures(rng, map, config);
+    if (!placeStartWater(rng, map, config, keepOpen)) continue;
+    placeRandomFeatures(rng, map, config, keepOpen);
     if (!isReachable(map, starts[0], starts[1])) continue;
-    if (placeCaves(rng, map, config)) return withResources(map);
+    if (!placeCaves(rng, map, config, keepOpen)) continue;
+    if (hasFishingSite(map, starts[0], config)) return withResources(map);
   }
 
-  // Every random layout cut the map in two or left no room for the caves.
-  // Fall back to start resources only, which cannot separate the start
-  // positions and leaves open ground everywhere else.
+  // Every random layout cut the map in two, left no room for the caves or
+  // shut the water in. Fall back to start resources and start water only,
+  // which cannot separate the start positions and leave open ground
+  // everywhere else.
   for (;;) {
     const map = emptyMap(size, starts);
-    if (placeStartResources(rng, map, config) && placeCaves(rng, map, config)) {
+    const keepOpen = new Set<number>();
+    if (
+      placeStartResources(rng, map, config) &&
+      placeStartWater(rng, map, config, keepOpen) &&
+      placeCaves(rng, map, config, keepOpen) &&
+      hasFishingSite(map, starts[0], config)
+    ) {
       return withResources(map);
     }
   }
+}
+
+/**
+ * Places a pond near the first start position, and by mirroring near the
+ * second, and marks the ground round it to be kept open. Returns false if
+ * there was no room. Does nothing, and succeeds, without a config for it.
+ */
+function placeStartWater(
+  rng: RngState,
+  map: GameMap,
+  config: MapGenConfig,
+  keepOpen: Set<number>,
+): boolean {
+  const water = config.startWater;
+  if (!water) return true;
+  const [home, away] = map.startPositions as [Point, Point];
+  // A tile of water keeps clear of the edge of the map, so that there is shore all round it.
+  const margin = 2;
+  const inside = (x: number, y: number) =>
+    x >= margin && y >= margin && x < map.width - margin && y < map.height - margin;
+  const allowed: TilePredicate = (x, y) => {
+    if (!inside(x, y) || !isGrass(map, x, y)) return false;
+    const distance = tileDistance(x, y, home.x, home.y);
+    // Not on the open ground by the main building, and on the side's own half.
+    return (
+      distance >= water.nearest &&
+      distance <= water.maxDistance + 3 &&
+      distance < tileDistance(x, y, away.x, away.y)
+    );
+  };
+
+  const anchors: Point[] = [];
+  for (let y = 0; y < map.height; y++) {
+    for (let x = 0; x < map.width; x++) {
+      const distance = tileDistance(x, y, home.x, home.y);
+      if (distance < water.minDistance || distance > water.maxDistance) continue;
+      if (allowed(x, y)) anchors.push({ x, y });
+    }
+  }
+  if (anchors.length === 0) return false;
+  const anchor = anchors[nextInt(rng, 0, anchors.length - 1)] as Point;
+  if (growPatch(rng, map, anchor, water.size, 'water', allowed) < water.size) return false;
+
+  // The ground round the pond, and round its mirror image, stays open.
+  for (let y = 0; y < map.height; y++) {
+    for (let x = 0; x < map.width; x++) {
+      if (map.terrain[tileIndex(x, y, map)] !== 'water') continue;
+      for (let dy = -water.keepOpen; dy <= water.keepOpen; dy++) {
+        for (let dx = -water.keepOpen; dx <= water.keepOpen; dx++) {
+          if (inBounds(x + dx, y + dy, map)) keepOpen.add(tileIndex(x + dx, y + dy, map));
+        }
+      }
+    }
+  }
+  return true;
+}
+
+/**
+ * True if a fishing hut can be built near a start position with all its
+ * fishing places: a square of open ground with water against one side,
+ * within the configured distance, such that enough open tiles beside water
+ * near it can be walked to from the start position once the hut stands.
+ * By the symmetry of the map the same then holds for the other start
+ * position. Always true without a config for start water.
+ */
+export function hasFishingSite(map: GameMap, start: Point, config: MapGenConfig): boolean {
+  return config.startWater === undefined || fishingSites(map, start, config.startWater).length > 0;
+}
+
+/** The corners of the places for a fishing hut described under `hasFishingSite`. */
+export function fishingSites(map: GameMap, start: Point, water: StartWaterConfig): Point[] {
+  const { size, places, reach } = water.site;
+  const isWaterAt = (x: number, y: number) =>
+    inBounds(x, y, map) && map.terrain[tileIndex(x, y, map)] === 'water';
+  const besideWater = (x: number, y: number) =>
+    EDGE_NEIGHBOURS.some((step) => isWaterAt(x + step.x, y + step.y));
+  const nearCave = (x: number, y: number) =>
+    map.caves.some((cave) => Math.abs(cave.x - x) <= 1 && Math.abs(cave.y - y) <= 1);
+
+  const sites: Point[] = [];
+  const span = Math.ceil(water.siteDistance);
+  for (let y = start.y - span; y <= start.y + span; y++) {
+    for (let x = start.x - span; x <= start.x + span; x++) {
+      const middle = { x: x + size / 2, y: y + size / 2 };
+      if (tileDistance(middle.x, middle.y, start.x + 0.5, start.y + 0.5) > water.siteDistance) {
+        continue;
+      }
+      let open = true;
+      let shore = false;
+      for (let ty = y; ty < y + size && open; ty++) {
+        for (let tx = x; tx < x + size && open; tx++) {
+          open = isGrass(map, tx, ty) && !nearCave(tx, ty);
+          shore ||= besideWater(tx, ty);
+        }
+      }
+      if (!open || !shore) continue;
+
+      // What can be walked to from the start position with the hut in place.
+      const inHut = (tx: number, ty: number) =>
+        tx >= x && ty >= y && tx < x + size && ty < y + size;
+      const reached = walkable(map, start, inHut);
+      let count = 0;
+      for (let ty = y - reach; ty < y + size + reach; ty++) {
+        for (let tx = x - reach; tx < x + size + reach; tx++) {
+          if (inHut(tx, ty) || !isGrass(map, tx, ty) || !besideWater(tx, ty)) continue;
+          if (reached.has(tileIndex(tx, ty, map))) count++;
+        }
+      }
+      if (count >= places) sites.push({ x, y });
+    }
+  }
+  return sites;
+}
+
+/**
+ * The open tiles that can be walked to from a tile, step by step over tiles
+ * that share a side, with some tiles shut off. The start tile itself counts
+ * even if something stands on it: a main building does.
+ */
+function walkable(map: GameMap, from: Point, shut: TilePredicate): Set<number> {
+  const reached = new Set<number>([tileIndex(from.x, from.y, map)]);
+  const queue: Point[] = [from];
+  for (let head = 0; head < queue.length; head++) {
+    const at = queue[head] as Point;
+    for (const step of EDGE_NEIGHBOURS) {
+      const x = at.x + step.x;
+      const y = at.y + step.y;
+      if (!isGrass(map, x, y) || shut(x, y)) continue;
+      const index = tileIndex(x, y, map);
+      if (reached.has(index)) continue;
+      reached.add(index);
+      queue.push({ x, y });
+    }
+  }
+  return reached;
 }
 
 /**
@@ -83,7 +244,12 @@ export function generateMap(rng: RngState, size: MapSize, config: MapGenConfig):
  * up to from its side's start position, and no cave cuts the map in two.
  * Returns false if there was no room.
  */
-function placeCaves(rng: RngState, map: GameMap, config: MapGenConfig): boolean {
+function placeCaves(
+  rng: RngState,
+  map: GameMap,
+  config: MapGenConfig,
+  keepOpen: ReadonlySet<number> = new Set(),
+): boolean {
   const [home, away] = map.startPositions as [Point, Point];
   const { perSide, minStartDistance, maxStartDistance, minSeparation, edgeMargin } = config.caves;
   const placed: Point[] = [];
@@ -92,7 +258,7 @@ function placeCaves(rng: RngState, map: GameMap, config: MapGenConfig): boolean 
     const candidates: Point[] = [];
     for (let y = edgeMargin; y < map.height - edgeMargin; y++) {
       for (let x = edgeMargin; x < map.width - edgeMargin; x++) {
-        if (!isGrass(map, x, y)) continue;
+        if (!isGrass(map, x, y) || keepOpen.has(tileIndex(x, y, map))) continue;
         const distance = tileDistance(x, y, home.x, home.y);
         if (distance < minStartDistance || distance > maxStartDistance) continue;
         // On the side's own half: nearer to its start position than to the other.
@@ -257,11 +423,18 @@ function placeStartResources(rng: RngState, map: GameMap, config: MapGenConfig):
   return true;
 }
 
-function placeRandomFeatures(rng: RngState, map: GameMap, config: MapGenConfig): void {
+function placeRandomFeatures(
+  rng: RngState,
+  map: GameMap,
+  config: MapGenConfig,
+  keepOpen: ReadonlySet<number> = new Set(),
+): void {
   const awayFromStart =
     (distance: number): TilePredicate =>
     (x, y) =>
-      isGrass(map, x, y) && startDistance(map, x, y) > distance;
+      isGrass(map, x, y) &&
+      !keepOpen.has(tileIndex(x, y, map)) &&
+      startDistance(map, x, y) > distance;
 
   const features: [Terrain, FeatureConfig, number][] = [
     ['water', config.lakes, config.obstacleStartDistance],

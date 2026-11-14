@@ -5,15 +5,20 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 ## Nuläge
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
-- **Väntar på användaren:** Idet har fått ett riktigt hus i stället för
-  platshållarblocket. Användaren ska se bilderna. Se "Efter MVP:n"
+- **Senaste ändring (2026-11-14):** miljön ritas med bilder från
+  figurpipelinen (träd, bärsnår, klippor, grottor, vatten och strand),
+  korgen visar rätt last, och varje startplats har en egen damm. Se
+  "Efter MVP:n". Om ändringen är mergad står i GitHub; den här raden
+  säger det inte, eftersom den skrivs innan det är avgjort
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
-  request 14) och Fiskehyttan (pull request 15). Båda ekonomibyggnadernas
-  värden är godkända av användaren (2026-11-14)
-- **Inte gjort:** Tigrarna finns inte som ras i spelet. Träd, bärsnår,
-  klippor, vatten och grottor är fortfarande platshållare
+  request 14), Fiskehyttan (pull request 15) och Idets hus (pull request
+  16). Båda ekonomibyggnadernas värden är godkända av användaren
+  (2026-11-14)
+- **Inte gjort:** Tigrarna finns inte som ras i spelet. Gräset är
+  fortfarande en enfärgad romb med rutnät; allt annat på kartan ritas
+  med bilder
 - **Beslutat men inte påbörjat:** skarp rendering i skärmens verkliga
   upplösning. Den står som egen punkt sist i `implementation-plan.md`
 - **Mäta på telefon:** `?debug=1` visar bilder per sekund, och
@@ -822,10 +827,231 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
 
 ## Efter MVP:n
 
+### Befolkningstaket höjt till 200 (2026-11-14)
+
+Användaren: "Uppdatera maxtaket till 200 i population."
+
+- `POPULATION_CONFIG.hardCap` i `src/data/population.ts`: 50 → 200. Det
+  är den enda ändringen i spelet. Taket nås med Storidet och 39 Iden
+  (39 × 30 = 1170 trä).
+- Meddelandet lyder nu "Befolkningstaket 200 är nått"; talet kommer ur
+  datan.
+- Befolkningstesterna hade talet 50 inskrivet på tre ställen (nio Iden
+  för att nå taket). De räknar nu ut antalet hus ur datan.
+- GDD:t avsnitt 4, 6, 13 och 14 och arkitekturdokumentet är ändrade.
+
+**Saknas eller avviker**
+
+- **Datorspelaren påverkas inte.** Den slutar vid 20 soldater och sina
+  arbetare och kom aldrig upp i 50.
+- **Inte mätt: prestanda med 200 enheter per sida.** Med 123 Samlare
+  (`?stress=120`) ger mjukvarurenderingen 14 bilder per sekund vid
+  basen. 400 enheter på kartan är inte prövat, varken för ritningen
+  eller för simuleringen (vägsökning och kollision).
+- **Inte prövat i webbläsare:** hur räknaren ser ut med "200/200".
+  Texten börjar 272 px in och blir uppskattningsvis 145 px bred, två
+  tecken längre än "50/50". På en skärm smalare än cirka 420 px
+  (telefon på högkant) räckte bredden inte heller förut.
+
+### Miljön får bilder, korgen rätt last och starten blir rättvis (2026-11-14)
+
+Användaren: "Ersätt de sista platshållarna med grafik från
+figurpipelinen, enligt skalstandarden och samma stil som byggnaderna."
+Fem punkter: (1) träd, bärsnår, klippor och grottor, med varianter och
+källor som syns minska, (2) vatten och strand med mjuk övergång och
+igenkännliga fiskeplatser, (3) rätt last i korgen, (4) rättvis start för
+alla frön, med test, (5) rätta raden här om att Idet väntar på
+granskning.
+
+**Skärmdumpar:** `docs/screenshots/miljo-karta.png` (hela kartan,
+standardfröet, utan dimma, i halv storlek), `miljo-strand-fiskare.png`
+(närbild: Fiskehytta på den nya stranden med tre fiskare; den tredje
+står bakom hyttan och ritas blekt genom taket), `miljo-strand.png`
+(samma strand med basen runt om), `miljo-fiskeplatser.png` (samma hytta
+utan fiskare, så att platsernas märken syns) och `miljo-resurser.png`
+(två stubbar, två bärsnår utan bär och två med). Pipelinens
+förhandsbilder ligger i `assets/previews/scenery/`.
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| 1. Träd, bärsnår, klippor och grottor från pipelinen | Klar | 12 föremål i `scenery.toml`, samma kamera, ljus och kontur som byggnaderna |
+| 1. Minst tre varianter av träd och klippor | Klar | Två granar och ett lövträd; tre klippor. Rutans koordinater väljer |
+| 1. Bärsnår med och utan bär | Klar | Tre lägen: fullt, få bär (högst hälften kvar), utan bär (tomt) |
+| 1. Träd som blir stubbe | Klar | Stubben är 6 px hög och bara bild, se avvikelser |
+| 2. Vatten och strandlinje med mjuk övergång | Avviker | Ritat i pipelinens Python, inte renderat i Blender. Inte animerat |
+| 2. Fiskeplatser går att känna igen | Avviker | Märks ut vid färdiga Fiskehyttor, inte på stränder utan hytta |
+| 3. Korgen visar bär, fisk och säd | Klar | Och ved som förut. Se avvikelsen om vilka animationer |
+| 4. Likvärdig tillgång till vatten, trä och bär, alla frön | Klar | Egen damm vid varje startplats; kartan är punktspeglad |
+| 4. Test | Klar | `src/sim/map/fairStart.test.ts`, 40 frön |
+| 5. Raden om Idet | Klar | Se "Nuläge" och sist i den här loggen |
+| Mät fps med `?stress=120` före och efter | Klar | Se tabellen |
+| Håll atlasens storlek nere och rapportera den | Klar | 256×217 px, 55 kB |
+
+**Vad som gjordes**
+
+- **Pipelinen.** `build.py --scenery` bygger miljön: `scenery.py`,
+  `lib/nature.py` (gran, lövträd, stubbe, buske, klippblock, grotta,
+  fiskeplats), `lib/ground.py` (vatten och strand) och
+  `scenery/scenery.toml`. Skalstandarden har fått höjder för miljön
+  (`[scale.scenery_height]` i `game.toml`): träd 58–96 px, buskar 13–29,
+  klippor 16–48, grotta 29–51, det som ligger kvar högst 19. Bygget
+  vägrar ett föremål utanför sitt spann.
+- **I spelet.** `MapView` är omskriven: gräs, vatten med strandbitar,
+  stående föremål och det som ligger kvar. `CaveView` ritar grottan med
+  bild och vimpel i ägarens färg. Reglerna (vilken bild en ruta får)
+  ligger som rena funktioner i `src/render/scenery/scenery.ts`.
+- **Korgen.** Samlaren har fyra laster: ved, bär, fisk och säd. Vad en
+  enhet bär står i `Unit.carryLoad` i simuleringen, eftersom bär, fisk
+  och säd alla är mat i lagret.
+- **Rättvis start.** Kartgenereringen lägger en damm på 9 rutor 7–11
+  rutor från varje startplats och håller marken runt den öppen. En karta
+  godkänns bara om det finns plats för en Fiskehytta med alla tre
+  fiskeplatserna inom 13 rutor från startplatsen, prövat med spelets
+  egna regler för hyttan. På standardkartan står hyttan nu 8 rutor från
+  Storidet med tre fiskeplatser; förut gav närmaste strand en.
+  Likvärdigheten mellan sidorna kommer av att kartan är punktspeglad:
+  testet kontrollerar att båda har exakt lika många träd och bärsnår
+  inom 8, 12, 16 och 24 rutor och hyttplats på samma avstånd.
+
+**Prestanda** (`?stress=120`, headless Chromium med mjukvarurendering,
+1280×720, tre mätningar om 3 s per läge; gamla och nya bygget mätta
+direkt efter varandra på samma maskin)
+
+| Läge | Före | Efter | Skillnad |
+|---|---|---|---|
+| Vid basen, bilder per sekund | 15,3 | 13,8 | −10 % |
+| Mitt på kartan, bilder per sekund | 9,5 | 9,7 | +2 % |
+| Vid basen, processorn bromsad 4 gånger | 9,6 | 9,1 | −5 % |
+| Mitt på kartan, bromsad 4 gånger | 7,0 | 7,3 | +4 % |
+| Laddning | 1294 ms | 1197 ms | −7 % |
+
+- Vid basen står skogen tätast, och där kostar bilderna: ett träd är en
+  bild på cirka 4100 px² där platshållaren var en liten triangel.
+- Två åtgärder togs efter en första mätning som visade −16 till −25 %
+  vid basen: skuggorna beskärs till en ellips vid foten (ett träds bild
+  gick från cirka 6200 till 4100 px²), och föremål utanför kamerans bild
+  döljs. På hela kartan står 678 föremål.
+- Talen gäller mjukvarurendering, där ytan som ritas avgör. De säger
+  inte hur en telefon med grafikkort beter sig. Inte mätt på telefon.
+
+**Atlasernas storlek**
+
+| Atlas | Före | Efter |
+|---|---|---|
+| Miljön (ny) | – | 256×217 px, 27 bilder, 47 kB + 8 kB mask |
+| Björnarbetaren | 1024×1016 px, 1032 bilder, 1610 kB + 644 kB mask | 1024×990 px, 1176 bilder, 1576 kB + 644 kB mask |
+| Alla PNG i bygget | 4785 kB | 4805 kB (+20 kB, +0,4 %) |
+
+Arbetarens atlas blev mindre trots två laster till, eftersom en last nu
+bara har bilder för de animationer där den kan förekomma. Krigarens,
+tigerns och de sex byggnadernas atlaser byggdes om och har oförändrade
+bilder byte för byte; krigarens och tigerns JSON-filer fick en ny tom
+rad i metadatan (`layerAnimations`).
+
+**Saknas eller avviker**
+
+- **Gräset är kvar som enfärgad romb med rutnät.** Uppdraget nämnde
+  inte gräset, och rutnätet behövs för att se rutorna vid placering.
+- **Vatten och strand är inte renderade i Blender** utan ritade av
+  pipelinens Python (numpy) direkt i rutans form, för att bitarna ska
+  passa pixelexakt mot varandra. De är deterministiska och görs utan
+  extern tjänst, men "med kod i Blender" stämmer inte för dem.
+- **Vattnet rör sig inte.** Tre stillbilder med olika vågstreck.
+- **Fiskeplatser märks bara ut vid en färdig Fiskehytta som spelaren
+  ser.** En fiskeplats finns först när en hytta når stranden, så en
+  strand utan hytta har inga märken. Under placering visas platserna
+  med ringar som förut. Märkena räknas om var 20:e bildruta, så de kan
+  komma upp till en tredjedels sekund sent.
+- **Stubbar och tomma buskar är bara bild.** Simuleringen ser gräs:
+  enheter går över dem, det går att bygga på dem, och de sparas inte i
+  speltillståndet. Bilden tas inte bort när något byggs på rutan. Inte
+  prövat: hur en stubbe ser ut under en Odling, som ligger platt.
+- **Stubben är liten** (6 px hög) och skyms lätt av träden framför.
+- **En last ritas bara när Samlaren står, går eller gör lastens eget
+  arbete.** Bygger en Samlare med fisk i korgen syns korgen tom medan
+  den hamrar. Lasten finns kvar och syns igen när den går.
+- **Trädets klickruta når inte ända upp i toppen.** Den slutar cirka
+  8 px under spetsen och är smalare än kronan (34–40 px), så att rutan
+  bakom ett träd går att klicka på. Ett klick på spetsen eller i kronans
+  ytterkant går till marken bakom.
+- **Grottan har kvar sin räknare som text** (`0/12`) ovanför bilden.
+- **Alla kartor har ändrats.** Dammen läggs före de slumpade fläckarna,
+  så varje frö ger en annan karta än förut. Äldre skärmdumpar visar den
+  gamla standardkartan.
+- **Datorspelaren bygger nu Fiskehytta på alla prövade frön** (1–4),
+  eftersom det alltid finns vatten nära. Matcher mellan två datorspelare tar
+  13,7, 15,2 och 15,7 minuter på frö 1–3 (målet är 10–20).
+- **Ett balanstest är uppmjukat.** "Sex Ramkrigare slår tillbaka första
+  vågen" krävde minst fem kvar på frö 1–3. På de nya kartorna förlorar
+  försvararna två på frö 3. Testet prövar nu frö 1–6 och kräver minst
+  fyra kvar på varje och minst fem i snitt. Vågens storlek (4) och alla
+  stridsvärden är orörda. Grundorsak: var striden står beror på
+  terrängen runt basen, och den är ny.
+- **Bilder per sekund vid basen sjönk 10 %** i mjukvarurendering, se
+  ovan.
+- **Den gemensamma pipelinen ändrades** (`build.py`: lager per
+  animation, `--scenery`; `lib/armor.py`: två laster till).
+- **Platshållarformerna för enheter och byggnader finns kvar i koden**
+  som reserv. Miljöns platshållare (trianglar, cirklar, grottkullen) är
+  borttagna.
+
+**Testresultat**
+
+- Vitest: 635 av 635 (33 nya: rättvis start, kartgenerering, last,
+  miljöns regler och atlas, datorspelarens fiske)
+- Playwright: 129 av 129 i normal fart (8 nya i `scenery.spec.ts`).
+  Med webbläsaren nedbromsad 8 gånger: 127 av 129 i hela körningen.
+  De två som föll gick över sin tidsgräns på 30 s (se nedan); efter
+  rättning går de igenom nedbromsat på 18,5 s och 8,3 s. Hela den
+  nedbromsade körningen är inte gjord om efter rättningen
+- Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
+  testerna eller när skärmdumparna togs.
+
+**Äldre tester som ändrades, och varför**
+
+- **Balanstestet om första vågen**, se ovan.
+- **Kartgenereringens tester:** avståndet från startplats till vatten är
+  nu minst 7 rutor (dammen), inte 10, och reservkartan har två dammar.
+- **Datorspelarens tester:** fältet prövas nu på en karta utan vatten;
+  ett nytt test prövar att den bygger hytta vid dammen.
+- **Atlastestet för arbetaren** läser lagren med sina animationer.
+- **Klicktesterna** (`picking.test.ts`) använder den nya klickrutan.
+- **`characters.spec.ts`:** lagret heter `load_berries`, inte
+  `load_food`.
+- **`phase3-units.spec.ts`:** ett test antog öppen mark runt en fast
+  ruta vid basen. På den nya kartan står träd där. Hjälpfunktionen
+  söker nu en ruta med öppen mark runt om som inte ligger bakom ett hus.
+- **`buildings.spec.ts`, byggstadierna:** testet väntade på en bildruta
+  per två simuleringssteg. Nedbromsat tog det 25–29 s redan före den här
+  ändringen och 30,7 s nu, eftersom miljön gör varje bildruta lite
+  dyrare. Det tar nu fem steg per bildruta. Varje stadium varar cirka
+  200 steg, så inget missas.
+- **`scenery.spec.ts`, varianterna (nytt test):** frågade sidan om en
+  ruta i taget, över 200 anrop, vilket nedbromsat tog 30,5 s. Det läser
+  nu alla rutor i ett anrop.
+- Inget test är avstängt, och ingen tidsgräns är höjd.
+
+**Beslut och lärdomar**
+
+- **Raden om Idet (punkt 5).** "Nuläge" sa att Idet väntade på
+  användarens granskning efter att pull request 16 hade mergats. Samma
+  sak hände med pull request 15. Grundorsak: raden skrivs i samma
+  ändring som den beskriver, alltså före mergen, och ingen ändring
+  följer som rättar den. "Nuläge" säger därför inte längre om den
+  senaste ändringen är mergad; det står i GitHub.
+- **Genomskinliga pixlar kostar.** Den renderade skuggan gjorde ett träds
+  bild hälften större utan att synas mer än en ellips vid foten.
+- **Phasers Blitter ritar en beskuren bild från bildens hörn**, inte
+  från fästpunkten, så `MapView` lägger till beskärningens förskjutning
+  själv.
+
 ### Idet får ett riktigt hus (2026-11-14)
 
 Användaren: "Ide saknar fortfarande ett ordentligt hus, skapa det."
 Pull request 15 (Fiskehyttan) mergades först, på användarens begäran.
+Idets hus är pull request 16, mergad 2026-11-14 på användarens begäran.
 
 **Skärmdumpar:** `docs/screenshots/ide-stadier.png` (tre Iden bredvid
 Storidet: färdigt, halvbyggt och nyss påbörjat), `ide-narbild.png`

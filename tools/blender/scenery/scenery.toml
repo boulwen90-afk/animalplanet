@@ -1,0 +1,146 @@
+# What stands on the ground between the buildings, and the ground's own
+# water and shore. `build.py --scenery` renders it to assets/scenery/.
+# Lengths are in tiles. Every item stands on the middle of its tile.
+name = "scenery"
+
+# How much of an item's shadow is kept: an ellipse round its foot, this many
+# game pixels across and down from its middle, fading out over `soft` more.
+[shadow_reach]
+across = 22
+down = 11
+soft = 8
+
+[colors]
+bark = "#6b4423"
+wood_cut = "#d9b77e"
+needle = "#2c7438"
+needle_dark = "#1f5c2a"
+leaf = "#4c9a44"
+leaf_dark = "#357a35"
+berry = "#c8243a"
+berry_light = "#ec5f72"
+rock = "#8f9195"
+rock_light = "#b0b2b0"
+rock_dark = "#676a70"
+cave_dark = "#15171a"
+sand = "#d9c58b"
+sand_dark = "#bda86f"
+fish = "#8fb6cf"
+
+# The ground: water, and the shore between water and land. Drawn, not rendered.
+[ground]
+water = "#2f6fb5"
+water_light = "#4a8ccd"
+water_shallow = "#5fa9cf"
+foam = "#e8f3f6"
+sand = "#d9c58b"
+sand_wet = "#b89f68"
+water_variants = 3
+
+# The shore, in tiles from the waterline: how far out the water is shallow,
+# how wide the line of foam is, how far up the sand is solid, and over what
+# further distance it fades out over the grass.
+[ground.shore]
+shallow = 0.3
+foam = 0.05
+sand = 0.12
+fade = 0.14
+
+# --- Trees: three kinds, so that a forest does not look like one tree repeated.
+[[item]]
+name = "tree_1"
+kind = "tree"
+[[item.part]]
+type = "conifer"
+height = 1.9
+radius = 0.4
+tiers = 4
+
+[[item]]
+name = "tree_2"
+kind = "tree"
+[[item.part]]
+type = "conifer"
+height = 1.65
+radius = 0.44
+tiers = 3
+lean = 0.05
+
+[[item]]
+name = "tree_3"
+kind = "tree"
+[[item.part]]
+type = "broadleaf"
+height = 1.6
+radius = 0.5
+
+# What a felled tree leaves behind.
+[[item]]
+name = "stump"
+kind = "remains"
+[[item.part]]
+type = "stump"
+
+# --- Berry bushes: full, picked at, and bare.
+[[item]]
+name = "bush_full"
+kind = "bush"
+[[item.part]]
+type = "bush"
+size = 0.5
+berries = 10
+
+[[item]]
+name = "bush_few"
+kind = "bush"
+[[item.part]]
+type = "bush"
+size = 0.5
+berries = 4
+
+[[item]]
+name = "bush_bare"
+kind = "remains"
+[[item.part]]
+type = "bush"
+size = 0.4
+berries = 0
+
+# --- Rocks: three kinds. Each stone is (x, y, half-width, half-depth, half-height, turn).
+[[item]]
+name = "rock_1"
+kind = "rock"
+[[item.part]]
+type = "boulders"
+stones = [[-0.08, 0.06, 0.4, 0.36, 0.36, 0.4], [0.28, -0.22, 0.22, 0.2, 0.19, 1.9], [-0.3, -0.3, 0.15, 0.14, 0.11, 3.1]]
+
+[[item]]
+name = "rock_2"
+kind = "rock"
+[[item.part]]
+type = "boulders"
+stones = [[0.12, 0.1, 0.32, 0.36, 0.46, 1.1], [-0.26, -0.04, 0.28, 0.24, 0.26, 2.6], [0.12, -0.32, 0.2, 0.17, 0.15, 0.2]]
+
+[[item]]
+name = "rock_3"
+kind = "rock"
+[[item.part]]
+type = "boulders"
+stones = [[-0.18, 0.16, 0.29, 0.26, 0.24, 2.0], [0.2, 0.02, 0.31, 0.29, 0.31, 0.7], [-0.04, -0.3, 0.24, 0.2, 0.17, 3.7], [0.34, -0.32, 0.12, 0.11, 0.09, 1.4]]
+
+# --- A cave, with a pennant in its side's colour.
+[[item]]
+name = "cave"
+kind = "cave"
+[[item.part]]
+type = "cave"
+radius = 0.46
+height = 0.85
+pole = 1.1
+
+# --- The marks of a fishing place on the shore.
+[[item]]
+name = "fishing_place"
+kind = "remains"
+[[item.part]]
+type = "fishing_place"

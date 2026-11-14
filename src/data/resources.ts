@@ -1,13 +1,23 @@
+/**
+ * What a load is, as it looks in a worker's basket. Food comes as berries,
+ * fish or grain, depending on where it was got; it is all the same food
+ * once it has been delivered.
+ */
+export type LoadKind = 'wood' | 'berries' | 'fish' | 'grain';
+
 /** Resources. See GDD section 6. */
 export const RESOURCE_DEFS = {
   food: {
     /** Amount in each source when the game starts. */
     amountPerNode: 150,
+    /** What a load from a source on the map is: a berry bush. */
+    load: 'berries',
   },
   wood: {
     amountPerNode: 100,
+    load: 'wood',
   },
-} as const;
+} as const satisfies Record<string, { amountPerNode: number; load: LoadKind }>;
 
 export type ResourceType = keyof typeof RESOURCE_DEFS;
 

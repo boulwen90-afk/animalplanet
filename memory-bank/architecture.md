@@ -71,17 +71,19 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/rng.ts` | Frösatt slumpgenerator (mulberry32) och `parseSeed` | 2 |
 | `src/sim/map/iso.ts` | Isometrisk matematik: ruta ↔ världspixlar, begränsning till kartan | 1 |
 | `src/sim/map/grid.ts` | Typerna `GameMap` och `Cave`, rutuppslag, gångbarhet, spegling, avstånd, `isReachable` | 2, 7 |
-| `src/sim/map/mapgen.ts` | `generateMap`: kartgenerering, inklusive grottor | 2, 7 |
+| `src/sim/map/mapgen.ts` | `generateMap`: kartgenerering, inklusive grottor och startdammen; `fishingSites` och `hasFishingSite` | 2, 7 |
 | `src/render/scenes/GameScene.ts` | Skapar spelet, vyerna och styrningen, driver simuleringen, registrerar testgränssnittet | 1, 2, 3 |
 | `src/render/scenes/UiScene.ts` | Gränssnittet ovanpå spelet: resursraden, markeringspanelen, kommandopanelen, knapparna "Bas" och "Avmarkera", varningstext, startskärm och slutskärm | 3, 4, 5, 7, 10 |
 | `src/render/session.ts` | "Spela igen": laddar om sidan och låter den nya sidan hoppa över startskärmen | 10 |
-| `src/render/views/MapView.ts` | Ritar mark, träd, bärsnår och klippor; tar bort tömda källor | 1, 2, 4 |
+| `src/render/views/MapView.ts` | Ritar mark, vatten och strand, träd, bärsnår och klippor, det tömda källor lämnar kvar, och fiskeplatsernas märken | 1, 2, 4 |
+| `src/render/scenery/scenery.ts` | Miljöns regler som rena funktioner: vilken bild en ruta får, bärsnårets lägen, vad en tömd källa lämnar, vattenrutans strandbitar | – |
+| `src/render/scenery/SceneryLibrary.ts`, `assets.ts` | Laddar miljöns atlas och färgar den per spelare (grottans vimpel) | – |
 | `src/render/views/EntityView.ts` | Ritar enheter och byggnader, interpolerar rörelse, ritar markeringar, livstaplar, vita flaggor och stridseffekter | 3, 4, 6, 7 |
 | `src/render/views/SelectionView.ts` | Ritar dragrutan, orderringar och ringen under ett finger som hållits kvar | 3, 10 |
 | `src/render/views/PlacementView.ts` | Ritar byggnaden som placeras: fotavtryck, bild, förklaring och arbetsplatser | 6 |
-| `src/render/views/CaveView.ts` | Ritar grottorna och antalet djur i dem | 7, 8 |
+| `src/render/views/CaveView.ts` | Ritar grottorna (bild ur miljöns atlas, vimpel i ägarens färg) och antalet djur i dem | 7, 8 |
 | `src/render/views/FogView.ts` | Ritar krigsdimman | 8 |
-| `src/render/views/visuals.ts` | Platshållargrafikens mått och färger, delade av ritning och klickträffar | 3 |
+| `src/render/views/visuals.ts` | Mått som ritning och klickträffar delar: figurers och byggnaders höjd, klickrutan för träd och bärsnår (`SCENERY_PICK`, `pickBoxOf`), och platshållarformerna som finns kvar som reserv | 3 |
 | `src/render/input/CameraController.ts` | Kamerapanorering med tangenter, skärmkant och mittenknapp; `panBy` för fingret | 1, 10 |
 | `src/render/input/SelectionController.ts` | Markering, dragruta och order (flytta, samla, anfalla, hjälpa till att bygga) med mus och tangentbord; `tapAt` och `selectBox` för fingret | 3, 4, 6, 7, 10 |
 | `src/render/input/PlacementController.ts` | Byggplacering: kontur som följer musen, klick placerar, högerklick och Esc avbryter. På pekskärm: tryck flyttar konturen, tryck på konturen bygger | 6, 10 |
@@ -527,6 +529,13 @@ händelserna efter varje steg. Simuleringen själv använder dem inte.
   blir sedan sysslolös.
 - Byter enheten resursslag tappas den gamla lasten. Saknar sidan
   avlämningsbyggnad blir enheten sysslolös med lasten kvar.
+- **Vad lasten är** står i `Unit.carryLoad` (`LoadKind`: `wood`,
+  `berries`, `fish`, `grain`, eller `null` när enheten inget bär). Det
+  sätts när en enhet resurs läggs i lasten: källans slag på kartan
+  (`RESOURCE_DEFS[...].load`) eller byggnadens (`WorkDef.load`). Bär,
+  fisk och säd är alla mat i lagret, så resursslaget räcker inte för att
+  rita rätt last. Fältet nollställs när lasten lämnas av, tappas eller
+  enheten kapitulerar. Det påverkar inga regler.
 - Vägrutnätet byggs högst en gång per steg och byggs om när en källa töms.
 - **Byggnader som källa (Odlingen och Fiskehyttan).** En byggnad med
   `work` i `BUILDING_DEFS` (`resource`, `workers`, `secondsPerUnit`,
@@ -562,6 +571,10 @@ händelserna efter varje steg. Simuleringen själv använder dem inte.
     vattenrutan den fiskar i, eller åkerns mitt.
   - `workersAt` ger dem som arbetar vid en byggnad, oavsett fas: en
     arbetare behåller sin ruta medan den bär hem lasten.
+  - `workPlacesOf(state, grid, building)` ger en stående byggnads
+    arbetsplatser: de som dess arbetare har, och därtill de lediga som går
+    att nå från öppen mark intill byggnaden, upp till `work.workers`.
+    Ritningen använder den för att märka ut fiskeplatserna.
   - **Kommer arbetaren inte fram till sin plats** (någon står i vägen,
     eller den har knuffats undan) försöker `retarget` först samma byggnad
     igen, med vilken ledig plats som helst, innan den söker en annan
@@ -591,16 +604,34 @@ händelserna efter varje steg. Simuleringen själv använder dem inte.
    `startResourceRadius` från kartkanten.
 2. Garanterade startresurser läggs i ringen mellan `startClearRadius` (4)
    och `startResourceRadius` (8) runt startplatsen: 6 bärsnår och 14 träd.
-3. Slumpade sjöar, klippor, skogar och bärsnår växer fram som oregelbundna
+3. **Startdammen** (`MAP_GEN_CONFIG.startWater`): en damm på 9 rutor växer
+   fram ur en ruta 9–11 rutor från startplatsen och kommer aldrig närmare
+   den än 7. Runt dammen hålls 2 rutor mark öppna (`keepOpen`): där läggs
+   varken slumpade fläckar eller grottor, så att stranden går att nå och
+   bygga på.
+4. Slumpade sjöar, klippor, skogar och bärsnår växer fram som oregelbundna
    fläckar, en kantgranne i taget. Sjöar och klippor håller minst 10 rutor
    från startplatserna, skog och bär minst 4.
-4. Varje ruta som sätts speglas genom kartans mitt, så kartan blir
-   punktsymmetrisk.
-5. Om startplatserna inte är förbundna med gångbar mark (`isReachable`,
-   kantgrannar) görs ett nytt försök, högst 20. Därefter används en karta
-   med enbart startresurserna.
+5. Varje ruta som sätts speglas genom kartans mitt, så kartan blir
+   punktsymmetrisk. Det är det som gör starten lika för båda: allt den ena
+   sidan har, har den andra på samma avstånd.
+6. Kartan godkänns bara om startplatserna är förbundna med gångbar mark
+   (`isReachable`, kantgrannar) och om `hasFishingSite` hittar en plats
+   för en Fiskehytta med alla sina fiskeplatser inom
+   `startWater.siteDistance` (13) rutor från startplatsen, dit en enhet
+   kan gå från basen. Annars görs ett nytt försök, högst 20. Därefter
+   används en karta med enbart startresurserna och startdammen.
+
+`fishingSites(map, start, water)` räknar upp sådana platser med samma
+regler som spelet har för hyttan: fotavtrycket öppet och intill vatten,
+och fiskeplatserna öppna strandrutor inom hyttans räckvidd. Hyttans mått
+kommer ur `BUILDING_DEFS.fiskehytta` via `MAP_GEN_CONFIG.startWater.site`;
+`mapgen.ts` läser inte byggnadsdata själv. Ges ingen `startWater` (som i
+äldre tester) hoppas steg 3 och kravet i steg 6 över.
 
 Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
+`src/sim/map/fairStart.test.ts` prövar 40 frön: båda sidor har hyttplats,
+träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
 
 ## Rendering (`src/render/`)
 
@@ -632,7 +663,7 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - Nekas en träningsorder för att platsen är full blir befolkningstalet
     rött i 2,5 sekunder (`UI_CONFIG.noticeMs`), och ett meddelande visas
     lika länge mitt under resursraden, 30 px under varningstextens plats:
-    "Ingen plats – bygg ett Ide" eller "Befolkningstaket 50 är nått".
+    "Ingen plats – bygg ett Ide" eller "Befolkningstaket 200 är nått".
   - Markeringspanelen ligger nere till vänster och syns bara när något är
     markerat. För en egen enhet visas även vad den gör, t.ex.
     `Liv 40/40 · Samlar mat 7/10`, `Liv 40/40 · Bygger Visthus` eller
@@ -715,8 +746,9 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   - En kapitulerad enhet bär en vit flagga och har ingen livstapel.
   - En enhet som lämnar kartan (går in i en grotta eller försvinner) tonas
     bort på 300 ms där den stod. En raserad byggnad tas bort direkt.
-- **`CaveView`** ritar varje grotta som en kulle med mörk öppning och en
-  kant i sidans färg, med antalet djur ovanför, t.ex. `3/12`. Grottan ritas
+- **`CaveView`** ritar varje grotta med bilden `cave` ur miljöns atlas: en
+  klippa med mörk öppning och en vimpel i ägarens färg, med antalet djur
+  ovanför, t.ex. `3/12`. Grottan ritas
   när spelaren har utforskat dess ruta. Antalet visas alltid för egna
   grottor, och för andras bara medan de är i sikte.
 - **`FogView`** ritar dimman som en mörk romb per ruta, på djup över allt på
@@ -900,8 +932,12 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     för varje bildruta av figuren (`<lager>.<bildruta>`), med de delar av
     figuren som skymmer lasten redan bortskurna, så bilden kan alltid
     ritas överst. `CHARACTERS[...].loads` säger vilket lager som hör till
-    vilken resurs. Bilden skapas första gången enheten bär något. Den
-    lilla fyrkanten finns bara kvar för platshållarformer.
+    vilken last (`LoadKind`): ved, bär, fisk eller säd. Vilken last det
+    är läses ur `unit.carryLoad`, inte ur resursslaget. Ett lager har
+    bara bilder för de animationer där lasten kan förekomma (stå, gå och
+    det egna arbetet); saknas bildrutan döljs lagret. Bilden skapas
+    första gången enheten bär något. Den lilla fyrkanten finns bara kvar
+    för platshållarformer.
   - `EntityView.updateCharacter` ritar figuren med fötterna på enhetens
     markpunkt. Den vänder sig åt det håll den går, eller mot sitt mål när
     den slåss, och behåller riktningen när den stannar. Tomgången går på
@@ -935,14 +971,39 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   och antal enheter under resursraden. `?stress=N` låter `createGame`
   ställa ut N extra Samlare (`extraUnits`), och spelscenen skickar dem i
   arbete med vanliga kommandon.
-- **`MapView`** ritar kartan en gång, från `state.map`:
-  - Marken: en Blitter per marktextur (gräs, vatten), ett ritanrop var,
-    på djup −1.
-  - Träd, bärsnår och klippor: en `Image` per ruta med djup = skärmhöjden
-    för rutans mitt, så att föremål längre ned täcker dem bakom. Enheter
-    och byggnader ska använda samma djupregel.
-  - `update(map)` körs varje bildruta och tar bort bilden för rutor vars
-    terräng har ändrats (tömda källor). Marken under dem är redan gräs.
+- **`MapView`** ritar kartan från `state.map`, med bilder ur miljöns
+  atlas (`SceneryLibrary`). Vilken bild en ruta får avgörs av rena
+  funktioner i `scenery/scenery.ts`:
+  - **Gräs:** en Blitter med en genererad romb på varje ruta, också under
+    vattnet, på djup −1.
+  - **Vatten och strand:** en Blitter på djup −0,95. Varje vattenruta får
+    en av tre vattenbilder och därtill sina strandbitar (`waterFrames`):
+    en bit längs varje sida som möter land, en som rundar hörnet mellan
+    två sådana sidor, och en runt spetsen på en landruta som bara möter
+    vattnet över hörnet. Strandbitarna sticker ut över landrutan intill
+    och tonar ut mot gräset. Kartans utsida räknas som vatten.
+  - **Träd, bärsnår och klippor:** en `Image` per ruta med djup =
+    skärmhöjden för rutans mitt, så att föremål längre ned täcker dem
+    bakom. Tre bilder av träd och tre av klippor; `variantOf(x, y, n)`
+    väljer efter rutans koordinater, så samma ruta alltid får samma bild.
+  - **Källor som minskar.** Ett bärsnår visar `bush_full` tills högst
+    hälften är kvar (`BUSH_FEW_SHARE`), sedan `bush_few`. En tömd källa
+    lämnar en liggande bild (`remainsFrame`): `stump` efter ett träd,
+    `bush_bare` efter ett bärsnår. De ligger i en egen Blitter på djup
+    −0,7, alltså under enheterna, som går över dem. Simuleringen vet
+    inget om dem: rutan är gräs.
+  - **Fiskeplatser:** `showFishingPlaces(tiles)` lägger bilden
+    `fishing_place` (trampad sand och en hink) på varje ruta. Spelscenen
+    räknar ut rutorna var 20:e bildruta med `workPlacesOf` för färdiga
+    Fiskehyttor som spelaren ser.
+  - `update(map, isExplored, view)` körs varje bildruta: den byter
+    bärsnårets bild, byter en tömd källa mot det den lämnar, döljer
+    föremål på outforskade rutor och döljer dem som ligger utanför
+    kamerans bild (`OBJECT_REACH`: 48 px åt sidorna, 24 uppåt och 100
+    nedåt, eftersom ett träd sticker upp ur sin ruta).
+  - Klick: ett träd eller bärsnår träffas inom sin klickruta
+    (`SCENERY_PICK` i `visuals.ts`), som följer bilden men slutar lite
+    under trädets topp så att rutan bakom går att klicka på.
 - **`CameraController`** flyttar huvudkameran:
   - piltangenter och WASD, 900 px/s
   - muspekaren inom 20 px från skärmkanten, 900 px/s. Aktiveras först när
@@ -979,6 +1040,8 @@ tools/blender/.venv/bin/python tools/blender/build.py --emblems
 tools/blender/.venv/bin/python tools/blender/build.py --overview
 tools/blender/.venv/bin/python tools/blender/build.py --race bear --building main
 tools/blender/.venv/bin/python tools/blender/build.py --race bear --building main --sprites
+tools/blender/.venv/bin/python tools/blender/build.py --scenery
+tools/blender/.venv/bin/python tools/blender/build.py --scenery --sprites
 tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior --check-mask
 ```
 
@@ -1014,6 +1077,10 @@ alla figurer från konfigfilerna. En figurs atlas tar cirka 1,5 minut.
 | `units/<enhet>.toml` | En enhetstyp: fart, animationer, rustningsdelar, vapen, övriga verktyg, sköld, lager, färger och pose |
 | `emblems/<namn>.toml` | Ett sigill som platta former i lager |
 | `lib/config.py` | Läser konfigfilerna |
+| `scenery.py` | Miljön: bygger varje föremål, renderar det med byggnadernas kamera och ljus, ritar vatten och strand, packar atlasen och gör förhandsbilderna |
+| `lib/nature.py` | Miljöns delar: gran, lövträd, stubbe, buske (med eller utan bär), klippblock, grotta, fiskeplats |
+| `lib/ground.py` | Vattenrutan och strandbitarna, ritade med numpy direkt i rutans form |
+| `scenery/scenery.toml` | Miljöns föremål, deras mått och färger, vattnets och strandens färger, och hur långt en skugga får nå |
 | `lib/materials.py` | Material från hexfärger; lagfärgsmaterialet `team_color` |
 | `lib/mesh.py` | `Builder` med grundformerna: `ellipsoid` (även kupol), `limb` (avsmalnande cylinder mellan två punkter), `box`, `sheet` (tyg). Sätter mjuka eller hårda kanter per delgrupp |
 | `lib/skeleton.py` | Det gemensamma skelettet: benen (`BONES`), lösaren `solve` som placerar leder och ben för en pose, och `Rig` som bygger Blender-skelettet, binder delarna och bakar animationer |
@@ -1175,9 +1242,14 @@ hör till figurens egen bild, utan renderas som egna bilder som spelet
 ritar ovanpå: `name` och `parts` (början på delarnas namn). För varje
 bildruta renderas lagret ensamt, med resten av figuren urholkad
 (`render_layer`), så att bilden bara innehåller det av lagret som syns.
-Björnarbetaren har två: `load_wood` (vedträn i korgen) och `load_food`
-(bär i korgen). Lagrens bilder ligger i samma atlas, heter
-`<lager>.<bildruta>` och har tom mask.
+Björnarbetaren har fyra: `load_wood` (vedträn i korgen), `load_berries`
+(bär), `load_fish` (fiskar med stjärten upp) och `load_grain` (kärvar).
+Lagrens bilder ligger i samma atlas, heter `<lager>.<bildruta>` och har
+tom mask. `shown_in` på lagret säger vilka animationer det renderas för:
+varje last finns för `idle`, `walk` och sitt eget arbete (ved för
+`chop`, bär för `pick`, fisk för `fish`, säd för `till`). Atlasens
+metadata har listan som `layerAnimations`. Utan den gränsen hade fyra
+laster gjort atlasen dubbelt så stor.
 
 Varje animation bakas till en Blender-action med en nyckelbild per ben
 och bildruta (`Rig.bake`).
@@ -1187,7 +1259,8 @@ och bildruta (`Rig.bake`).
 tittar på skärmen; `s` är mot betraktaren) med samma kamera, ljus och
 skala för alla figurer. Varje bildruta renderas i två pass (figur och
 mask) och får sin kontur. Björnkrigaren blir 248 bildrutor.
-Björnarbetaren blir 344, och med sina två lager 1032 bilder i atlasen.
+Björnarbetaren blir 344, och med sina fyra lager 1176 bilder i atlasen
+(1024×990 px).
 Tigerkrigaren blir 248.
 
 - **Trimning och packning.** Tom yta runt varje bild skärs bort och
@@ -1392,18 +1465,57 @@ bara kontrollerat på samma maskin och samma Blender-version.
 - `assets/previews/emblems/`: ett sigill per ras och `all.png` med alla
   fyra i båda lagfärgerna.
 
+### Miljön (`--scenery`)
+
+`build.py --scenery --sprites` skriver `assets/scenery/scenery.json`,
+`scenery.png` och `scenery_mask.png`: 27 bilder på 256×217 px (47 kB +
+8 kB mask). Utan `--sprites` görs bara förhandsbilderna
+`assets/previews/scenery/items.png` (alla föremål på en rad) och
+`map.png` (ett stycke karta med sjö, skog, klippor och grotta).
+
+- **Föremålen** (`[[item]]` i `scenery.toml`): `tree_1` och `tree_2`
+  (granar av olika höjd), `tree_3` (lövträd), `stump`, `bush_full`,
+  `bush_few`, `bush_bare`, `rock_1`–`rock_3`, `cave` och `fishing_place`.
+  De byggs av delarna i `lib/nature.py` och renderas med samma kamera,
+  ljus, kontur och skala som byggnaderna, så de hör hemma bredvid dem.
+  Allt är låg-poly med platta ytor, som husen.
+- **Storleksstandarden** (`[scale.scenery_height]` i `game.toml`, lägsta
+  och högsta höjd på skärmen i rutbredder om 64 px) kontrolleras vid
+  bygget och i `scenery.test.ts`: träd 0,9–1,5 (58–96 px), buskar
+  0,2–0,45, klippor 0,25–0,75, grotta 0,45–0,8 och det som ligger kvar
+  högst 0,3. Ett träd är alltså ungefär så högt som ett litet hus, och
+  en buske lägre än en Samlare. Träden blir 59–75 px höga, buskarna
+  22–24 px och stubben 6 px.
+- **Fästpunkt.** Varje bild har rutans mitt som `anchor`, som
+  byggnaderna, så spelet ritar den med fästpunkten på rutans mitt.
+- **Skuggan beskärs** till en ellips vid foten (`[shadow_reach]`: 22 px
+  åt sidan, 11 nedåt, 8 px mjuk kant). Den renderade skuggan av ett träd
+  är lång, och genomskinliga pixlar kostar lika mycket att rita som
+  täckande: beskärningen tog ett träds bild från cirka 6200 till 4100
+  px² och atlasen från 512×162 till 256×217.
+- **Vatten och strand** renderas inte i 3D utan ritas av `lib/ground.py`
+  i rutans exakta form: tre vattenrutor med olika vågstreck, och
+  strandbitar: vattnet ljusnar de sista 0,3 rutorna mot land, sedan en
+  ljus bränning, 0,12 ruta sand och sand som tonar ut över ytterligare
+  0,14 ruta av gräset intill (`[ground.shore]`; en ruta är cirka 29 px
+  tvärs över på skärmen). Namnen är `shore_<sida>`,
+  `shore_out_<hörn>` och `shore_in_<hörn>`, med sidorna `x+`, `x-`,
+  `y+`, `y-`. Allt är deterministiskt: inga slumptal utan fast frö.
+- **Masken** har bara grottans vimpel. Spelet färgar atlasen per spelare
+  som övriga atlaser.
+
 ## Data (`src/data/`)
 
 | Fil | Styr |
 |---|---|
-| `map.ts` | Kartans storlek, rutans storlek, standardfrö, startplatser, startresurser, antal och storlek på skogar, bärsnår, klippor och sjöar |
+| `map.ts` | Kartans storlek, rutans storlek, standardfrö, startplatser, startresurser, startdammen (`startWater`), antal och storlek på skogar, bärsnår, klippor och sjöar |
 | `camera.ts` | Panoreringsfart (tangenter, kant), kantmarginal, längsta bildrutetid |
 | `sim.ts` | Simuleringssteg per sekund, flest steg per bildruta |
 | `terrain.ts` | Terrängtyper, gångbarhet och vilken resurs de ger |
 | `types.ts` | Vilka enhets- och byggnadstyper som finns |
 | `units.ts` | Enheters kostnad, träningstid, HP, fart, bärförmåga, insamlingstakt och vad de kan bygga |
 | `buildings.ts` | Vilka enheter en byggnad tränar, dess HP, storlek, kostnad, byggtid och om den är avlämningsplats. Start-HP för byggen och extra arbetares takt |
-| `resources.ts` | Mängd per källa, sökradie när en källa tar slut |
+| `resources.ts` | Mängd per källa, vilken last källan ger (`load`), sökradie när en källa tar slut |
 | `setup.ts` | Startbyggnad, startenheter, startresurser och befolkningstak |
 | `ui.ts` | Dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order, träffblink, utfall, skakning, varningstid, samt för pekskärm: hur långt ett finger får röra sig och ändå räknas som ett tryck (10 px), hålltid för dragruta (300 ms) och ringens radie |
 | `ai.ts` | Datormotståndarens beslutstakt, antal arbetare, andel arbetare på trä, flest soldater, försvarsradie och anfallsvågor |
@@ -1459,6 +1571,8 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getDebug()` | Vad räknaren från `?debug=1` visar: `visible`, `text` och `fps` |
 | `getNotice()` | Meddelandet som förklarar en nekad order, eller en tom sträng |
 | `getBuildingSprite(id)` | Hur en byggnad som ritas från bilder ser ut just nu: `frame` (`construction_1`, `construction_2` eller `complete`) och `texture`. `null` för platshållarblock |
+| `getScenery(tileX, tileY)` | Vad miljön ritar på en ruta: `object` (bilden av det som står där och syns, t.ex. `tree_2` eller `bush_few`, annars `null`), `lying` (bilderna som ligger på marken: `stump`, `bush_bare`, `fishing_place`) och `water` (vattenrutans bilder i ritordning: vattnet och dess strandbitar) |
+| `getObjectCount()` | Antal stående föremål i miljön som ritas just nu, efter att de utanför bilden har dolts |
 | `command(cmd)` | Skickar ett kommando till simuleringen och ger tillbaka dess `CommandResult` |
 | `getSelection()` | Id för markerade entiteter |
 | `getHud()` | Vad markeringspanelen visar: `visible`, `title`, `detail` |

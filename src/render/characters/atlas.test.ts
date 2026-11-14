@@ -14,6 +14,7 @@ interface Atlas {
     animations: Record<string, { frames: number; distance?: number; loopsPerSecond?: number }>;
     loopsPerSecondRange: [number, number];
     layers: string[];
+    layerAnimations?: Record<string, string[] | null>;
   };
 }
 
@@ -28,8 +29,8 @@ const FIGURES: {
   sizeClass: string;
   tileWidths: number;
   animations: string[];
-  /** The layers the game draws on top of the figure. */
-  layers: string[];
+  /** The layers the game draws on top of the figure, and the animations each has pictures in. */
+  layers: Record<string, string[]>;
 }[] = [
   {
     name: 'bear_warrior',
@@ -37,7 +38,7 @@ const FIGURES: {
     sizeClass: 'warrior',
     tileWidths: 0.55,
     animations: ['idle', 'walk', 'attack', 'defeat'],
-    layers: [],
+    layers: {},
   },
   {
     name: 'bear_worker',
@@ -45,7 +46,12 @@ const FIGURES: {
     sizeClass: 'worker',
     tileWidths: 0.46,
     animations: ['idle', 'walk', 'chop', 'pick', 'till', 'fish', 'hammer', 'defeat'],
-    layers: ['load_wood', 'load_food'],
+    layers: {
+      load_wood: ['idle', 'walk', 'chop'],
+      load_berries: ['idle', 'walk', 'pick'],
+      load_fish: ['idle', 'walk', 'fish'],
+      load_grain: ['idle', 'walk', 'till'],
+    },
   },
 ];
 
@@ -102,15 +108,23 @@ describe.each(FIGURES)('the $name atlas', (figure) => {
     expect(inGame).toBeLessThanOrEqual(fastest + 0.01);
   });
 
-  it('has its layers as pictures of their own, one for every picture of the figure', () => {
-    expect(atlas.meta.layers).toEqual(layers);
+  it('has its layers as pictures of their own, for the animations each layer is seen in', () => {
+    expect(atlas.meta.layers).toEqual(Object.keys(layers));
     const own = Object.keys(atlas.frames).filter((frame) => !frame.includes('.'));
-    for (const layer of layers) {
-      for (const frame of own) {
+    let layered = 0;
+    for (const [layer, shownIn] of Object.entries(layers)) {
+      // A load is drawn while the unit stands, walks and does the work that fills the basket.
+      expect(atlas.meta.layerAnimations?.[layer]).toEqual(shownIn);
+      const wanted = own.filter((frame) =>
+        shownIn.some((animation) => frame.startsWith(`${animation}_`)),
+      );
+      expect(wanted.length).toBeGreaterThan(0);
+      for (const frame of wanted)
         expect(atlas.frames[`${layer}.${frame}`], `${layer}.${frame}`).toBeDefined();
-      }
+      layered += wanted.length;
     }
-    expect(Object.keys(atlas.frames)).toHaveLength(own.length * (1 + layers.length));
+    // And nothing else: the atlas holds no picture the game never draws.
+    expect(Object.keys(atlas.frames)).toHaveLength(own.length + layered);
   });
 
   it('stands every picture on the same point: between the feet', () => {

@@ -71,7 +71,7 @@ En match ska ta ungefär 10–20 minuter.
   Enheter i kö räknas med i det nuvarande talet. När en enhet inte kan
   tränas för att platsen är full blir talet rött i 2,5 sekunder och ett
   kort meddelande visas: "Ingen plats – bygg ett Ide", eller
-  "Befolkningstaket 50 är nått" när det hårda taket är nått.
+  "Befolkningstaket 200 är nått" när det hårda taket är nått.
 - **Nederkant:** markeringspanel (namn, liv, vad enheten gör) och
   kommandopanel (bygg-/träningsknappar med kostnad, produktionskö).
 - Ingen minikarta i MVP:n.
@@ -135,8 +135,10 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
   - En sida har **plats** för så många enheter som dess färdiga byggnader
     ger: Storiden ger 5 och varje Ide (bostad) ger 5 till. En byggnad under
     uppförande ger ingenting än.
-  - **Hårt tak: 50 per sida**, hur många bostäder man än bygger. (Den
-    tidigare skissen talade om ett maxtak på omkring 250.)
+  - **Hårt tak: 200 per sida**, hur många bostäder man än bygger. Det
+    motsvarar Storidet och 39 Iden. (Höjt från 50 den 2026-11-14 på
+    användarens begäran. Den första skissen talade om ett maxtak på
+    omkring 250.)
   - Varje enhetstyp har en **befolkningskostnad**; i dag kostar alla 1.
   - **Träning blockeras när platsen är full.** Enheter i produktionsköer
     räknas som upptagen plats, eftersom de behöver plats när de är klara.
@@ -268,6 +270,13 @@ Byggregler:
   fast standardfrö i MVP:n, så alla spelar samma karta.
 - Spelaren börjar i ena hörnet, AI:n i det motsatta. Varje startplats har
   1 Storide, 3 Samlare, bärsnår och skog inom 8 rutor.
+- **Rättvis start (beslutat av användaren 2026-11-14):** båda sidor har
+  likvärdig tillgång till vatten, trä och bär, för alla frön. Varje
+  startplats har därför en egen damm 7–11 rutor bort, med plats för en
+  Fiskehytta med alla tre fiskeplatserna inom 13 rutor från Storidet.
+  Marken närmast dammen hålls fri från skog, klippor och grottor. Eftersom
+  kartan är punktspeglad har motståndaren exakt samma sak på samma
+  avstånd. Ett test prövar det över 40 frön.
 - Varje sida har 2 grottor på sin halva av kartan (avsnitt 15).
 - **Krigsdimma, tre lägen per ruta:**
   - *Outforskad:* helt svart.
@@ -346,6 +355,23 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
   trianglar, bärsnår som röda cirklar, Samlare som liten cirkel, Ramkrigare
   som större fyrkant, byggnader som färgade block med en bokstav (S, V, K).
   Lagfärg: spelare blå, fiende röd.
+- **Efter MVP:n: miljön ritas med bilder** från figurpipelinen, i samma
+  låg-poly-stil som byggnaderna och efter samma skalstandard:
+  - Tre sorters träd (två granar, ett lövträd) och tre sorters klippor,
+    blandade efter rutans plats så att en skog inte ser upprepad ut.
+  - **Källor syns minska.** Ett bärsnår är fullt av bär tills hälften är
+    plockad, har sedan få bär, och står kvar som en buske utan bär när
+    det är tomt. Ett fällt träd lämnar en stubbe. Det som blir kvar är
+    bara bild: enheter går över det, och det går inte att samla från.
+  - Vatten med vågstreck och en mjuk övergång mot land i stället för en
+    skarp kant: vattnet ljusnar de sista 0,3 rutorna (cirka 9 px) mot
+    stranden, sedan en ljus bränning, 0,12 ruta sand (cirka 3 px) och
+    sand som tonar ut över ytterligare 0,14 ruta (cirka 4 px) av gräset.
+  - **Fiskeplatser** vid en färdig Fiskehytta är märkta på stranden med
+    trampad sand och en hink.
+  - Grottan är en klippa med mörk öppning och en vimpel i ägarens färg.
+  - **Korgen visar vad Samlaren bär:** vedträn, bär, fiskar eller kärvar.
+  - Gräset är fortfarande en enfärgad romb med rutnät.
 - Speltext på svenska, samlad i en strängfil så att den kan översättas senare.
 
 ## 13. Ingår INTE i MVP:n
@@ -357,7 +383,8 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
   2026-11-14, se avsnitt 6 och 8)
 - Båtar och allt annat på vatten
 - ~~Bostadshus som höjer befolkningstaket (planerat efter MVP, maxtak ca
-  250)~~ Infört 2026-11-14 med ett hårt tak på 50, se avsnitt 6 och 8.
+  250)~~ Infört 2026-11-14 med ett hårt tak på 50, samma dag höjt till
+  200, se avsnitt 6 och 8.
 - Fler resurser än mat och trä
 - Riktig grafik, animationer, ljud och musik
 - Minikarta, kontrollgrupper (Ctrl+1 …), patrull/håll position, formationer
@@ -380,7 +407,7 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 4. **Befolkningstak.** Fast tak på 30 i MVP:n. Senare tillkommer bostadshus
    som höjer taket, med ett maxtak på omkring 250. Taket ligger i en datafil
    så att det kan ändras utan kodändring. **Ändrat 2026-11-14:** bostäder
-   finns nu, och det hårda taket är 50 per sida. Se avsnitt 6.
+   finns nu, och det hårda taket är 200 per sida (först 50). Se avsnitt 6.
 5. **Kartan.** Genererad från frö med ett fast standardfrö.
 
 ## 15. Kapitulation och grottor

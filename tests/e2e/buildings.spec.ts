@@ -82,8 +82,10 @@ test.describe('buildings drawn from pictures', () => {
     const seen = await page.evaluate(async (id) => {
       const t = window.__TEST__!;
       const frames: string[] = [];
-      for (let step = 0; step < 1500; step++) {
-        t.advance(2);
+      // Each stage lasts some two hundred steps, so five at a time misses none
+      // of them, and keeps the number of frames the test has to wait for down.
+      for (let step = 0; step < 600; step++) {
+        t.advance(5);
         // Let the display catch up with the simulation.
         await new Promise((resolve) => requestAnimationFrame(resolve));
         const frame = t.getBuildingSprite(id)?.frame;

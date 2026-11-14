@@ -19,6 +19,7 @@ export function freePlaces(cave: Cave): number {
 export function surrender(state: GameState, grid: PathGrid, unit: Unit): void {
   unit.hp = 0;
   unit.carryAmount = 0;
+  unit.carryLoad = null;
   unit.path = [];
 
   const here = unitTile(unit);

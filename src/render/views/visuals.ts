@@ -4,6 +4,7 @@ import type { Terrain } from '../../data/terrain';
 import type { UnitType } from '../../data/units';
 import { tileToWorld, type Point, type TileSize } from '../../sim/map/iso';
 import type { Unit } from '../../sim/state';
+import { objectFrame } from '../scenery/scenery';
 
 /** Placeholder look of things. Shared by drawing and by mouse picking. */
 
@@ -110,14 +111,29 @@ export const PLACEMENT_PREVIEW = {
 export const CONSTRUCTION_START_ALPHA = 0.35;
 
 /**
- * Size in pixels of the things drawn standing on terrain tiles. Each stands
- * with the middle of its lower edge a quarter of a tile below the tile centre.
+ * The area a click on a tree or a berry bush hits, in pixels, by its
+ * picture: a box that stands with the middle of its lower edge a quarter of
+ * a tile below the tile centre. It is a little lower than the picture: the
+ * tip of a tree is a few pixels wide, and a click there is meant for the
+ * ground behind it.
  */
-export const TERRAIN_OBJECT_VISUALS: Partial<Record<Terrain, { width: number; height: number }>> = {
-  tree: { width: 38, height: 61 },
-  berries: { width: 32, height: 26 },
-  rock: { width: 64, height: 48 },
+export const SCENERY_PICK: Record<string, { width: number; height: number }> = {
+  tree_1: { width: 34, height: 74 },
+  tree_2: { width: 36, height: 64 },
+  tree_3: { width: 40, height: 62 },
+  bush_full: { width: 40, height: 30 },
+  bush_few: { width: 40, height: 30 },
 };
+
+/** The area a click hits for what stands on a tile, or undefined if nothing there can be clicked. */
+export function pickBoxOf(
+  terrain: Terrain | undefined,
+  tileX: number,
+  tileY: number,
+): { width: number; height: number } | undefined {
+  const frame = terrain ? objectFrame(terrain, tileX, tileY) : undefined;
+  return frame ? SCENERY_PICK[frame] : undefined;
+}
 
 /** Colour of the ring shown when units are ordered to attack. */
 export const ATTACK_COLOR = 0xe8384f;
@@ -127,12 +143,6 @@ export const LIFE_BAR_COLORS = { high: 0x35e06a, medium: 0xf2c53d, low: 0xe8384f
 
 /** Life bar size in pixels, for units and for buildings. */
 export const LIFE_BAR = { unitWidth: 24, buildingWidth: 64, height: 4 } as const;
-
-/** Colour of a cave's mound and of its opening. */
-export const CAVE_COLORS = { rock: 0x5b5f66, opening: 0x15171a } as const;
-
-/** Size of a cave as drawn, in pixels. */
-export const CAVE_VISUAL = { width: 58, height: 40 } as const;
 
 /**
  * The fog of war: its colour, and how dark it makes tiles that have been

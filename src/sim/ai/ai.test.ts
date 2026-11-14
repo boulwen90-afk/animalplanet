@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import { AI_CONFIG } from '../../data/ai';
 import { BUILDING_DEFS } from '../../data/buildings';
+import { MAP_GEN_CONFIG } from '../../data/map';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
@@ -16,7 +17,6 @@ import { createGame } from '../game';
 import { tileDistance } from '../map/grid';
 import { resourceAmountAt, resourceAt, takeFromSource } from '../resources';
 import type { Building, GameState, Unit } from '../state';
-import { canPlaceBuilding } from '../systems/construction';
 import { isEntityVisibleTo, visibilityAt } from '../systems/visibility';
 import { VISIBLE } from '../state';
 import { advance, tick } from '../tick';
@@ -203,33 +203,25 @@ describe('the computer opponent plays by the rules', () => {
     }
   });
 
-  it('builds a fishing hut if it has water within reach, and none if it has not', () => {
-    const withHut: number[] = [];
-    const without: number[] = [];
-    for (const seed of [1, 2, 3, 4, 5, 6]) {
+  /** Empties the berry bushes near a side's base, so that it wants food without end at once. */
+  const emptyBerries = (state: GameState, centre: { x: number; y: number }) => {
+    const r = AI_CONFIG.fields.berryRadius;
+    for (let y = Math.floor(centre.y - r); y <= centre.y + r; y++) {
+      for (let x = Math.floor(centre.x - r); x <= centre.x + r; x++) {
+        if (resourceAt(state.map, x, y) !== 'food') continue;
+        if (tileDistance(x, y, centre.x, centre.y) > r) continue;
+        takeFromSource(state.map, x, y, resourceAmountAt(state.map, x, y) - 1);
+      }
+    }
+  };
+
+  it('builds a fishing hut by the water near its base, and fills it with fishers', () => {
+    // Every map has water near each start position.
+    for (const seed of [1, 2, 3, 4]) {
       const state = againstNobody(seed);
       const base = buildingsOf(state, 1, 'storide')[0]!;
       const centre = buildingCentre(base);
-      // Is there any place at all by water for a hut within its reach, as the game starts?
-      const reach = AI_CONFIG.fishing.reach;
-      let shore = false;
-      for (let y = Math.floor(centre.y - reach); y <= centre.y + reach && !shore; y++) {
-        for (let x = Math.floor(centre.x - reach); x <= centre.x + reach && !shore; x++) {
-          // Measured as the computer measures it: from the middle of the hut.
-          if (tileDistance(x + 1, y + 1, centre.x, centre.y) > reach) continue;
-          shore = canPlaceBuilding(state, 'fiskehytta', x, y, 1);
-        }
-      }
-
-      // With no berries near its base it wants food without end at once.
-      const r = AI_CONFIG.fields.berryRadius;
-      for (let y = Math.floor(centre.y - r); y <= centre.y + r; y++) {
-        for (let x = Math.floor(centre.x - r); x <= centre.x + r; x++) {
-          if (resourceAt(state.map, x, y) !== 'food') continue;
-          if (tileDistance(x, y, centre.x, centre.y) > r) continue;
-          takeFromSource(state.map, x, y, resourceAmountAt(state.map, x, y) - 1);
-        }
-      }
+      emptyBerries(state, centre);
       buildingsOf(state, 0, 'storide')[0]!.hp = 1e9;
       advance(state, 4 * MINUTE);
       const begun = state.entities.filter(
@@ -243,32 +235,38 @@ describe('the computer opponent plays by the rules', () => {
       }
 
       const huts = buildingsOf(state, 1, 'fiskehytta');
-      // Never without water within reach, and never more than it is set to have.
-      if (!shore) expect(huts, `seed ${seed}`).toHaveLength(0);
-      expect(huts.length, `seed ${seed}`).toBeLessThanOrEqual(AI_CONFIG.fishing.max);
-      if (huts.length === 0) {
-        without.push(seed);
-        // It lives on fields instead.
-        expect(buildingsOf(state, 1, 'odling').length, `seed ${seed}`).toBeGreaterThan(0);
-        continue;
-      }
-      withHut.push(seed);
+      expect(huts, `seed ${seed}`).toHaveLength(AI_CONFIG.fishing.max);
       const hut = huts[0]!;
       expect(hut.complete, `seed ${seed}`).toBe(true);
       const middle = buildingCentre(hut);
       expect(
         tileDistance(middle.x, middle.y, centre.x, centre.y),
         `seed ${seed}`,
-      ).toBeLessThanOrEqual(reach);
+      ).toBeLessThanOrEqual(AI_CONFIG.fishing.reach);
       // It chose a shore with a place for every fisher, and uses them all.
       const fishers = unitsOf(state, 1, 'samlare').filter(
         (u) => u.task.kind === 'gather' && u.task.siteId === hut.id,
       );
       expect(fishers, `seed ${seed}`).toHaveLength(BUILDING_DEFS.fiskehytta.work!.workers);
     }
-    // The seeds cover both cases.
-    expect(withHut.length).toBeGreaterThan(0);
-    expect(without.length).toBeGreaterThan(0);
+  });
+
+  it('builds no fishing hut on a map without water, and lives on fields instead', () => {
+    const { startWater, ...dry } = MAP_GEN_CONFIG;
+    expect(startWater).toBeDefined();
+    for (const seed of [1, 2]) {
+      const state = createGame(seed, undefined, {
+        ...dry,
+        lakes: { count: 0, minSize: 1, maxSize: 1 },
+      });
+      expect(state.map.terrain).not.toContain('water');
+      const base = buildingsOf(state, 1, 'storide')[0]!;
+      emptyBerries(state, buildingCentre(base));
+      buildingsOf(state, 0, 'storide')[0]!.hp = 1e9;
+      advance(state, 6 * MINUTE);
+      expect(buildingsOf(state, 1, 'fiskehytta'), `seed ${seed}`).toHaveLength(0);
+      expect(buildingsOf(state, 1, 'odling').length, `seed ${seed}`).toBeGreaterThan(0);
+    }
   });
 
   it('decides once a second, not every step', () => {

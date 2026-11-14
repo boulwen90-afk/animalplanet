@@ -285,10 +285,28 @@ def build_armor(
                     head = rim + Vector((x * 1.25, y * squeeze, 0.0)) + axis * above
                     b.limb(f"load.wood.log_{i}", foot, head, radius, radius, pal["log"], 6)
                     b.limb(f"load.wood.log_end_{i}", head, head + axis * 0.02, radius * 0.86, radius * 0.86, pal["log_end"], 6)
-            elif kind == "food":
+            elif kind == "fish":
+                # A catch of fish, head down in the basket with their tails in the air.
+                catch = ((-0.13, -0.04, 0.30, 0.0), (0.1, -0.08, 0.36, 0.25), (0.02, 0.1, 0.26, -0.2), (0.17, 0.08, 0.2, 0.1))
+                for i, (x, y, above, lean) in enumerate(catch):
+                    foot = rim + Vector((x, y * squeeze, 0.0)) - axis * 0.2
+                    head = rim + Vector((x + lean * 0.3, y * squeeze, 0.0)) + axis * above
+                    b.limb(f"load.fish.body_{i}", foot, head, 0.1, 0.05, pal["fish" if i % 2 else "fish_light"], 6, 0.5)
+                    tail = (head - foot).normalized()
+                    b.limb(f"load.fish.tail_{i}", head, head + tail * 0.12, 0.03, 0.11, pal["fish_dark"], 4, 0.3)
+            elif kind == "grain":
+                # A sheaf of grain: a bundle of stalks tied in the middle, the ears spreading out at the top.
+                b.limb("load.grain.sheaf", rim - axis * 0.2, rim + axis * 0.22, high * 0.62, high * 0.42, pal["straw"], 8, squeeze)
+                b.limb("load.grain.tie", rim + axis * 0.2, rim + axis * 0.26, high * 0.46, high * 0.46, pal["straw_dark"], 8, squeeze)
+                ears = ((0.0, 0.0), (-0.2, -0.04), (0.2, 0.05), (-0.09, 0.14), (0.1, -0.13), (0.03, 0.2), (-0.16, 0.1))
+                for i, (x, y) in enumerate(ears):
+                    foot = rim + Vector((x * 0.6, y * 0.6 * squeeze, 0.0)) + axis * 0.24
+                    head = rim + Vector((x * 1.5, y * 1.5 * squeeze, 0.0)) + axis * (0.52 - 0.3 * abs(x))
+                    b.limb(f"load.grain.ear_{i}", foot, head, 0.035, 0.06, pal["grain" if i % 2 else "grain_light"], 5)
+            elif kind == "berries":
                 # A heap of berries.
                 b.ellipsoid(
-                    "load.food.heap",
+                    "load.berries.heap",
                     rim + axis * 0.04,
                     (high * 0.9, high * 0.9 * squeeze, 0.2),
                     pal["berry"],
@@ -298,7 +316,7 @@ def build_armor(
                 berries = ((0.0, 0.0, 0.2), (-0.17, -0.05, 0.13), (0.16, 0.06, 0.14), (0.04, -0.14, 0.12), (-0.05, 0.15, 0.13))
                 for i, (x, y, z) in enumerate(berries):
                     at = rim + Vector((x, y * squeeze, 0.0)) + axis * (0.04 + z)
-                    b.ellipsoid(f"load.food.berry_{i}", at, (0.1,) * 3, pal["berry_light" if i % 2 else "berry"], detail=1)
+                    b.ellipsoid(f"load.berries.berry_{i}", at, (0.1,) * 3, pal["berry_light" if i % 2 else "berry"], detail=1)
             else:
                 raise ValueError(f"Unknown basket load {kind!r}")
         for side, sign in (("l", 1.0), ("r", -1.0)):

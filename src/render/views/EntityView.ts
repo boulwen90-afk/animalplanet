@@ -511,12 +511,14 @@ export class EntityView {
   private updateLoad(unit: Unit, sprite: EntitySprite, frame: string): void {
     const drawing = sprite.character as CharacterDrawing;
     const layer =
-      unit.carryAmount > 0 && unit.carryType ? drawing.sheet.loadLayer(unit.carryType) : undefined;
-    if (!layer) {
+      unit.carryAmount > 0 && unit.carryLoad ? drawing.sheet.loadLayer(unit.carryLoad) : undefined;
+    const name = `${layer}.${frame}`;
+    // A load has pictures for the animations it is seen in for long: standing,
+    // walking and the work that fills the basket. In the others it is not drawn.
+    if (!layer || !sprite.image.texture.has(name)) {
       sprite.load?.setVisible(false);
       return;
     }
-    const name = `${layer}.${frame}`;
     sprite.load ??= this.scene.add
       .image(0, 0, sprite.image.texture.key, name)
       .setScale(drawing.sheet.displayScale);

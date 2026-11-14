@@ -26,6 +26,7 @@ export function createUnit(
     task: { kind: 'idle' },
     carryType: null,
     carryAmount: 0,
+    carryLoad: null,
     attackCooldown: 0,
   };
   state.entities.push(unit);

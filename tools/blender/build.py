@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from animations import ANIMATIONS, Context  # noqa: E402
 from animations.walk import ground_share  # noqa: E402
 import buildings  # noqa: E402
+import scenery  # noqa: E402
 from lib import export  # noqa: E402
 from lib.camera import make_camera, make_lights, make_shadow_catcher  # noqa: E402
 from lib.atlas import write_atlas  # noqa: E402
@@ -80,6 +81,8 @@ class Studio:
         named = lambda prefix: [part for part in parts if part.name.startswith(prefix)]  # noqa: E731
         # Layers: drawn by the game on top of the figure, each as pictures of its own.
         self.layers = {layer["name"]: named(layer["parts"]) for layer in unit.get("layer", [])}
+        # The animations each layer has pictures in; all of them unless the config says which.
+        self.layer_animations = {layer["name"]: layer.get("shown_in") for layer in unit.get("layer", [])}
         for name, found in self.layers.items():
             if not found:
                 raise SystemExit(f"Layer {name!r} of unit {unit['name']!r} matches no parts")
@@ -164,15 +167,17 @@ class Studio:
             self.scene, self.shown, self.ground, self.scratch, size, size, shadow
         )
 
-    def layer_sprites(self, scale: int) -> dict[str, np.ndarray]:
+    def layer_sprites(self, scale: int, animation: str | None = None) -> dict[str, np.ndarray]:
         """
         Each layer as a picture to draw on top of the figure's, for the pose
-        and the direction of the latest `sprite`.
+        and the direction of the latest `sprite`. With `animation`, only the
+        layers that have pictures in that animation.
         """
         size = self.game["sprite"]["frame"] * scale
         return {
             name: export.render_layer(self.scene, parts, self.shown, self.scratch, size, size)
             for name, parts in self.layers.items()
+            if animation is None or self.layer_animations[name] is None or animation in self.layer_animations[name]
         }
 
     def sprite(self, yaw_deg: float, shadow: bool = True, scale: int | None = None):
@@ -228,7 +233,7 @@ def export_sprites(race: dict, unit: dict, game: dict, out: Path) -> None:
                 base, mask = studio.sprite(yaw, shadow=False, scale=sprite["atlas_scale"])
                 frame_name = f"{animation_name}_{direction}_{index}"
                 frames.append((frame_name, base, mask))
-                for layer, picture in studio.layer_sprites(sprite["atlas_scale"]).items():
+                for layer, picture in studio.layer_sprites(sprite["atlas_scale"], animation_name).items():
                     frames.append((f"{layer}.{frame_name}", picture, np.zeros_like(picture)))
         print(f"  {name}: rendered {animation_name}", flush=True)
 
@@ -262,6 +267,8 @@ def export_sprites(race: dict, unit: dict, game: dict, out: Path) -> None:
             },
             "loopsPerSecondRange": game["gait"]["loops_per_second"],
             "layers": list(studio.layers),
+            # The animations each layer has pictures in; null for all of them.
+            "layerAnimations": studio.layer_animations,
             "neutral": NEUTRAL,
             "directions": [direction for direction, _ in DIRECTIONS],
             "animations": animations,
@@ -578,6 +585,11 @@ def main() -> None:
         help="name of a building in buildings/<race>/, e.g. main: render its previews, or with --sprites its atlas",
     )
     parser.add_argument(
+        "--scenery",
+        action="store_true",
+        help="render previews of the trees, rocks, water and shore, or with --sprites their atlas",
+    )
+    parser.add_argument(
         "--overview",
         action="store_true",
         help="draw every figure in figures.toml side by side in true scale to assets/previews/overview.png",
@@ -611,6 +623,14 @@ def main() -> None:
             name = f"{entry['race']}_{entry['building']}"
             building = buildings.load_building(entry["race"], entry["building"])
             buildings.export_building(load_race(entry["race"]), building, game, structures / name, NEUTRAL)
+        scenery.export_scenery(scenery.load_scenery(), game, REPO / "assets" / "scenery", NEUTRAL)
+        return
+    if args.scenery:
+        if args.sprites:
+            scenery.export_scenery(scenery.load_scenery(), game, REPO / "assets" / "scenery", NEUTRAL)
+        else:
+            out = Path(args.out) if args.out else REPO / "assets" / "previews" / "scenery"
+            scenery.render_scenery_previews(scenery.load_scenery(), game, out, NEUTRAL)
         return
     if args.building:
         if not args.race:

@@ -1,4 +1,4 @@
-import type { Cost, ResourceType } from './resources';
+import type { Cost, LoadKind, ResourceType } from './resources';
 import type { BuildingType, UnitType } from './types';
 
 export type { BuildingType } from './types';
@@ -7,6 +7,8 @@ export type { BuildingType } from './types';
 export interface WorkDef {
   /** What a worker gets from working here. */
   resource: ResourceType;
+  /** What that looks like in the worker's basket. */
+  load: LoadKind;
   /** How many workers can work here at a time. */
   workers: number;
   /** Seconds a worker works for one unit of the resource. */
@@ -127,6 +129,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     walkable: true,
     work: {
       resource: 'food',
+      load: 'grain',
       workers: 1,
       secondsPerUnit: 2.5,
       places: 'inside',
@@ -152,6 +155,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     shore: true,
     work: {
       resource: 'food',
+      load: 'fish',
       workers: 3,
       secondsPerUnit: 1.6,
       places: 'shore',

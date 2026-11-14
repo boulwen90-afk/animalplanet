@@ -15,7 +15,7 @@ import type { Building, Entity, PlayerId, Unit } from '../../sim/state';
 import {
   BUILDING_VISUALS,
   CHARACTER_VISUALS,
-  TERRAIN_OBJECT_VISUALS,
+  pickBoxOf,
   UNIT_PICK_MARGIN,
   UNIT_VISUALS,
   unitVisualCentre,
@@ -135,8 +135,7 @@ export function pickResourceTile(map: GameMap, world: Point, size: TileSize): Po
       const x = under.x + dx;
       const y = under.y + dy;
       if (resourceAt(map, x, y) === undefined) continue;
-      const terrain = map.terrain[y * map.width + x];
-      const visual = terrain ? TERRAIN_OBJECT_VISUALS[terrain] : undefined;
+      const visual = pickBoxOf(map.terrain[y * map.width + x], x, y);
       if (!visual) continue;
 
       const centre = tileCenterToWorld(x, y, size);

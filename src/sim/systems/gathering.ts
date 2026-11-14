@@ -1,5 +1,5 @@
 import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
-import { GATHER_CONFIG, type ResourceType } from '../../data/resources';
+import { GATHER_CONFIG, RESOURCE_DEFS, type ResourceType } from '../../data/resources';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
 import { isBuilding, isUnit, nearestBuildingTile, tileGapToBuilding, unitTile } from '../entities';
@@ -80,6 +80,7 @@ export function startGathering(
   if (unit.carryType !== resource) {
     unit.carryType = resource;
     unit.carryAmount = 0;
+    unit.carryLoad = null;
   }
   const task: GatherTask = {
     kind: 'gather',
@@ -120,6 +121,7 @@ export function startWorking(
   if (unit.carryType !== work.resource) {
     unit.carryType = work.resource;
     unit.carryAmount = 0;
+    unit.carryLoad = null;
   }
   const task: GatherTask = {
     kind: 'gather',
@@ -275,6 +277,33 @@ export function workFocus(state: GameState, unit: Unit, building: Building): Poi
   return { x: building.x + size / 2, y: building.y + size / 2 };
 }
 
+/**
+ * The places where the workers of a building stand: the ones they hold now,
+ * and the free ones a worker coming to the building could take. For a
+ * fishing hut these are its fishing places on the shore.
+ */
+export function workPlacesOf(state: GameState, grid: PathGrid, building: Building): Point[] {
+  const held = workersAt(state, building.id)
+    .map((unit) => (unit.task.kind === 'gather' ? unit.task.place : null))
+    .filter((place): place is Point => place !== null);
+  // Free places are counted from the open ground beside the building, the way its builder came.
+  const size = BUILDING_DEFS[building.type].size;
+  let beside: Point | undefined;
+  for (let y = building.y - 1; y <= building.y + size && !beside; y++) {
+    for (let x = building.x - 1; x <= building.x + size && !beside; x++) {
+      if (isPassable(grid, x, y)) beside = { x, y };
+    }
+  }
+  const free = beside ? workTiles(state, grid, building, reachableTiles(grid, beside)) : [];
+  const count = BUILDING_DEFS[building.type].work?.workers ?? 0;
+  const all = [...held];
+  for (const tile of free) {
+    if (all.length >= count) break;
+    if (!all.some((place) => place.x === tile.x && place.y === tile.y)) all.push(tile);
+  }
+  return all;
+}
+
 /** The units that work at a building, wherever they are on their round. */
 export function workersAt(state: GameState, buildingId: number): Unit[] {
   return state.entities.filter(
@@ -360,8 +389,10 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
         if (site) {
           // A building never runs out.
           unit.carryAmount += 1;
+          unit.carryLoad = BUILDING_DEFS[site.type].work?.load ?? null;
         } else {
           unit.carryAmount += takeFromSource(state.map, task.node.x, task.node.y, 1);
+          unit.carryLoad = RESOURCE_DEFS[task.resource].load;
           if (resourceAt(state.map, task.node.x, task.node.y) === undefined) grids.invalidate();
         }
       }
@@ -383,6 +414,7 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
         const stock = state.players[unit.owner];
         if (stock) stock.resources[task.resource] += unit.carryAmount;
         unit.carryAmount = 0;
+        unit.carryLoad = null;
         task.phase = 'toSource';
         task.dropoffId = null;
         walkToSource(state, grids.get(), unit, task);
