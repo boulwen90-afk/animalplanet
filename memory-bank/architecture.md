@@ -111,6 +111,12 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/render/characters/animation.ts` | Väljer animation, riktning och bildruta för en enhet | Efter MVP |
 | `src/render/characters/atlas.test.ts` | Kontrollerar den incheckade atlasen mot storleksstandarden och mot spelets mått | Efter MVP |
 | `tests/e2e/characters.spec.ts` | Webbläsartester för figurerna | Efter MVP |
+| `src/render/buildings/buildings.ts` | Vilka byggnadstyper som ritas från bilder, och var deras filer ligger | Efter MVP |
+| `src/render/buildings/BuildingLibrary.ts` | Laddar byggnadernas atlaser och färgar en kopia per spelare | Efter MVP |
+| `src/render/buildings/stage.ts` | Väljer bild efter byggstadium, och avgör vad en byggnad täcker på skärmen (för klick och för enheter bakom den) | Efter MVP |
+| `src/render/views/buildingAtlas.test.ts` | Kontrollerar byggnadernas atlaser mot spelets fotavtryck och storleksstandarden | Efter MVP |
+| `tests/e2e/buildings.spec.ts` | Webbläsartester för byggnaderna | Efter MVP |
+| `assets/buildings/` | Byggnadernas atlaser, som spelet laddar | Efter MVP |
 | `tools/blender/` | Figurpipelinen: bygger figurer i Blender och renderar dem. Se "Figurpipeline" | Efter MVP |
 | `assets/previews/` | Förhandsbilder av figurer, för granskning | Efter MVP |
 | `assets/characters/` | Figurernas atlaser, som spelet laddar: `<ras>_<enhet>/<namn>.png`, `_mask.png` och `.json` | Efter MVP |
@@ -576,14 +582,16 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     `alpha = ackumulerad tid / steglängd`, så rörelsen blir mjuk i alla
     bildfrekvenser.
   - Enheter ritas som figurer (se "Figurer" nedan). En enhetstyp utan
-    figur blir en cirkel eller fyrkant i lagfärg. Storiden är ett block
-    med bokstaven S. Spelaren är blå, motståndaren röd.
+    figur blir en cirkel eller fyrkant i lagfärg. Byggnader ritas från
+    bilder (se "Byggnader i spelet" nedan); en byggnadstyp utan bilder
+    blir ett block med en bokstav. Spelaren är blå, motståndaren röd.
   - Djup = skärmhöjden för enhetens markpunkt respektive byggnadens mitt,
     samma regel som träden i `MapView`.
   - Markerade enheter får en grön ellips på marken, markerade byggnader en
     grön kontur runt fotavtrycket.
-  - En byggnad under uppförande är genomskinlig (35 %) och blir solid i takt
-    med bygget. Visthuset har bokstaven V, Krigshallen K.
+  - En byggnad under uppförande visar sitt byggstadium. Ett platshållar-
+    block är i stället genomskinligt (35 %) och blir solitt i takt med
+    bygget, med bokstaven V för Visthus och K för Krigshall.
   - En enhet som bär något får en liten fyrkant uppe till höger: röd för
     mat, brun för trä.
   - Livstapel ovanför skadade enheter och färdiga byggnader: grön över
@@ -666,6 +674,32 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
   sina rutor när kameran flyttas. Ett tryck utanför konturen flyttar den
   dit; ett tryck på konturen bygger, om platsen är giltig. "Avbryt"
   avslutar placeringen.
+- **Byggnader i spelet (`render/buildings/`).** Byggnadstyper som finns i
+  `BUILDING_ART` ritas från sina atlaser. I dag gäller det alla tre:
+  Storide (`bear_main`), Krigshall (`bear_barracks`) och Visthus
+  (`bear_storage`), för båda sidorna.
+  - `BuildingLibrary` laddar atlaserna och gör en färgad kopia per
+    spelare, på samma sätt som `CharacterLibrary`.
+  - **Bild efter stadium** (`stageOf`): under halva bygget visas grund och
+    stomme, från halva bygget väggarna med öppet tak, och när byggnaden är
+    klar den färdiga. Byggnaden är alltid solid; den gamla genomskinlig-
+    heten under bygget används inte för bilder.
+  - Bilden står med fotavtryckets mitt på marken. Byggnadens skugga är en
+    egen bild på markens djup; den är svagare (40 %) medan det byggs.
+  - **Klick** träffar fotavtrycket och uppåt till ungefär takets mitt
+    (`BUILDING_VISUALS.wallHeight`: 84 px för Storiden, 62 för
+    Krigshallen, 48 för Visthuset). Träffytan räknas exakt
+    (`buildingCovers`), inte genom att prova några höjder.
+  - **Enheter bakom en byggnad.** De nya byggnaderna är tre till fyra
+    gånger så höga som blocken var, och skulle dölja enheter två–tre rutor
+    bakom sig. En figur som står där byggnaden täcker ritas därför ovanpå
+    byggnaden med 50 % täckning (`UNIT_BEHIND_BUILDING_ALPHA`), så att
+    spelaren ser den och kan följa den. Täckningen räknas som fotavtrycket
+    förskjutet uppåt till 80 % av takhöjden; stommen i det första
+    byggstadiet täcker ingenting. Byggnaden själv ändras inte.
+  - Livstapeln sitter 12 px över taket. Markering är fortfarande en grön
+    kontur runt fotavtrycket, och byggplaceringen visar fortfarande bara
+    fotavtrycket, inte byggnadens bild.
 - **Figurer (`render/characters/`).** Enhetstyper som finns i `CHARACTERS`
   ritas som figurer; övriga är platshållare. I dag gäller det båda
   enhetstyperna: Samlaren (`bear_worker`) och Ramkrigaren (`bear_warrior`).
@@ -774,8 +808,7 @@ tjänster. Spelet ritas med Phaser i 2D, så slutprodukten blir spritesheets
 **björnarbetaren** (Samlaren), som ritas i spelet, och **tigerkrigaren**,
 den första figuren för nästa ras, som inte används i spelet än. Alla har
 skelett och animationer och renderas i åtta riktningar. Björnarnas tre **byggnader** är
-byggda i pipelinen och har färdiga atlaser, men spelet ritar dem inte än:
-där är byggnaderna fortfarande platshållare. Se "Byggnader" nedan.
+byggda i pipelinen och ritas i spelet. Se "Byggnader" nedan.
 
 **Körning**
 
@@ -1238,8 +1271,9 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getTouchMode()` | Vad fingret på kartan gör: `pending`, `held`, `pan`, `box`, eller `none` utan finger |
 | `getShakeCount()` | Antal skärmskakningar hittills |
 | `getFrameCount()` | Antal ritade bildrutor hittills. Med en klocka ger det bildfrekvensen |
-| `getUnitSprite(id)` | Hur en enhet som ritas som figur ser ut just nu: `animation`, `direction`, `frame` (bildrutans namn), `texture` och `load` (bildrutan för lasten som ritas ovanpå, eller `null`). `null` för platshållare |
+| `getUnitSprite(id)` | Hur en enhet som ritas som figur ser ut just nu: `animation`, `direction`, `frame` (bildrutans namn), `texture`, `load` (bildrutan för lasten som ritas ovanpå, eller `null`) och `behindBuilding` (om den står bakom en byggnad och ritas svagt ovanpå den). `null` för platshållare |
 | `getDebug()` | Vad räknaren från `?debug=1` visar: `visible`, `text` och `fps` |
+| `getBuildingSprite(id)` | Hur en byggnad som ritas från bilder ser ut just nu: `frame` (`construction_1`, `construction_2` eller `complete`) och `texture`. `null` för platshållarblock |
 | `command(cmd)` | Skickar ett kommando till simuleringen och ger tillbaka dess `CommandResult` |
 | `getSelection()` | Id för markerade entiteter |
 | `getHud()` | Vad markeringspanelen visar: `visible`, `title`, `detail` |

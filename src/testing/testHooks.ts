@@ -10,7 +10,7 @@ import type {
   LoadingDisplay,
   StartScreenDisplay,
 } from '../render/scenes/UiScene';
-import type { UnitSpriteInfo } from '../render/views/EntityView';
+import type { BuildingSpriteInfo, UnitSpriteInfo } from '../render/views/EntityView';
 import type { Placement } from '../render/views/PlacementView';
 import type { Command, CommandResult } from '../sim/commands';
 import type { Point } from '../sim/map/iso';
@@ -49,6 +49,7 @@ export interface TestApiSource {
   getShakeCount(): number;
   getFrameCount(): number;
   getUnitSprite(id: number): UnitSpriteInfo | null;
+  getBuildingSprite(id: number): BuildingSpriteInfo | null;
   command(command: Command): CommandResult;
   getSelection(): number[];
   getHud(): HudDisplay;
@@ -105,6 +106,7 @@ export interface TestApi {
    * units drawn as placeholder shapes and for units that are not drawn.
    */
   getUnitSprite(id: number): UnitSpriteInfo | null;
+  getBuildingSprite(id: number): BuildingSpriteInfo | null;
   /** Sends a command to the simulation, exactly as player input and the AI do, and returns its result. */
   command(command: Command): CommandResult;
   /** Ids of the selected entities. */
@@ -164,6 +166,7 @@ export function installTestApi(source: TestApiSource): TestApi {
     getShakeCount: () => source.getShakeCount(),
     getFrameCount: () => source.getFrameCount(),
     getUnitSprite: (id) => source.getUnitSprite(id),
+    getBuildingSprite: (id) => source.getBuildingSprite(id),
     command: (command) => source.command(command),
     getSelection: () => source.getSelection(),
     getHud: () => source.getHud(),

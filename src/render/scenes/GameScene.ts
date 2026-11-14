@@ -24,6 +24,7 @@ import {
 import { resourceAt } from '../../sim/resources';
 import { tick } from '../../sim/tick';
 import { installTestApi, type TestApi } from '../../testing/testHooks';
+import { BuildingLibrary } from '../buildings/BuildingLibrary';
 import { CharacterLibrary } from '../characters/CharacterLibrary';
 import { CameraController } from '../input/CameraController';
 import { PlacementController } from '../input/PlacementController';
@@ -110,6 +111,7 @@ export class GameScene extends Scene implements HudSource {
       this.loadProgress = share;
     });
     CharacterLibrary.preload(this);
+    BuildingLibrary.preload(this);
   }
 
   create(): void {
@@ -127,7 +129,12 @@ export class GameScene extends Scene implements HudSource {
     this.mapView = new MapView(this, state.map, MAP_CONFIG);
     this.caveView = new CaveView(this, state.map, MAP_CONFIG);
     if (state.fogEnabled) this.fogView = new FogView(this, state.map, MAP_CONFIG);
-    this.entityView = new EntityView(this, MAP_CONFIG, new CharacterLibrary(this, PLAYER_COLORS));
+    this.entityView = new EntityView(
+      this,
+      MAP_CONFIG,
+      new CharacterLibrary(this, PLAYER_COLORS),
+      new BuildingLibrary(this, PLAYER_COLORS),
+    );
     this.selectionView = new SelectionView(this);
 
     this.cameraController = new CameraController(this, MAP_CONFIG, MAP_CONFIG);
@@ -485,6 +492,7 @@ export class GameScene extends Scene implements HudSource {
       getShakeCount: () => this.shakeCount,
       getFrameCount: () => this.frameCount,
       getUnitSprite: (id) => this.entityView.describeUnit(id) ?? null,
+      getBuildingSprite: (id) => this.entityView.describeBuilding(id) ?? null,
       command: (command) => applyCommand(state, command),
       getSelection: () => [...this.selectionController.selection],
       getHud: () => (this.scene.get('Ui') as UiScene).getDisplay(),
