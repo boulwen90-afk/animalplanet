@@ -1,0 +1,80 @@
+# The worker: a cloth tunic, a leather apron, a basket on the back and a hatchet.
+# It gathers food and wood and raises buildings. In the game: "samlare" for the bears.
+name = "worker"
+game_unit = "samlare"
+size_class = "worker"    # which height the size standard gives it; see game.toml
+
+# How fast it moves in the game, in tiles a second: the same number as in
+# src/data/units.ts (a test compares them). The gait is fitted to it.
+[movement]
+speed = 2.5
+
+# The animations this unit is drawn with, from the shared library in animations/.
+# It has no attack of its own: the game shows a worker that strikes chopping.
+[animations]
+list = ["idle", "walk", "chop", "pick", "hammer", "defeat"]
+
+[armor]
+tunic = true            # team colour: over the body, with a skirt and short sleeves
+skirt_length = 0.22
+sleeve_length = 0.5     # how far down the upper arm the sleeves reach, 0..1
+wraps = true            # leather around the forearms and the shins
+shoulder_guard = "left" # one leather plate, on the shoulder away from the tool
+apron = true            # leather, at the front, from the belt down
+belt = true
+basket = true           # wicker, on the back
+basket_radii = [0.27, 0.37]   # at the bottom and at the rim
+basket_loads = ["wood", "food"]   # what it can be filled with; see [[layer]] below
+
+[weapon]
+type = "axe"            # a hatchet: it fells trees, and strikes when the worker must fight
+hand = "right"
+length = 0.8
+direction = [-0.15, 0.45, 0.9]    # the haft leans back over the shoulder
+flat_axis = [-0.15, -0.9, 0.45]   # the edge faces forward
+hidden_in = ["pick", "hammer"]    # animations where the hand is free or holds another tool
+
+# Other tools, held in the same hand in the animations listed.
+[[tool]]
+name = "hammer"
+type = "hammer"
+hand = "right"
+length = 0.55
+shown_in = ["hammer"]
+
+# Pictures of their own in the atlas, drawn by the game on top of the figure:
+# the basket filled with what the unit carries.
+[[layer]]
+name = "load_wood"
+parts = "load.wood."
+
+[[layer]]
+name = "load_food"
+parts = "load.food."
+
+[colors]
+steel = "#8a94a0"
+steel_dark = "#49515c"
+blade = "#c6ced8"
+brass = "#c2933a"
+leather = "#3f2a1a"
+wood = "#6b4a2c"
+wicker = "#b89455"
+wicker_dark = "#7a5c30"
+log = "#7a5230"
+log_end = "#dcb67c"
+berry = "#d8334a"
+berry_light = "#f06a78"
+
+# The static pose: which way each part of a limb points from its joint.
+# The figure faces -Y; its right side is -X.
+[pose]
+head_pitch_deg = 6.0
+upper_arm_r = [-0.55, 0.0, -0.85]
+forearm_r = [-0.15, -0.60, 0.75]
+upper_arm_l = [0.50, -0.10, -0.90]
+forearm_l = [0.10, -0.55, -0.80]
+thigh_l = [0.24, -0.16, -1.0]
+shin_l = [0.02, 0.14, -1.0]
+thigh_r = [-0.24, 0.10, -1.0]
+shin_r = [-0.02, 0.10, -1.0]

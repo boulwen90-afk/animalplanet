@@ -1,0 +1,119 @@
+# Settings shared by every figure.
+
+[sprite]
+# The game's ground tile, in pixels (MAP_CONFIG in src/data/map.ts).
+tile_width = 64
+tile_height = 32
+# The game looks down on the ground at 30 degrees: a square tile becomes twice as wide as high.
+camera_elevation_deg = 30.0
+# How many game pixels one Blender unit is. It is the same for everything that
+# is rendered; figures get their size from the standard under [scale].
+pixels_per_unit = 24.0
+# Size of one picture of a figure, in game pixels. It has room for a sword swung
+# at arm's length in any direction. Empty space is trimmed away in the atlas.
+frame = 184
+# The previews are rendered this many times larger than game pixels.
+render_scale = 2
+# The pictures in the game's atlas are rendered this many times larger than
+# game pixels. 2 is sharp on phones and other screens with small pixels, but
+# makes the files four times as large; it is only worth it once the game draws
+# at the screen's real resolution.
+atlas_scale = 1
+# The camera looks at this height on the figure.
+target_z = 1.45
+# A soft dark edge around the figure, in game pixels.
+outline = "#12160f"
+outline_strength = 0.8
+outline_radius = 0.75
+# The shadow the figure casts on the ground.
+shadow = "#0c120a"
+shadow_strength = 0.55
+samples = 64
+
+# The size standard. Every size is in tile widths: the width of a ground tile
+# on the screen (tile_width above). See "Storleksstandard" in architecture.md.
+[scale]
+# A race's build may change a figure's height by this much at most.
+stature_range = [0.85, 1.15]
+# The widest a body may be across the shoulders, armour included. Two figures
+# a tile apart are 0.5 tile widths apart sideways on the screen, so at this
+# width they overlap by a fifth at most.
+max_body_width = 0.62
+
+# How tall a figure of each size class is on the screen, from the ground to
+# the top of its head when it stands upright. Helmet crests, ears, weapons and
+# shields come on top of that.
+[scale.figure_height]
+worker = 0.46
+warrior = 0.55
+leader = 0.66
+
+# The lowest a building may be on the screen, from the ground to the top of
+# its roof, by size class. Even the smallest is clearly taller than a warrior.
+[scale.building_height]
+small = 1.0     # 2x2 tiles, such as a Visthus: about 1.8 warriors
+large = 1.4     # 3x3 tiles, such as a Krigshall: about 2.5 warriors
+main = 1.8      # the main building: about 3.3 warriors
+
+# How fast the legs may go when a figure runs at its unit's speed, in loops a
+# second; one loop is a step with each foot. The gait's natural pace comes
+# from the length of the legs. A unit that would go faster than the upper
+# limit gets a longer stride instead, and one below the lower limit a shorter.
+[gait]
+loops_per_second = [1.8, 3.0]
+
+# The overview of all figures (--overview): how many times larger than game
+# pixels its upper picture is. A power of two.
+[overview]
+scale = 4
+
+[preview]
+size = 640
+view_width = 4.3        # Blender units across the large previews
+samples = 128
+background = "#5a8f3c"  # the game's grass, MapView.ts
+ground_edge = "#3f6b2a"
+
+# Which edges are shaded smooth, per group of parts: edges sharper than the
+# angle stay hard. 0 gives flat facets.
+[style.smooth_deg]
+body = 75.0
+armor = 0.0
+weapon = 0.0
+shield = 0.0
+
+[lighting]
+sky = 0.5
+
+[[lighting.suns]]
+name = "key"            # from the upper left, in front
+from = [-0.45, -0.5, 1.0]
+strength = 3.0
+softness_deg = 8.0
+shadow = true
+
+[[lighting.suns]]
+name = "fill"
+from = [0.9, -0.5, 0.35]
+strength = 0.7
+softness_deg = 20.0
+
+[[lighting.suns]]
+name = "rim"            # from behind, to lift the outline from the ground
+from = [0.5, 0.9, 0.7]
+strength = 1.6
+softness_deg = 8.0
+
+[emblem]
+color = "#ece2c8"       # the sigil itself; the field behind it is the team colour
+races = ["bear", "tiger", "ape", "wolf"]   # the sigils to draw for the preview sheet
+
+# The same colours as PLAYER_COLORS in src/render/views/visuals.ts.
+[teams]
+blue = "#3b7de0"
+red = "#d0453a"
+
+# More colours, only to show that the mask takes any colour.
+[demo_teams]
+green = "#3f9b4b"
+yellow = "#e0b030"

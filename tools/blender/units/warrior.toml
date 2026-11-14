@@ -1,0 +1,74 @@
+# The melee soldier: mail and plate, a broad sword and a round shield.
+# In the game: "ramkrigare" for the bears.
+name = "warrior"
+game_unit = "ramkrigare"
+size_class = "warrior"   # which height the size standard gives it; see game.toml
+
+# How fast it moves in the game, in tiles a second: the same number as in
+# src/data/units.ts (a test compares them). The gait is fitted to it.
+[movement]
+speed = 2.2
+
+# The animations this unit is drawn with, from the shared library in animations/.
+[animations]
+list = ["idle", "walk", "attack", "defeat"]
+
+[armor]
+helmet = "nasal"        # an open helmet with a nose guard; the ears stay free
+crest = true            # team colour, over the crown of the helmet
+cuirass = true          # breastplate
+lames = 2               # bands of plate down the belly
+mail = true             # mail shirt with skirt, sleeves and collar
+skirt_length = 0.26
+sleeve_length = 0.3     # how far down the upper arm the mail reaches, 0..1
+tassets = true          # plates hanging from the belt
+pauldrons = true
+pauldron_spikes = true
+fur_collar = true       # a dark pelt around the neck
+bracers = true
+greaves = true
+knee_spikes = true
+belt = true
+tabard = true           # team colour, at the front
+cape = true             # team colour, down the back
+cape_length = 1.25
+cape_ragged = true
+cape_emblem = true      # the race's sigil on the back of the cape
+
+[weapon]
+type = "sword"          # "sword" or "axe"
+hand = "right"
+length = 1.35
+width = 0.22
+direction = [-0.38, -0.30, 1.0]   # where the blade points
+flat_axis = [1.0, 0.2, 0.0]       # the blade is wide along this direction
+
+[shield]
+type = "round"
+arm = "left"
+radius = 0.60
+emblem = "race"         # "race" for the race's sigil, "claws" for claw marks around a boss, or leave out
+spike = true            # a spike on the boss, when the shield has one
+normal = [0.35, -1.0, 0.05]       # the way the face of the shield points
+
+[colors]
+steel = "#8a94a0"
+steel_dark = "#49515c"
+blade = "#c6ced8"
+mail = "#3c424a"
+brass = "#c2933a"
+leather = "#4a2e1a"
+wood = "#6b4a2c"
+
+# The static pose: which way each part of a limb points from its joint.
+# The figure faces -Y; its right side is -X.
+[pose]
+head_pitch_deg = 14.0             # the head is lowered: it glares from under the brow
+upper_arm_r = [-0.80, 0.05, -0.60]
+forearm_r = [-0.30, -0.55, 0.78]
+upper_arm_l = [0.45, -0.55, -0.75]
+forearm_l = [-0.40, -0.80, 0.30]
+thigh_l = [0.30, -0.35, -1.0]     # the left foot leads
+shin_l = [0.02, 0.22, -1.0]
+thigh_r = [-0.32, 0.18, -1.0]
+shin_r = [-0.04, 0.12, -1.0]

@@ -1,9 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { applyCommand } from './commands';
 import { createBuilding, createUnit, unitDestination, unitTile } from './entities';
+import { createGame } from './game';
 import type { Unit } from './state';
 import { openState, stateFromRows } from './testUtils';
-import { advance } from './tick';
+import { advance, tick } from './tick';
 
 function tilesOf(units: Unit[]): string[] {
   return units.map((unit) => {
@@ -36,6 +37,29 @@ describe('move command', () => {
     const enemy = createUnit(state, 'samlare', 1, 1, 1);
     applyCommand(state, { type: 'move', player: 0, unitIds: [enemy.id], x: 6, y: 5 });
     expect(enemy.path).toEqual([]);
+  });
+
+  it("an order for the opponent's unit changes nothing, also while the computer player runs", () => {
+    // Two copies of the same match against the computer player. In one of
+    // them the player tries to move one of the opponent's units every second.
+    // The computer player gives its units orders of its own from the first
+    // step, so the unit does get a path; what matters is that both matches
+    // stay identical, step for step.
+    const untouched = createGame(1);
+    const meddled = createGame(1);
+    const enemy = meddled.entities.find((e) => e.kind === 'unit' && e.owner === 1)!;
+    for (let step = 0; step < 200; step++) {
+      if (step % 20 === 0) {
+        applyCommand(meddled, { type: 'move', player: 0, unitIds: [enemy.id], x: 30, y: 30 });
+      }
+      tick(untouched);
+      tick(meddled);
+    }
+    expect(meddled).toEqual(untouched);
+    // And the unit did move meanwhile: on the computer player's orders.
+    const now = meddled.entities.find((e) => e.id === enemy.id) as Unit;
+    expect(now.task.kind).toBe('gather');
+    expect(unitDestination(now)).not.toEqual({ x: 30, y: 30 });
   });
 
   it('ignores ids that do not exist or are buildings', () => {
@@ -71,6 +95,48 @@ describe('move command', () => {
       expect(Math.max(Math.abs(tile.x - 8), Math.abs(tile.y - 8))).toBeLessThanOrEqual(1);
       expect(unit.path).toEqual([]);
     }
+  });
+
+  it('lines a group up on every other tile, so that its units stand clear of each other', () => {
+    const state = openState(24, 24);
+    const group = Array.from({ length: 12 }, (_, i) =>
+      createUnit(state, 'ramkrigare', 0, 2 + (i % 4), 2 + Math.floor(i / 4)),
+    );
+    applyCommand(state, {
+      type: 'move',
+      player: 0,
+      unitIds: group.map((u) => u.id),
+      x: 14,
+      y: 14,
+    });
+    advance(state, 400);
+    expect(group.every((u) => u.path.length === 0)).toBe(true);
+    // Like the dark squares of a chessboard: nobody has a neighbour straight beside it.
+    for (const unit of group) {
+      const tile = unitTile(unit);
+      expect((tile.x + tile.y) % 2).toBe(0);
+    }
+    let nearest = Infinity;
+    for (const a of group) {
+      for (const b of group) {
+        if (a !== b) nearest = Math.min(nearest, Math.hypot(a.x - b.x, a.y - b.y));
+      }
+    }
+    expect(nearest).toBeCloseTo(Math.SQRT2, 5);
+    // And still gathered round the place they were sent to.
+    for (const unit of group) {
+      expect(Math.hypot(unit.x - 14.5, unit.y - 14.5)).toBeLessThan(4.5);
+    }
+  });
+
+  it('fills the tiles in between when there is no room to stand apart', () => {
+    // A room of six open tiles for four units.
+    const state = stateFromRows(['RRRRRRR', 'R.....R', 'R...RRR', 'RRRRRRR']);
+    const group = [1, 2, 3, 4].map((x) => createUnit(state, 'samlare', 0, x, 1));
+    applyCommand(state, { type: 'move', player: 0, unitIds: group.map((u) => u.id), x: 2, y: 2 });
+    advance(state, 200);
+    expect(group.every((u) => u.path.length === 0)).toBe(true);
+    expect(new Set(tilesOf(group)).size).toBe(4);
   });
 
   it('does not send a unit onto a tile where another unit stands', () => {

@@ -1,6 +1,7 @@
 import { Scene } from 'phaser';
 import { CAMERA_CONFIG } from '../../data/camera';
 import { MAP_CONFIG, MAP_GEN_CONFIG } from '../../data/map';
+import { RESOURCE_TYPES } from '../../data/resources';
 import { STRINGS } from '../../data/strings';
 import { UI_CONFIG } from '../../data/ui';
 import { START_CONFIG } from '../../data/setup';
@@ -8,7 +9,7 @@ import { SIM_CONFIG, TICK_MS } from '../../data/sim';
 import { consumeSteps, createStepClock } from '../../sim/clock';
 import { BUILDING_DEFS } from '../../data/buildings';
 import { applyCommand, type CommandResult } from '../../sim/commands';
-import { createUnit, populationOf } from '../../sim/entities';
+import { createUnit, isUnit, populationOf } from '../../sim/entities';
 import { missingResources } from '../../sim/economy';
 import { createGame } from '../../sim/game';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
@@ -20,8 +21,10 @@ import {
   updateVisibility,
   visibleEntities,
 } from '../../sim/systems/visibility';
+import { resourceAt } from '../../sim/resources';
 import { tick } from '../../sim/tick';
 import { installTestApi, type TestApi } from '../../testing/testHooks';
+import { CharacterLibrary } from '../characters/CharacterLibrary';
 import { CameraController } from '../input/CameraController';
 import { PlacementController } from '../input/PlacementController';
 import { builderUnitIds } from '../input/selection';
@@ -38,6 +41,7 @@ import { CaveView } from '../views/CaveView';
 import { EntityView } from '../views/EntityView';
 import { FogView } from '../views/FogView';
 import { MapView } from '../views/MapView';
+import { PLAYER_COLORS } from '../views/visuals';
 import { PlacementView } from '../views/PlacementView';
 import { SelectionView } from '../views/SelectionView';
 import { restartGame } from '../session';
@@ -54,6 +58,11 @@ export interface GameSceneOptions {
   ai: boolean;
   /** Whether the game waits behind the start screen until the player presses "start". */
   startScreen: boolean;
+  /**
+   * How many extra Samlare the player starts with, to measure how the game
+   * runs with many units (set with ?stress=N). 0 for a normal match.
+   */
+  stress: number;
 }
 
 /** The side the person at the screen plays. */
@@ -86,23 +95,39 @@ export class GameScene extends Scene implements HudSource {
   private lastAlertAt = -Infinity;
   /** How many times the screen has shaken because a building collapsed. */
   private shakeCount = 0;
+  /** How many frames have been drawn. */
+  private frameCount = 0;
+  /** How much of the game's files have been loaded, 0 to 1; undefined once the scene is built. */
+  private loadProgress: number | undefined = 0;
 
   constructor(private readonly options: GameSceneOptions) {
     super('Game');
     this.started = !options.startScreen;
   }
 
+  preload(): void {
+    this.load.on('progress', (share: number) => {
+      this.loadProgress = share;
+    });
+    CharacterLibrary.preload(this);
+  }
+
   create(): void {
+    const stress = this.options.stress;
     const state = createGame(this.options.seed, MAP_CONFIG, MAP_GEN_CONFIG, {
       fog: this.options.fog,
       ai: this.options.ai ? [OPPONENT] : [],
+      ...(stress > 0
+        ? { extraUnits: { owner: LOCAL_PLAYER, type: 'samlare', count: stress } }
+        : {}),
     });
     this.state = state;
+    if (stress > 0) this.putToWork(state);
 
     this.mapView = new MapView(this, state.map, MAP_CONFIG);
     this.caveView = new CaveView(this, state.map, MAP_CONFIG);
     if (state.fogEnabled) this.fogView = new FogView(this, state.map, MAP_CONFIG);
-    this.entityView = new EntityView(this, MAP_CONFIG);
+    this.entityView = new EntityView(this, MAP_CONFIG, new CharacterLibrary(this, PLAYER_COLORS));
     this.selectionView = new SelectionView(this);
 
     this.cameraController = new CameraController(this, MAP_CONFIG, MAP_CONFIG);
@@ -148,6 +173,8 @@ export class GameScene extends Scene implements HudSource {
     this.input.keyboard?.on('keydown-H', () => this.jumpToBase());
 
     if (this.options.testMode) this.installTestApi(state);
+    // Everything is loaded and built: the loading bar can go.
+    this.loadProgress = undefined;
   }
 
   override update(time: number): void {
@@ -163,6 +190,7 @@ export class GameScene extends Scene implements HudSource {
         : Math.min(time - this.lastFrameTime, CAMERA_CONFIG.maxFrameMs);
     this.lastFrameTime = time;
     this.elapsedTotal += elapsed;
+    this.frameCount++;
 
     // Behind the start screen the match stands still.
     if (this.started) {
@@ -269,6 +297,46 @@ export class GameScene extends Scene implements HudSource {
 
   isStarted(): boolean {
     return this.started;
+  }
+
+  getLoadProgress(): number | undefined {
+    return this.loadProgress;
+  }
+
+  getUnitCount(): number {
+    return this.state?.entities.filter(isUnit).length ?? 0;
+  }
+
+  /**
+   * Sends the player's workers to gather, every other one wood and the rest
+   * food, from the sources nearest the base. Used for stress runs, so that
+   * the many units move and work without the player having to order them.
+   */
+  private putToWork(state: GameState): void {
+    const home = state.entities.find(
+      (entity) => entity.kind === 'building' && entity.owner === LOCAL_PLAYER,
+    );
+    if (!home) return;
+    const workers = state.entities
+      .filter(isUnit)
+      .filter((unit) => unit.owner === LOCAL_PLAYER && unit.type === 'samlare');
+    for (const resource of RESOURCE_TYPES) {
+      let nearest: { x: number; y: number } | undefined;
+      let best = Infinity;
+      for (let y = 0; y < state.map.height; y++) {
+        for (let x = 0; x < state.map.width; x++) {
+          if (resourceAt(state.map, x, y) !== resource) continue;
+          const distance = Math.hypot(x - home.x, y - home.y);
+          if (distance < best) [nearest, best] = [{ x, y }, distance];
+        }
+      }
+      if (!nearest) continue;
+      const turn = RESOURCE_TYPES.indexOf(resource);
+      const unitIds = workers
+        .filter((_, index) => index % RESOURCE_TYPES.length === turn)
+        .map((unit) => unit.id);
+      applyCommand(state, { type: 'gather', player: LOCAL_PLAYER, unitIds, ...nearest });
+    }
   }
 
   start(): void {
@@ -411,9 +479,12 @@ export class GameScene extends Scene implements HudSource {
       getAlert: () => (this.scene.get('Ui') as UiScene).getAlertDisplay(),
       getOutcome: () => (this.scene.get('Ui') as UiScene).getOutcomeDisplay(),
       getStartScreen: () => (this.scene.get('Ui') as UiScene).getStartScreenDisplay(),
+      getDebug: () => (this.scene.get('Ui') as UiScene).getDebugDisplay(),
       getHudButtons: () => (this.scene.get('Ui') as UiScene).getHudButtonsDisplay(),
       getTouchMode: () => this.touchController.mode,
       getShakeCount: () => this.shakeCount,
+      getFrameCount: () => this.frameCount,
+      getUnitSprite: (id) => this.entityView.describeUnit(id) ?? null,
       command: (command) => applyCommand(state, command),
       getSelection: () => [...this.selectionController.selection],
       getHud: () => (this.scene.get('Ui') as UiScene).getDisplay(),

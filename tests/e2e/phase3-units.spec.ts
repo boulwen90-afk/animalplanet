@@ -235,17 +235,39 @@ test.describe('phase 3: units, selection and movement', () => {
   });
 
   test("the test interface cannot move the opponent's units as the player", async ({ page }) => {
+    // With the computer player running, as in a real match. It gives its own
+    // units orders from the first step, so the unit may well be on its way
+    // somewhere; the test is that it is not on its way to where the player
+    // tried to send it.
     await openGame(page);
     const state = await getState(page);
     const enemy = state.entities.find((e) => e.kind === 'unit' && e.owner === 1)!;
+    const target = { x: 30, y: 30 };
 
     await page.evaluate(
-      (id) => window.__TEST__!.command({ type: 'move', player: 0, unitIds: [id], x: 30, y: 30 }),
-      enemy.id,
+      ([id, x, y]) => window.__TEST__!.command({ type: 'move', player: 0, unitIds: [id], x, y }),
+      [enemy.id, target.x, target.y] as const,
     );
 
     const after = await getState(page);
     const same = after.entities.find((e) => e.id === enemy.id) as Unit;
+    expect(same.path.at(-1)).not.toEqual(target);
+    expect(same.task.kind).not.toBe('idle');
+  });
+
+  test("without the computer player, an order for the opponent's unit leaves it standing", async ({
+    page,
+  }) => {
+    await openGame(page, '&ai=0');
+    const state = await getState(page);
+    const enemy = state.entities.find((e) => e.kind === 'unit' && e.owner === 1)!;
+    await page.evaluate(
+      (id) => window.__TEST__!.command({ type: 'move', player: 0, unitIds: [id], x: 30, y: 30 }),
+      enemy.id,
+    );
+    await page.evaluate(() => window.__TEST__!.advance(20));
+    const same = (await getState(page)).entities.find((e) => e.id === enemy.id) as Unit;
     expect(same.path).toEqual([]);
+    expect([same.x, same.y]).toEqual([enemy.x, enemy.y]);
   });
 });

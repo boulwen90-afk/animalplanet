@@ -31,6 +31,12 @@ export interface UnitDef {
    * its own while standing idle. 0 for units that only fight on order.
    */
   aggroRadius: number;
+  /**
+   * How much room the unit takes on the ground, in tiles: two units keep
+   * their centres at least the sum of their radii apart. It must stay below
+   * 0.5, so that units on neighbouring tiles never push each other.
+   */
+  radius: number;
 }
 
 /** Unit types. See GDD section 7. */
@@ -49,6 +55,7 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     armor: 0,
     attackCooldown: 1.5,
     aggroRadius: 0,
+    radius: 0.36,
   },
   /** Soldier: fights hand to hand. */
   ramkrigare: {
@@ -64,10 +71,26 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     armor: 1,
     attackCooldown: 1.2,
     aggroRadius: 6,
+    radius: 0.45,
   },
 };
 
 export const COMBAT_CONFIG = {
   /** A unit chasing a moving target looks for a new path this often, in seconds. */
   repathInterval: 0.5,
+} as const;
+
+/** How units keep apart. See the separation system. */
+export const COLLISION_CONFIG = {
+  /** The share of an overlap that is pushed away in one second; the rest follows in the next steps. */
+  stiffnessPerSecond: 10,
+  /** The fastest a unit can be pushed, in tiles per second. Less than walking speed, so nobody gets stuck. */
+  maxPushSpeed: 1.2,
+  /** A unit that stands still is never pushed closer than this to the edge of its tile, in tiles. */
+  tileMargin: 0.08,
+  /**
+   * A group that is sent somewhere lines up on every other tile, like the
+   * dark squares of a chessboard, so that its units stand clear of each other.
+   */
+  groupsOnEveryOtherTile: true,
 } as const;

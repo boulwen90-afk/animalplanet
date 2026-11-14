@@ -7,7 +7,14 @@ import type { MapSize } from './map/iso';
 import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
 import type { GameMap } from './map/grid';
 import { createRng, type RngState } from './rng';
-import { UNEXPLORED, type GameState, type PlayerId, type PlayerState } from './state';
+import type { UnitType } from '../data/types';
+import {
+  UNEXPLORED,
+  type Building,
+  type GameState,
+  type PlayerId,
+  type PlayerState,
+} from './state';
 import { updateVisibility } from './systems/visibility';
 
 export interface GameOptions {
@@ -15,6 +22,12 @@ export interface GameOptions {
   fog?: boolean;
   /** The sides played by the computer. Default: the opponent, side 1. */
   ai?: readonly PlayerId[];
+  /**
+   * Units a side has besides its starting ones, for measuring how the game
+   * runs with many units. They stand on the free tiles nearest its main
+   * building and do not count against the population cap when placed.
+   */
+  extraUnits?: { owner: PlayerId; type: UnitType; count: number };
 }
 
 const DEFAULT_AI_PLAYERS: readonly PlayerId[] = [1];
@@ -34,8 +47,33 @@ export function createGame(
     if (side) side.ai = { attackers: [], waveTicks: [] };
   }
   placeStartingEntities(state);
+  if (options.extraUnits) placeExtraUnits(state, options.extraUnits);
   updateVisibility(state);
   return state;
+}
+
+/** Places extra units for a side on the free tiles nearest the front of its main building. */
+function placeExtraUnits(
+  state: GameState,
+  extra: { owner: PlayerId; type: UnitType; count: number },
+): void {
+  const home = state.entities.find(
+    (entity): entity is Building => entity.kind === 'building' && entity.owner === extra.owner,
+  );
+  if (!home || extra.count <= 0) return;
+  const taken = new Set<number>();
+  for (const entity of state.entities) {
+    if (entity.kind === 'unit') {
+      taken.add(Math.floor(entity.y) * state.map.width + Math.floor(entity.x));
+    }
+  }
+  const tiles = nearestFreeTiles(
+    buildPathGrid(state),
+    [buildingFrontTile(home)],
+    extra.count,
+    taken,
+  );
+  for (const tile of tiles) createUnit(state, extra.type, extra.owner, tile.x, tile.y);
 }
 
 /** A game state with a map and each side's starting stock, but no units or buildings. */

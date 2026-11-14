@@ -22,4 +22,9 @@ export const GATHER_CONFIG = {
    * kind within this many tiles of itself.
    */
   searchRadius: 8,
+  /**
+   * How many workers can work one source at a time. Each stands on a place
+   * of its own: one of the open tiles around the source, at most this many.
+   */
+  placesPerSource: 4,
 } as const;

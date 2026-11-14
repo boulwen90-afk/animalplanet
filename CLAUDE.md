@@ -43,6 +43,8 @@ src/render/           Phaser: scener, vyer, inmatning
 src/testing/          window.__TEST__
 tests/e2e/            Playwright-tester
 docs/screenshots/     Skärmdump per fas
+tools/blender/        Figurpipelinen (Blender via bpy), se architecture.md
+assets/               Genererade figurer och förhandsbilder
 ```
 
 Enhetstester ligger bredvid koden (`src/sim/**/*.test.ts`).
@@ -55,6 +57,7 @@ npm run build     Typkontroll + produktionsbygge
 npm run lint      ESLint + Prettier-kontroll
 npm test          Vitest
 npm run e2e       Playwright mot det byggda spelet
+npm run build:characters   Bygger om figurernas atlaser med Blender (Python 3.13)
 ```
 
 ## Arbetsregler (följ alltid)

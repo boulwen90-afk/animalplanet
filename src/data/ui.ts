@@ -22,6 +22,13 @@ export const UI_CONFIG = {
   /** How long the "base under attack" warning shows, and the shortest time between two warnings, in milliseconds. */
   alertMs: 3000,
   alertCooldownMs: 10000,
+  /**
+   * A beaten unit catches up with its real place over this time, in
+   * milliseconds, after it has knelt where it was beaten.
+   */
+  defeatCatchUpMs: 600,
+  /** How often the frame counter (?debug=1) is written, in milliseconds. */
+  debugIntervalMs: 500,
   /** Touch: how far, in pixels, a finger may move and still count as a tap. */
   touchSlopPx: 10,
   /** Touch: how long a finger must rest before dragging it draws a selection box instead of moving the camera, in milliseconds. */

@@ -20,10 +20,22 @@
         width: 100%;
         height: 100%;
       }
+      /* Shown until the game's code has loaded and started. */
+      #boot {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        margin: -40px 0 0;
+        text-align: center;
+        color: #ffffff;
+        font: 18px sans-serif;
+      }
     </style>
   </head>
   <body>
     <div id="game"></div>
+    <p id="boot">Laddar …</p>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

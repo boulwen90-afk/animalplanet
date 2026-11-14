@@ -1,0 +1,156 @@
+# The bears' main building, the Storide: a great log hall with a tower over
+# its middle. Lengths are in tiles; see lib/structures.py for the frame.
+name = "main"
+game_building = "storide"
+size_class = "main"      # how tall the size standard asks it to be; see game.toml
+footprint = 3            # side of the square it stands on, in tiles
+
+# Parts are in the picture from their `from` stage to their `until` stage:
+# construction_1 (footing and frame), construction_2 (walls up, roof open)
+# and complete. Without either, a part belongs to the finished building only.
+
+[[part]]
+type = "base"
+box = [-1.4, -1.4, 1.4, 1.4]
+height = 0.16
+from = "construction_1"
+
+[[part]]
+type = "frame"
+box = [-1.2, -1.2, 1.2, 1.2]
+z = [0.16, 1.1]
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "logpile"
+at = [-0.5, -0.35]
+z = 0.16
+along = "x"
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "planks"
+at = [0.35, 0.2]
+z = 0.16
+along = "y"
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "scaffold"
+box = [-1.2, -1.2, 1.2, 1.2]
+height = 1.2
+out = 0.12
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "walls"
+box = [-1.2, -1.2, 1.2, 1.2]
+z = [0.16, 1.1]
+from = "construction_2"
+
+[[part]]
+type = "rafters"
+box = [-1.2, -1.2, 1.2, 1.2]
+eave = 1.05
+ridge = 2.15
+along = "x"
+overhang = 0.14
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "door"
+face = "+x"
+wall = 1.2
+at = 0.0
+z = 0.16
+width = 0.62
+height = 0.72
+split = true
+from = "construction_2"
+
+[[part]]
+type = "gable_roof"
+box = [-1.2, -1.2, 1.2, 1.2]
+eave = 1.05
+ridge = 2.15
+along = "x"
+overhang = 0.14
+cap = "team"
+
+# The tower rises through the middle of the roof.
+[[part]]
+type = "walls"
+box = [-0.42, -0.42, 0.42, 0.42]
+z = [1.5, 2.75]
+log = 0.12
+ends = 0.05
+
+[[part]]
+type = "spire"
+at = [0.0, 0.0]
+half = 0.48
+z = [2.75, 3.5]
+
+[[part]]
+type = "pennant"
+at = [0.0, 0.0]
+z = 3.42
+height = 0.5
+face = "+x"
+
+# The race's sigil over the door, and plain shields along the other wall.
+[[part]]
+type = "shield"
+face = "+x"
+wall = 1.2
+at = 0.0
+z = 1.5
+radius = 0.3
+
+[[part]]
+type = "shield"
+face = "-y"
+wall = -1.2
+at = -0.7
+z = 0.68
+radius = 0.17
+emblem = false
+
+[[part]]
+type = "shield"
+face = "-y"
+wall = -1.2
+at = 0.0
+z = 0.68
+radius = 0.17
+emblem = false
+
+[[part]]
+type = "shield"
+face = "-y"
+wall = -1.2
+at = 0.7
+z = 0.68
+radius = 0.17
+emblem = false
+
+[[part]]
+type = "banner"
+at = [1.33, -1.1]
+z = 0.16
+height = 1.5
+cloth = [0.3, 0.75]
+face = "+x"
+
+[[part]]
+type = "banner"
+at = [1.33, 0.76]
+z = 0.16
+height = 1.5
+cloth = [0.3, 0.75]
+face = "+x"

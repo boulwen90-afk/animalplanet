@@ -1,0 +1,22 @@
+# Every figure the game uses. `build.py --all` builds them all.
+
+[[figure]]
+race = "bear"
+unit = "warrior"
+
+[[figure]]
+race = "bear"
+unit = "worker"
+
+# Buildings: `build.py --all` builds them too. Their configs are in buildings/<race>/.
+[[building]]
+race = "bear"
+building = "storage"
+
+[[building]]
+race = "bear"
+building = "barracks"
+
+[[building]]
+race = "bear"
+building = "main"

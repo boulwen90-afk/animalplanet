@@ -24,6 +24,12 @@ export interface GatherTask {
   resource: ResourceType;
   /** Tile of the source being worked. */
   node: Point;
+  /**
+   * The work place by the source that the unit has taken: the tile it stands
+   * on while it works. It keeps the place while it carries a load home, and
+   * no other worker takes it meanwhile. Null when it has none.
+   */
+  place: Point | null;
   phase: 'toSource' | 'gathering' | 'toDropoff';
   /** Simulation steps worked towards the next unit of resource. */
   workTicks: number;
@@ -43,6 +49,8 @@ export interface AttackTask {
   targetId: number;
   /** Simulation steps until the unit may look for a new path to a target that has moved. */
   repathTicks: number;
+  /** True while every place by the target is taken and the unit waits nearby for one. */
+  waiting?: boolean;
 }
 
 /**

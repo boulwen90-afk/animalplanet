@@ -1,11 +1,11 @@
 import { hasSurrendered, isUnit, unitDestination, unitTile } from './entities';
 import { tileDistance } from './map/grid';
 import type { Point } from './map/iso';
-import { findPath, isPassable, nearestReachable } from './pathfinding/astar';
+import { findPath, isPassable, nearestReachable, type PathGrid } from './pathfinding/astar';
 import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
 import type { BuildingType } from '../data/buildings';
 import type { ResourceType } from '../data/resources';
-import type { UnitType } from '../data/units';
+import { COLLISION_CONFIG, type UnitType } from '../data/units';
 import { resourceAt } from './resources';
 import type { GameState, PlayerId, Unit } from './state';
 import { orderAttack } from './systems/combat';
@@ -157,6 +157,29 @@ function applyGather(state: GameState, command: GatherCommand): void {
   }
 }
 
+/**
+ * The tiles a group of `count` units lines up on around an anchor tile,
+ * nearest first. A lone unit gets the anchor. A group stands on every other
+ * tile, so that there is room between its units; where the ground does not
+ * allow that, the tiles in between are used too.
+ */
+function groupTiles(
+  grid: PathGrid,
+  anchor: Point,
+  count: number,
+  taken: ReadonlySet<number>,
+): Point[] {
+  if (count < 2 || !COLLISION_CONFIG.groupsOnEveryOtherTile) {
+    return nearestFreeTiles(grid, [anchor], count, taken);
+  }
+  // Twice as many as needed, and some to spare for obstacles: half are skipped.
+  const near = nearestFreeTiles(grid, [anchor], count * 3 + 8, taken);
+  const colour = (anchor.x + anchor.y) % 2;
+  const spaced = near.filter((tile) => (tile.x + tile.y) % 2 === colour);
+  const between = near.filter((tile) => (tile.x + tile.y) % 2 !== colour);
+  return [...spaced, ...between].slice(0, count);
+}
+
 function applyMove(state: GameState, command: MoveCommand): void {
   const ordered = orderedUnits(state, command.player, command.unitIds);
   const lead = ordered[0];
@@ -183,7 +206,7 @@ function applyMove(state: GameState, command: MoveCommand): void {
     const tile = unitDestination(entity);
     taken.add(tile.y * grid.width + tile.x);
   }
-  const free = nearestFreeTiles(grid, [anchor], ordered.length, taken);
+  const free = groupTiles(grid, anchor, ordered.length, taken);
 
   for (const unit of ordered) {
     const destination = takeNearest(free, unit) ?? anchor;

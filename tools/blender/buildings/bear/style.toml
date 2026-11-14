@@ -1,0 +1,19 @@
+# How the bears build: heavy log halls on stone footings, steep slate roofs,
+# iron fittings, and the team colour on ridge caps, banners and shields.
+# Every bear building uses these colours; a building can override one.
+[colors]
+stone = "#8d8f8c"
+stone_light = "#a9aba6"
+stone_dark = "#6a6c6b"
+timber = "#7d5632"
+timber_mid = "#6b482a"
+timber_dark = "#493020"
+timber_new = "#cfa86e"     # freshly cut wood: frames, scaffolds, crates
+roof = "#59616b"
+roof_dark = "#454c55"
+iron = "#3f454d"
+door = "#5a3a22"
+sack = "#c8b48a"
+sack_dark = "#9a875f"
+log = "#7a5230"
+log_end = "#dcb67c"

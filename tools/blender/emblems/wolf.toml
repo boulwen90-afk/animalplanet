@@ -1,0 +1,32 @@
+# The wolves' sigil: a narrow wolf's head with tall ears. See bear.toml for the format.
+name = "wolf"
+
+[[layer]]
+color = "charge"
+half = [
+  [0.00, 0.52], [0.14, 0.58], [0.34, 1.00], [0.60, 0.42],
+  [0.60, 0.18], [0.86, 0.10], [0.66, -0.04],
+  [0.80, -0.20], [0.56, -0.26],
+  [0.62, -0.46], [0.40, -0.48],
+  [0.26, -0.78], [0.14, -1.00], [0.00, -1.00],
+]
+
+[[layer]]
+color = "field"
+pair = [[0.14, 0.14], [0.50, 0.34], [0.44, 0.12]]          # eyes
+
+[[layer]]
+color = "field"
+pair = [[0.28, 0.62], [0.35, 0.86], [0.48, 0.52]]          # inside of the ears
+
+[[layer]]
+color = "field"
+shape = [[0.00, 0.46], [0.07, 0.22], [0.00, -0.02], [-0.07, 0.22]]   # a blaze down the forehead
+
+[[layer]]
+color = "field"
+shape = [[-0.13, -0.60], [0.13, -0.60], [0.00, -0.78]]     # nose
+
+[[layer]]
+color = "field"
+pair = [[0.04, -0.84], [0.20, -0.82], [0.10, -0.94]]       # the corners of a snarl

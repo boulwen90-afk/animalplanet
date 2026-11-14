@@ -24,6 +24,43 @@ export const UNIT_VISUALS: Record<UnitType, { shape: 'circle' | 'square'; radius
   ramkrigare: { shape: 'square', radius: 11 },
 };
 
+/**
+ * Units drawn as characters (see render/characters). Sizes are in pixels and
+ * measured from the point on the ground the unit stands on.
+ */
+export const CHARACTER_VISUALS: Partial<
+  Record<
+    UnitType,
+    {
+      /** From the ground to the top of the helmet: a little more than the figure's height in the size standard. */
+      height: number;
+      /** Half the width of the body; with `height` it is the area a click hits. */
+      halfWidth: number;
+      /** Width of the ellipse drawn under the unit when it is selected. */
+      selectionWidth: number;
+      /** Size of the shadow under the unit, against CHARACTER_SHADOW. */
+      shadowScale: number;
+    }
+  >
+> = {
+  samlare: { height: 34, halfWidth: 11, selectionWidth: 34, shadowScale: 0.84 },
+  ramkrigare: { height: 41, halfWidth: 13, selectionWidth: 40, shadowScale: 1 },
+};
+
+/**
+ * The soft shadow drawn on the ground under a character: its size in pixels
+ * for a warrior (smaller figures scale it by their `shadowScale`), how far it lies from the unit's ground point (the light comes from the
+ * upper left) and how dark it is.
+ */
+export const CHARACTER_SHADOW = {
+  width: 42,
+  height: 18,
+  offsetX: 5,
+  offsetY: 1,
+  alpha: 0.4,
+  color: '12, 18, 10',
+} as const;
+
 /** Buildings are drawn as blocks with walls of this height, in pixels, and a letter on the roof. */
 export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label: string }> = {
   storide: { wallHeight: 36, label: 'S' },

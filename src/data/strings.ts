@@ -43,6 +43,10 @@ export const STRINGS = {
     cancelPlacement: 'Avbryt',
     toBase: 'Bas',
   },
+  loading: (percent: number) => `Laddar ${percent} %`,
+  debug: {
+    fps: (fps: number, units: number) => `${fps} bilder/s · ${units} enheter`,
+  },
   start: {
     title: 'AnimalPlanet',
     button: 'Starta',

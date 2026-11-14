@@ -1,0 +1,126 @@
+{
+ "frames": {
+  "construction_1": {
+   "frame": {
+    "x": 2,
+    "y": 201,
+    "w": 194,
+    "h": 131
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 117,
+    "w": 194,
+    "h": 131
+   },
+   "sourceSize": {
+    "w": 320,
+    "h": 320
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6228
+   }
+  },
+  "construction_2": {
+   "frame": {
+    "x": 198,
+    "y": 2,
+    "w": 194,
+    "h": 157
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 91,
+    "w": 194,
+    "h": 157
+   },
+   "sourceSize": {
+    "w": 320,
+    "h": 320
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6228
+   }
+  },
+  "complete": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 194,
+    "h": 197
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 51,
+    "w": 194,
+    "h": 197
+   },
+   "sourceSize": {
+    "w": 320,
+    "h": 320
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6228
+   }
+  },
+  "shadow": {
+   "frame": {
+    "x": 198,
+    "y": 201,
+    "w": 217,
+    "h": 121
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 57,
+    "y": 136,
+    "w": 217,
+    "h": 121
+   },
+   "sourceSize": {
+    "w": 320,
+    "h": 320
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6228
+   }
+  }
+ },
+ "meta": {
+  "app": "animalplanet tools/blender",
+  "image": "bear_barracks.png",
+  "mask": "bear_barracks_mask.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 334
+  },
+  "scale": 1,
+  "pixelsPerUnit": 24.0,
+  "building": {
+   "gameBuilding": "krigshall",
+   "sizeClass": "large",
+   "footprint": 3,
+   "roofHeight": 111.7,
+   "minRoofHeight": 89.6,
+   "height": 126.6
+  },
+  "neutral": "#bcbcbc",
+  "stages": [
+   "construction_1",
+   "construction_2",
+   "complete"
+  ]
+ }
+}

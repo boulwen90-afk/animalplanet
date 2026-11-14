@@ -1,0 +1,34 @@
+# The apes' sigil: a domed head with a heavy brow and ears at the sides. See bear.toml for the format.
+name = "ape"
+
+[[layer]]
+color = "charge"
+half = [
+  [0.00, 1.00], [0.30, 0.94], [0.52, 0.76], [0.62, 0.52],
+  [0.70, 0.44], [0.92, 0.40], [1.00, 0.22], [0.94, 0.02], [0.74, -0.02],
+  [0.76, -0.30], [0.64, -0.66], [0.40, -0.92], [0.00, -1.00],
+]
+
+[[layer]]
+color = "field"
+shape = [
+  [-0.56, 0.34], [0.00, 0.22], [0.56, 0.34], [0.50, 0.14],
+  [0.12, 0.08], [0.00, 0.14], [-0.12, 0.08], [-0.50, 0.14],
+]                                                          # deep-set eyes under the brow
+
+[[layer]]
+color = "field"
+pair = [[0.80, 0.30], [0.92, 0.24], [0.88, 0.08]]          # inside of the ears
+
+[[layer]]
+color = "field"
+pair = [[0.05, -0.16], [0.20, -0.12], [0.16, -0.27]]       # nostrils
+
+[[layer]]
+color = "field"
+shape = [[-0.42, -0.50], [0.42, -0.50], [0.34, -0.74], [-0.34, -0.74]]   # mouth
+
+[[layer]]
+color = "charge"
+raised = true
+pair = [[0.22, -0.50], [0.36, -0.50], [0.29, -0.68]]       # fangs

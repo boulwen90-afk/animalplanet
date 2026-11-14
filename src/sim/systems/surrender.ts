@@ -30,7 +30,7 @@ export function surrender(state: GameState, grid: PathGrid, unit: Unit): void {
         a.id - b.id,
     );
   for (const cave of caves) {
-    const path = approachPath(state, grid, unit, [{ x: cave.x, y: cave.y }]);
+    const path = approachPath(state, grid, unit, [{ x: cave.x, y: cave.y }], true);
     if (!path) continue;
     cave.reserved++;
     unit.task = { kind: 'flee', caveId: cave.id };

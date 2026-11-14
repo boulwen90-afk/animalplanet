@@ -109,3 +109,25 @@ export function startScreenLayout(
 export function rectContains(rect: ScreenRect, x: number, y: number): boolean {
   return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
 }
+
+/** The loading bar shown before the start screen: the bar itself, and where its text is centred. */
+export interface LoadingLayout {
+  bar: ScreenRect;
+  text: { x: number; y: number };
+}
+
+/**
+ * The loading bar: 280 pixels wide, or as wide as fits with 24 pixels to
+ * spare on each side, 14 high, in the middle of the screen, with its text
+ * 26 pixels above.
+ */
+export function loadingLayout(viewWidth: number, viewHeight: number): LoadingLayout {
+  const width = Math.max(40, Math.min(280, viewWidth - 48));
+  const bar = {
+    x: Math.round((viewWidth - width) / 2),
+    y: Math.round(viewHeight / 2),
+    width,
+    height: 14,
+  };
+  return { bar, text: { x: viewWidth / 2, y: bar.y - 26 } };
+}

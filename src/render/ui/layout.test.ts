@@ -5,6 +5,7 @@ import {
   rectContains,
   resourceBarRect,
   startScreenLayout,
+  loadingLayout,
 } from './layout';
 
 describe('hudButtonRects', () => {
@@ -53,5 +54,19 @@ describe('startScreenLayout', () => {
     );
     expect(layout.button.width).toBeGreaterThanOrEqual(44);
     expect(layout.button.height).toBeGreaterThanOrEqual(44);
+  });
+});
+
+describe('loadingLayout', () => {
+  it('puts a bar 280 pixels wide in the middle of a wide screen, with its text above', () => {
+    const { bar, text } = loadingLayout(1280, 720);
+    expect(bar).toEqual({ x: 500, y: 360, width: 280, height: 14 });
+    expect(text).toEqual({ x: 640, y: 334 });
+  });
+
+  it('narrows the bar on a phone held upright, with 24 pixels to spare on each side', () => {
+    const { bar } = loadingLayout(300, 640);
+    expect(bar.width).toBe(252);
+    expect(bar.x).toBe(24);
   });
 });

@@ -1,0 +1,45 @@
+# The bears' sigil: a roaring bear's head, seen from the front.
+# Points are (x, y) with x to the right and y up, inside -1..1.
+#   half  = the right half of a shape that is the same on both sides, from its top to its bottom
+#   pair  = a shape on the right side; its mirror image is added on the left
+#   shape = a shape given in full
+# "charge" is the sigil's own colour. "field" lets the team colour show through.
+name = "bear"
+
+[[layer]]
+color = "charge"
+half = [
+  [0.00, 0.66], [0.26, 0.74], [0.38, 0.70],
+  [0.40, 0.90], [0.56, 1.00], [0.76, 0.98], [0.90, 0.82], [0.88, 0.62], [0.76, 0.50],
+  [0.86, 0.34], [0.84, 0.12],
+  [1.00, 0.00], [0.84, -0.10],
+  [0.96, -0.30], [0.76, -0.34],
+  [0.82, -0.56], [0.60, -0.56],
+  [0.52, -0.80], [0.34, -0.98], [0.00, -1.00],
+]
+
+[[layer]]
+color = "field"
+pair = [[0.18, 0.24], [0.60, 0.50], [0.56, 0.28]]          # eyes, slanting down to the nose
+
+[[layer]]
+color = "field"
+pair = [[0.56, 0.88], [0.74, 0.86], [0.76, 0.68], [0.60, 0.66]]   # inside of the ears
+
+[[layer]]
+color = "field"
+shape = [[-0.17, -0.02], [0.17, -0.02], [0.10, -0.20], [-0.10, -0.20]]   # nose
+
+[[layer]]
+color = "field"
+shape = [[-0.34, -0.36], [0.34, -0.36], [0.28, -0.84], [-0.28, -0.84]]   # open mouth
+
+[[layer]]
+color = "charge"
+raised = true
+pair = [[0.14, -0.36], [0.30, -0.36], [0.22, -0.62]]       # upper fangs
+
+[[layer]]
+color = "charge"
+raised = true
+pair = [[0.10, -0.84], [0.24, -0.84], [0.17, -0.66]]       # lower fangs

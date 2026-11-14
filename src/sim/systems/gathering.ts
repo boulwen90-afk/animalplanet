@@ -2,14 +2,7 @@ import { BUILDING_DEFS } from '../../data/buildings';
 import { GATHER_CONFIG, type ResourceType } from '../../data/resources';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
-import {
-  isBuilding,
-  isUnit,
-  nearestBuildingTile,
-  tileGapToBuilding,
-  unitDestination,
-  unitTile,
-} from '../entities';
+import { isBuilding, isUnit, nearestBuildingTile, tileGapToBuilding, unitTile } from '../entities';
 import { tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
 import { findPath, reachableTiles, type PathGrid } from '../pathfinding/astar';
@@ -17,7 +10,10 @@ import { buildPathGrid } from '../pathfinding/passability';
 import { resourceAt, takeFromSource } from '../resources';
 import type { Building, GameState, GatherTask, Unit } from '../state';
 
-/** The eight tiles around a tile. */
+/**
+ * The eight tiles around a tile. A source's work places are the first open
+ * ones in this order: the four that share a side with it, then the corners.
+ */
 const AROUND: readonly (readonly [number, number])[] = [
   [1, 0],
   [-1, 0],
@@ -76,6 +72,7 @@ export function startGathering(
 ): boolean {
   const capacity = UNIT_DEFS[unit.type].carryCapacity;
   if (capacity <= 0) return false;
+  // The place it may already hold is free for the search: it is about to leave it.
   const node = findSource(state, grid, unit, resource, near);
   if (!node) return false;
 
@@ -88,6 +85,7 @@ export function startGathering(
     kind: 'gather',
     resource,
     node,
+    place: null,
     phase: 'toSource',
     workTicks: 0,
     dropoffId: null,
@@ -108,7 +106,7 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
   switch (task.phase) {
     case 'toSource': {
       if (unit.path.length > 0) return false;
-      if (sourceLeft && isNextTo(here, task.node)) {
+      if (sourceLeft && isAtPlace(here, task)) {
         task.phase = 'gathering';
         task.workTicks = 0;
         return true;
@@ -155,12 +153,55 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
 }
 
 /** Simulation steps a unit works for each unit of resource. */
-function ticksPerUnit(unit: Unit): number {
+export function ticksPerUnit(unit: Unit): number {
   return Math.max(1, Math.round(SIM_CONFIG.ticksPerSecond / UNIT_DEFS[unit.type].gatherRate));
 }
 
-function isNextTo(tile: Point, node: Point): boolean {
-  return Math.max(Math.abs(tile.x - node.x), Math.abs(tile.y - node.y)) === 1;
+/** True if the unit stands on the work place it has taken. */
+function isAtPlace(tile: Point, task: GatherTask): boolean {
+  return task.place !== null && task.place.x === tile.x && task.place.y === tile.y;
+}
+
+/**
+ * The work places of a source: the open tiles around it, at most
+ * `placesPerSource`, always the same ones as long as the ground around it
+ * does not change.
+ */
+export function workPlaces(grid: PathGrid, node: Point): Point[] {
+  const places: Point[] = [];
+  for (const [dx, dy] of AROUND) {
+    const x = node.x + dx;
+    const y = node.y + dy;
+    if (x < 0 || y < 0 || x >= grid.width || y >= grid.height) continue;
+    if (grid.blocked[y * grid.width + x]) continue;
+    places.push({ x, y });
+    if (places.length >= GATHER_CONFIG.placesPerSource) break;
+  }
+  return places;
+}
+
+/** The tiles that other gathering units have taken as their work places. */
+function takenPlaces(state: GameState, grid: PathGrid, unit: Unit): Set<number> {
+  const taken = new Set<number>();
+  for (const other of state.entities) {
+    if (!isUnit(other) || other === unit || other.task.kind !== 'gather') continue;
+    const place = other.task.place;
+    if (place) taken.add(place.y * grid.width + place.x);
+  }
+  return taken;
+}
+
+/** The places of a source that nobody else has taken and that the unit can walk to. */
+function freePlaces(
+  grid: PathGrid,
+  reach: Uint8Array,
+  taken: ReadonlySet<number>,
+  node: Point,
+): Point[] {
+  return workPlaces(grid, node).filter((place) => {
+    const index = place.y * grid.width + place.x;
+    return reach[index] === 1 && !taken.has(index);
+  });
 }
 
 /**
@@ -168,14 +209,16 @@ function isNextTo(tile: Point, node: Point): boolean {
  * kind near the unit, otherwise home with whatever it carries, otherwise idle.
  */
 function retarget(state: GameState, grid: PathGrid, unit: Unit, task: GatherTask): boolean {
+  // It gives up its place, and looks for a source with a place to spare.
+  task.place = null;
   const next = findSource(state, grid, unit, task.resource, unitTile(unit));
   if (next) {
     task.node = next;
     task.phase = 'toSource';
     task.workTicks = 0;
     walkToSource(state, grid, unit, task);
-    // Run again only if the unit is already standing next to the new source.
-    return unit.path.length === 0 && isNextTo(unitTile(unit), next);
+    // Run again only if the unit is already standing on its new place.
+    return unit.path.length === 0 && isAtPlace(unitTile(unit), task);
   }
   if (unit.carryAmount > 0 && task.phase !== 'toDropoff') {
     return headToDropoff(state, grid, unit, task);
@@ -187,8 +230,9 @@ function retarget(state: GameState, grid: PathGrid, unit: Unit, task: GatherTask
 
 /**
  * The source of `resource` closest to `near`, within the search radius, that
- * the unit can walk up to. A source counts as reachable if the unit can
- * stand on one of the eight tiles around it.
+ * has a work place for the unit: one that no other worker has taken and that
+ * the unit can walk to. A source whose places are all taken is passed over,
+ * so the unit goes on to the nearest one of the same kind with room.
  */
 function findSource(
   state: GameState,
@@ -199,6 +243,7 @@ function findSource(
 ): Point | undefined {
   const radius = GATHER_CONFIG.searchRadius;
   const reach = reachableTiles(grid, unitTile(unit));
+  const taken = takenPlaces(state, grid, unit);
   let best: Point | undefined;
   let bestDistance = Infinity;
   for (let y = near.y - radius; y <= near.y + radius; y++) {
@@ -206,7 +251,7 @@ function findSource(
       if (resourceAt(state.map, x, y) !== resource) continue;
       const distance = tileDistance(x, y, near.x, near.y);
       if (distance > radius || distance >= bestDistance) continue;
-      if (!standingTiles(grid, reach, { x, y }).length) continue;
+      if (!freePlaces(grid, reach, taken, { x, y }).length) continue;
       best = { x, y };
       bestDistance = distance;
     }
@@ -214,43 +259,34 @@ function findSource(
   return best;
 }
 
-/** The tiles around a source that the unit can walk to. */
-function standingTiles(grid: PathGrid, reach: Uint8Array, node: Point): Point[] {
-  const tiles: Point[] = [];
-  for (const [dx, dy] of AROUND) {
-    const x = node.x + dx;
-    const y = node.y + dy;
-    if (x < 0 || y < 0 || x >= grid.width || y >= grid.height) continue;
-    if (reach[y * grid.width + x]) tiles.push({ x, y });
-  }
-  return tiles;
-}
-
 /**
- * Sends the unit to a tile next to its source: the closest one, preferring
- * tiles no other unit stands on or is heading for, so workers spread around
- * a source instead of piling up on one tile.
+ * Sends the unit to its work place by its source. A unit that comes back
+ * from delivering a load returns to the place it has; otherwise it takes the
+ * free place closest to it. With no place to be had it stays where it is,
+ * and the next step sends it on to another source.
  */
 function walkToSource(state: GameState, grid: PathGrid, unit: Unit, task: GatherTask): void {
   const here = unitTile(unit);
-  const taken = new Set<number>();
-  for (const other of state.entities) {
-    if (!isUnit(other) || other === unit) continue;
-    const tile = unitDestination(other);
-    taken.add(tile.y * grid.width + tile.x);
-  }
-
-  let best: Point | undefined;
-  let bestScore = Infinity;
-  for (const tile of standingTiles(grid, reachableTiles(grid, here), task.node)) {
-    const crowded = taken.has(tile.y * grid.width + tile.x) ? 1000 : 0;
-    const score = crowded + tileDistance(tile.x, tile.y, here.x, here.y);
-    if (score < bestScore) {
-      best = tile;
-      bestScore = score;
+  const reach = reachableTiles(grid, here);
+  const held = task.place;
+  const stillThere =
+    held !== null &&
+    reach[held.y * grid.width + held.x] === 1 &&
+    workPlaces(grid, task.node).some((place) => place.x === held.x && place.y === held.y);
+  if (!stillThere) {
+    const taken = takenPlaces(state, grid, unit);
+    let best: Point | null = null;
+    let bestDistance = Infinity;
+    for (const place of freePlaces(grid, reach, taken, task.node)) {
+      const distance = tileDistance(place.x, place.y, here.x, here.y);
+      if (distance < bestDistance) {
+        best = place;
+        bestDistance = distance;
+      }
     }
+    task.place = best;
   }
-  unit.path = best ? findPath(grid, here, best) : [];
+  unit.path = task.place ? findPath(grid, here, task.place) : [];
 }
 
 /**
