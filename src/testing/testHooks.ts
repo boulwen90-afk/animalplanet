@@ -41,6 +41,7 @@ export interface TestApiSource {
   advance(steps: number): void;
   spawnUnit(type: UnitType, owner: PlayerId, tileX: number, tileY: number): number;
   getAlert(): string;
+  getNotice(): string;
   getOutcome(): OutcomeDisplay;
   getStartScreen(): StartScreenDisplay;
   getDebug(): DebugDisplay;
@@ -84,6 +85,7 @@ export interface TestApi {
   spawnUnit(type: UnitType, owner: PlayerId, tileX: number, tileY: number): number;
   /** The warning shown at the top of the screen; empty when there is none. */
   getAlert(): string;
+  getNotice(): string;
   /** The end-of-game screen: whether it shows, its title, and where its button is. */
   getOutcome(): OutcomeDisplay;
   /** The start screen: whether it shows, its title and text, and where its button is. */
@@ -158,6 +160,7 @@ export function installTestApi(source: TestApiSource): TestApi {
     advance: (steps) => source.advance(steps),
     spawnUnit: (type, owner, tileX, tileY) => source.spawnUnit(type, owner, tileX, tileY),
     getAlert: () => source.getAlert(),
+    getNotice: () => source.getNotice(),
     getOutcome: () => source.getOutcome(),
     getStartScreen: () => source.getStartScreen(),
     getDebug: () => source.getDebug(),

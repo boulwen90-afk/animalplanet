@@ -66,7 +66,11 @@ En match ska ta ungefär 10–20 minuter.
 | Avmarkera | Knappen "Avmarkera" i HUD:en |
 
 ### HUD
-- **Överkant:** mat, trä, befolkning (t.ex. `12/30`).
+- **Överkant:** mat, trä, befolkning som nuvarande/plats (t.ex. `12/15`).
+  Enheter i kö räknas med i det nuvarande talet. När en enhet inte kan
+  tränas för att platsen är full blir talet rött i 2,5 sekunder och ett
+  kort meddelande visas: "Ingen plats – bygg ett Ide", eller
+  "Befolkningstaket 50 är nått" när det hårda taket är nått.
 - **Nederkant:** markeringspanel (namn, liv, vad enheten gör) och
   kommandopanel (bygg-/träningsknappar med kostnad, produktionskö).
 - Ingen minikarta i MVP:n.
@@ -106,8 +110,21 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 - Arbetare bär högst 10 enheter åt gången, samlar 1 enhet/s och måste lämna
   lasten vid Storide eller Visthus innan resursen räknas.
 - Startresurser: 200 mat, 100 trä.
-- Befolkningstak: fast 30 i MVP:n (inga bostadshus). Efter MVP:n höjs taket
-  med bostadshus, upp till ett maxtak på omkring 250.
+- **Befolkning** (ändrat 2026-11-14 på användarens begäran; tidigare ett
+  fast tak på 30):
+  - En sida har **plats** för så många enheter som dess färdiga byggnader
+    ger: Storiden ger 5 och varje Ide (bostad) ger 5 till. En byggnad under
+    uppförande ger ingenting än.
+  - **Hårt tak: 50 per sida**, hur många bostäder man än bygger. (Den
+    tidigare skissen talade om ett maxtak på omkring 250.)
+  - Varje enhetstyp har en **befolkningskostnad**; i dag kostar alla 1.
+  - **Träning blockeras när platsen är full.** Enheter i produktionsköer
+    räknas som upptagen plats, eftersom de behöver plats när de är klara.
+  - **Förlorad bostad:** om en bostad förstörs och befolkningen överstiger
+    platsen dör inga enheter, men ingen ny kan tränas förrän det finns
+    plats igen. En enhet som redan står i kö tränas klart.
+  - Alla värden ligger i datafilerna: `housing` per byggnad, `population`
+    per enhet och `POPULATION_CONFIG.hardCap`.
 
 ## 7. Enheter (MVP)
 
@@ -125,6 +142,7 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 | Fart | 2,5 rutor/s | 2,2 rutor/s |
 | Synfält | 6 rutor | 7 rutor |
 | Kan | Samla, bygga, slåss på order | Slåss |
+| Befolkningskostnad | 1 | 1 |
 
 Stridsregler:
 - Skada = anfallarens skada − målets rustning, minst 1.
@@ -147,14 +165,18 @@ Stridsregler:
 
 ## 8. Byggnader (MVP)
 
-| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) |
-|---|---|---|---|
-| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare |
-| Kostnad | – (finns från start) | 80 trä | 150 trä |
-| Byggtid (1 arbetare) | – | 20 s | 35 s |
-| Liv | 1500 | 400 | 700 |
-| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor |
-| Synfält | 9 rutor | 5 rutor | 6 rutor |
+| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) |
+|---|---|---|---|---|
+| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats |
+| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä |
+| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s |
+| Liv | 1500 | 400 | 700 | 300 |
+| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor |
+| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor |
+| Befolkningsplats | 5 | 0 | 0 | 5 |
+
+Bostaden heter olika för varje ras; björnarnas är Idet. Det byggs av
+Samlare. Tills vidare ritas det som ett block med bokstaven I.
 
 Byggregler:
 - Spelaren väljer byggnad i kommandopanelen och placerar en "spökbild" på
@@ -193,12 +215,15 @@ En enkel, regelstyrd motståndare som spelar med samma regler och kostnader
 som spelaren (inget fusk med resurser):
 
 1. Tränar Samlare upp till 8 och fördelar dem på mat och trä.
-2. Bygger en Krigshall när den har råd, och ett Visthus vid skogen.
-3. Tränar Ramkrigare kontinuerligt.
-4. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
+2. Bygger ett Ide när den har högst 3 lediga platser kvar (enheter i kö
+   inräknade), så att träningen inte behöver vänta på en bostad. Bostäder
+   går före allt annat byggande.
+3. Bygger en Krigshall när den har råd, och ett Visthus vid skogen.
+4. Tränar Ramkrigare kontinuerligt.
+5. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
    ligger i en datafil (t.ex. våg 1: 4 krigare tidigast vid 4 min, därefter
    större vågor).
-5. Hemmavarande krigare försvarar basen om den anfalls.
+6. Hemmavarande krigare försvarar basen om den anfalls.
 
 Förenkling: AI:n känner till spelarens startposition och påverkas inte av
 krigsdimman. En svårighetsgrad.
@@ -251,7 +276,8 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 - Tidsåldrar, uppgraderingar, forskning
 - Distansenheter, belägringsvapen, hjältar/ledare som enheter
 - Torn, murar, fler byggnadstyper
-- Bostadshus som höjer befolkningstaket (planerat efter MVP, maxtak ca 250)
+- ~~Bostadshus som höjer befolkningstaket (planerat efter MVP, maxtak ca
+  250)~~ Infört 2026-11-14 med ett hårt tak på 50, se avsnitt 6 och 8.
 - Fler resurser än mat och trä
 - Riktig grafik, animationer, ljud och musik
 - Minikarta, kontrollgrupper (Ctrl+1 …), patrull/håll position, formationer
@@ -273,7 +299,8 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
    innan spelet sprids offentligt.
 4. **Befolkningstak.** Fast tak på 30 i MVP:n. Senare tillkommer bostadshus
    som höjer taket, med ett maxtak på omkring 250. Taket ligger i en datafil
-   så att det kan ändras utan kodändring.
+   så att det kan ändras utan kodändring. **Ändrat 2026-11-14:** bostäder
+   finns nu, och det hårda taket är 50 per sida. Se avsnitt 6.
 5. **Kartan.** Genererad från frö med ett fast standardfrö.
 
 ## 15. Kapitulation och grottor

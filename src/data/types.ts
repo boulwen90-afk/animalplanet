@@ -5,4 +5,4 @@
  */
 export type UnitType = 'samlare' | 'ramkrigare';
 
-export type BuildingType = 'storide' | 'visthus' | 'krigshall';
+export type BuildingType = 'storide' | 'visthus' | 'krigshall' | 'ide';

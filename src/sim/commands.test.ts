@@ -56,9 +56,10 @@ describe('move command', () => {
       tick(meddled);
     }
     expect(meddled).toEqual(untouched);
-    // And the unit did move meanwhile: on the computer player's orders.
+    // And the unit was given work meanwhile, by the computer player: it
+    // gathers, or raises the house the computer player starts with.
     const now = meddled.entities.find((e) => e.id === enemy.id) as Unit;
-    expect(now.task.kind).toBe('gather');
+    expect(['gather', 'build']).toContain(now.task.kind);
     expect(unitDestination(now)).not.toEqual({ x: 30, y: 30 });
   });
 

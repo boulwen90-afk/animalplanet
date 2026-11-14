@@ -9,12 +9,13 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   enhetstyperna ritas som figurer: björnkrigaren (Ramkrigaren) och
   björnarbetaren (Samlaren). Sex förbättringar av Samlaren och grunden är
   gjorda och väntar på att användaren ser skärmdumparna. Se "Efter MVP:n"
-- **Väntar på användaren:** byggnaderna ritas nu i spelet. Arbetet ligger
-  i en pull request som väntar på granskning
-- **Klart och mergat:** uppdraget "bygg resten av figurerna" i alla tre
-  punkter (björnarbetare, byggnader, tigerkrigare)
-- **Inte gjort:** tigrarna finns inte som ras i spelet. Träd, bärsnår,
-  klippor och grottor är fortfarande platshållare
+- **Väntar på användaren:** befolkningssystemet (plats från byggnader,
+  bostaden Ide, hårt tak 50) är infört och väntar på granskning
+- **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
+  tigerkrigare), björnarnas byggnader och att byggnaderna ritas i spelet
+- **Inte gjort:** Idet har ingen egen bild (block med bokstaven I).
+  Tigrarna finns inte som ras i spelet. Träd, bärsnår, klippor och grottor
+  är fortfarande platshållare
 - **Beslutat men inte påbörjat:** skarp rendering i skärmens verkliga
   upplösning. Den står som egen punkt sist i `implementation-plan.md`
 - **Mäta på telefon:** `?debug=1` visar bilder per sekund, och
@@ -822,6 +823,102 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Befolkningssystem (2026-11-14)
+
+Användaren bad om ett riktigt befolkningssystem i stället för det fasta
+taket 30. Pull request 13 (byggnaderna i spelet) mergades först, på
+användarens begäran.
+
+**Var kom 30 ifrån?** `START_CONFIG.populationCap` i `src/data/setup.ts`.
+Värdet lästes på tre ställen: träningskontrollen i `production.ts`,
+resursraden i `GameScene` och ett AI-test. Det är borttaget.
+
+**Skärmdumpar:** `docs/screenshots/befolkning-raknare.png` (räknaren vid
+start, 3/5), `befolkning-fullt.png` (rött tal och meddelande när platsen
+är full) och `befolkning-ide.png` (ett färdigt Ide, räknaren 5/10 och
+byggmenyn med "Bygg Ide").
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| 1. Datadrivet: huvudbyggnaden ger 5 | Klar | `housing: 5` för Storiden i `BUILDING_DEFS` |
+| 1. Ny byggnad, bostad per ras (björnar: Ide), +5, billig, byggs av Samlare, platshållargrafik | Klar | `ide`: 30 trä, 15 s, 2×2 rutor, 300 liv. Block med bokstaven I |
+| 1. Hårt tak 50 per spelare | Klar | `POPULATION_CONFIG.hardCap` i `src/data/population.ts` |
+| 1. Befolkningskostnad per enhetstyp (alla 1) | Klar | `population` i `UNIT_DEFS` |
+| 2. Träning blockeras när platsen är full; kö räknas | Klar | `queueUnit` nekar med `housingFull` eller `populationCap` |
+| 3. Förlorad bostad: inga enheter dör, ingen ny tränas förrän plats finns | Klar | Platsen räknas om från befintliga byggnader |
+| 4. "Nuvarande/plats" bredvid resurserna; rött tal och kort meddelande | Klar | Rött i 2,5 s; "Ingen plats – bygg ett Ide" eller "Befolkningstaket 50 är nått" |
+| 5. AI:n bygger bostäder i tid | Klar | Bygger ett Ide när högst 3 platser är lediga. Ett test mäter att den aldrig står utan plats i 30 s |
+| 6. Enhetstester för punkt 1–3 | Klar | `src/sim/population.test.ts`, 21 tester |
+| Tester gröna, inga konsolfel | Klar | Se "Testresultat" |
+| Skärmdumpar: räknaren, en bostad, meddelandet | Klar | Tagna och granskade |
+| Uppdatera progress.md och GDD:t | Klar | GDD avsnitt 4, 6, 7, 8, 10 och 13 |
+
+**Val som uppdraget inte avgjorde**
+
+- **Räknaren visar upptagen plats, kön inräknad.** Med tre enheter och två
+  i kö visas 5/5. Annars skulle det stå 3/5 fast träningen nekas.
+- **En enhet som redan står i kö tränas klart** även om en bostad
+  förstörs under tiden. Bara nya order nekas.
+- **Två meddelanden:** ett som säger att man ska bygga ett Ide, och ett
+  annat när det hårda taket är nått och fler bostäder inte hjälper.
+- **Idets värden** (30 trä, 15 s, 300 liv, 2×2 rutor, synfält 4) är
+  Claudes förslag; uppdraget sa bara "billig".
+- **AI:ns marginal** är 3 lediga platser.
+
+**Saknas eller avviker**
+
+- **Taket 50 mot tidigare skiss 250.** GDD:t talade om ett maxtak på
+  omkring 250 efter MVP:n (användarens tidigare förslag). Det nya
+  uppdraget säger 50, och det gäller nu. GDD:t är uppdaterat och den
+  gamla siffran står kvar som överstruken historik.
+- **Spelet börjar trängre.** Platsen vid start är 5 mot tidigare 30. Med
+  tre Samlare från början ryms två till innan det första Idet behövs.
+- **Balansen ändrades.** Matcher mellan två datorspelare tar nu 11,5–15,0
+  minuter (sex frön) mot 13,2–18,3 förut. Balanstesterna (10–20 minuter,
+  försvar mot första vågen) går igenom utan ändrade värden. Balansen mot
+  en mänsklig spelare är inte speltestad.
+- **Datorspelaren bygger fler bostäder än den behöver** när krigare har
+  kapitulerat: den hade plats för 30 med 16–21 enheter i mätningen.
+- **Idet har ingen bild**, och ritas som ett blått block bland de nya
+  byggnaderna.
+- **`?stress=N`** ställer fortfarande ut enheter utan hänsyn till platsen.
+- **Befolkningen från grottor** (rekrytering, 50 extra) är inte påbörjad
+  och berörs inte.
+
+**Testresultat**
+
+- Vitest: 519 av 519 (21 nya för befolkningsreglerna, 1 nytt för att
+  datorspelaren bygger bostäder i tid; 7 äldre anpassade)
+- Playwright: 112 av 112 (4 nya), även med webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+
+**Äldre tester som ändrades, och varför**
+
+- Fyra tester i `production.test.ts` byggde på taket 30. De prövar nu
+  samma saker mot Storidens plats (5).
+- Testerna som tränar fyra Samlare för att få slut på mat bygger först
+  ett Ide, eftersom platsen annars tar slut före maten.
+- Två tester av byggmenyn väntar sig nu tre knappar.
+- Testet av startläget körs utan datorspelare, eftersom den börjar bygga
+  sitt första Ide i första steget.
+- Testet att en order till motståndarens enhet är verkningslös godtar att
+  enheten bygger, inte bara att den samlar.
+
+**CI föll en gång på lint.** En oanvänd import (`START_CONFIG` i
+`GameScene.ts`) blev kvar när taket togs bort. Den sista lintkontrollen
+före commit visade bara utskriftens sista rad, som var tom, och lästes
+som godkänd. Importen är borttagen, och kontrollerna läses nu på sin
+slutstatus.
+
+**Ett eget misstag under arbetet.** En rättning av testhjälpen
+`buildHouse` togs aldrig emot, eftersom skriptet som gjorde ändringen
+avbröts och körningen låg i bakgrunden. Två tester föll därför en gång
+till av samma orsak innan det upptäcktes. Hjälpen väntade på att "ett
+Ide" skulle bli klart och fick datorspelarens; den väntar nu på
+spelarens eget.
 
 ### Byggnaderna ritas i spelet (2026-11-14)
 

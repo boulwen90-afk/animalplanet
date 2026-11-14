@@ -112,6 +112,7 @@ test.describe('phase 6: building', () => {
     expect(panel.buttons.map((b) => [b.label, b.cost])).toEqual([
       ['Bygg Visthus', '80 trä'],
       ['Bygg Krigshall', '150 trä'],
+      ['Bygg Ide', '30 trä'],
     ]);
     expect(panel.queue).toEqual([]);
     expect(await placement(page)).toBeNull();

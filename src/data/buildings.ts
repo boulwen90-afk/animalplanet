@@ -20,6 +20,8 @@ export interface BuildingDef {
   armor: number;
   /** How far the finished building sees, in tiles, measured from its centre. */
   sight: number;
+  /** How many units the finished building gives room for. See POPULATION_CONFIG. */
+  housing: number;
 }
 
 /** Building types. See GDD section 8. */
@@ -34,6 +36,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     cost: {},
     buildTime: 0,
     armor: 0,
+    housing: 5,
   },
   /** Storehouse: a drop-off point to place near resources. */
   visthus: {
@@ -45,6 +48,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     cost: { wood: 80 },
     buildTime: 20,
     armor: 0,
+    housing: 0,
   },
   /** Barracks: trains soldiers. */
   krigshall: {
@@ -56,6 +60,19 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     cost: { wood: 150 },
     buildTime: 35,
     armor: 0,
+    housing: 0,
+  },
+  /** Housing: the bears' den. It only gives room for more units. */
+  ide: {
+    trains: [],
+    hp: 300,
+    sight: 4,
+    size: 2,
+    dropoff: false,
+    cost: { wood: 30 },
+    buildTime: 15,
+    armor: 0,
+    housing: 5,
   },
 };
 

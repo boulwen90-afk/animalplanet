@@ -4,12 +4,11 @@ import { MAP_CONFIG, MAP_GEN_CONFIG } from '../../data/map';
 import { RESOURCE_TYPES } from '../../data/resources';
 import { STRINGS } from '../../data/strings';
 import { UI_CONFIG } from '../../data/ui';
-import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG, TICK_MS } from '../../data/sim';
 import { consumeSteps, createStepClock } from '../../sim/clock';
 import { BUILDING_DEFS } from '../../data/buildings';
 import { applyCommand, type CommandResult } from '../../sim/commands';
-import { createUnit, isUnit, populationOf } from '../../sim/entities';
+import { createUnit, isUnit, populationRoom, reservedPopulation } from '../../sim/entities';
 import { missingResources } from '../../sim/economy';
 import { createGame } from '../../sim/game';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
@@ -389,8 +388,8 @@ export class GameScene extends Scene implements HudSource {
     return {
       food: stock.resources.food,
       wood: stock.resources.wood,
-      population: populationOf(this.state, LOCAL_PLAYER),
-      populationCap: START_CONFIG.populationCap,
+      population: reservedPopulation(this.state, LOCAL_PLAYER),
+      populationRoom: populationRoom(this.state, LOCAL_PLAYER),
     };
   }
 
@@ -484,6 +483,7 @@ export class GameScene extends Scene implements HudSource {
         return unit.id;
       },
       getAlert: () => (this.scene.get('Ui') as UiScene).getAlertDisplay(),
+      getNotice: () => (this.scene.get('Ui') as UiScene).getNoticeDisplay(),
       getOutcome: () => (this.scene.get('Ui') as UiScene).getOutcomeDisplay(),
       getStartScreen: () => (this.scene.get('Ui') as UiScene).getStartScreenDisplay(),
       getDebug: () => (this.scene.get('Ui') as UiScene).getDebugDisplay(),

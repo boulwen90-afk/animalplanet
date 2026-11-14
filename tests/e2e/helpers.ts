@@ -141,3 +141,44 @@ export async function finger(page: Page): Promise<Finger> {
   };
   return self;
 }
+
+/**
+ * Has one of the player's workers build an Ide on the first free place near
+ * the main building, and steps the game on until it stands finished: room
+ * for five more units. It costs the player 30 wood, like any Ide.
+ */
+export async function buildHouse(page: Page): Promise<void> {
+  const built = await page.evaluate(() => {
+    const t = window.__TEST__!;
+    const state = t.getState();
+    const home = state.entities.find((e) => e.kind === 'building' && e.owner === 0);
+    const worker = state.entities.find((e) => e.kind === 'unit' && e.owner === 0);
+    if (!home || !worker) return false;
+    for (let r = 4; r < 12; r++) {
+      for (let dy = -r; dy <= r; dy++) {
+        for (let dx = -r; dx <= r; dx++) {
+          const result = t.command({
+            type: 'build',
+            player: 0,
+            unitIds: [worker.id],
+            building: 'ide',
+            x: home.x + dx,
+            y: home.y + dy,
+          });
+          if (!result.ok) continue;
+          for (let step = 0; step < 3000; step++) {
+            t.advance(1);
+            // The player's own: the computer player builds one too.
+            const site = t
+              .getState()
+              .entities.find((e) => e.kind === 'building' && e.type === 'ide' && e.owner === 0);
+            if (site?.kind === 'building' && site.complete) return true;
+          }
+          return false;
+        }
+      }
+    }
+    return false;
+  });
+  expect(built, 'an Ide was built').toBe(true);
+}
