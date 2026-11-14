@@ -907,6 +907,12 @@ byggmenyn med "Bygg Ide").
 - Testet att en order till motståndarens enhet är verkningslös godtar att
   enheten bygger, inte bara att den samlar.
 
+**CI föll en gång på lint.** En oanvänd import (`START_CONFIG` i
+`GameScene.ts`) blev kvar när taket togs bort. Den sista lintkontrollen
+före commit visade bara utskriftens sista rad, som var tom, och lästes
+som godkänd. Importen är borttagen, och kontrollerna läses nu på sin
+slutstatus.
+
 **Ett eget misstag under arbetet.** En rättning av testhjälpen
 `buildHouse` togs aldrig emot, eftersom skriptet som gjorde ändringen
 avbröts och körningen låg i bakgrunden. Två tester föll därför en gång

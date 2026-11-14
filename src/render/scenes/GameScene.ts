@@ -4,7 +4,6 @@ import { MAP_CONFIG, MAP_GEN_CONFIG } from '../../data/map';
 import { RESOURCE_TYPES } from '../../data/resources';
 import { STRINGS } from '../../data/strings';
 import { UI_CONFIG } from '../../data/ui';
-import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG, TICK_MS } from '../../data/sim';
 import { consumeSteps, createStepClock } from '../../sim/clock';
 import { BUILDING_DEFS } from '../../data/buildings';
