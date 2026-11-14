@@ -6,8 +6,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
 - **Väntar på användaren:** ekonomibyggnader, steg 2 av 2:
-  **Fiskehyttan** är införd. Användaren ska se skärmdumparna av giltig
-  och ogiltig placering och av Samlare som fiskar. Se "Efter MVP:n"
+  **Fiskehyttan** är införd och dess värden godkända (2026-11-14). Pull
+  request 15 väntar på att användaren mergar. Se "Efter MVP:n"
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide, och Odlingen (pull request 14;
@@ -834,7 +834,10 @@ vid vatten: grönt fotavtryck, "3 fiskeplatser" och en ring på varje
 plats), `fiske-arbete.png` (tre Samlare fiskar vid en färdig hytta) och
 `fiske-narbild.png` (närbild av två fiskare med spö).
 
-**Värden (förslag)**
+**Användarens svar (2026-11-14):** värdena är godkända, hyttan ska vägras
+där den inte ger någon fiskeplats, och Claude ska bevaka pull request 15.
+
+**Värden (godkända)**
 
 | | Fiskehytta | Odling | Bärsnår |
 |---|---|---|---|
@@ -878,7 +881,7 @@ plats), `fiske-arbete.png` (tre Samlare fiskar vid en färdig hytta) och
 - Fiskaren står på land, vänd mot vattnet, och rycker upp spöet en gång
   per fisk.
 
-**Fyra fel som mätningar och tester avslöjade, och deras grundorsaker**
+**Fem fel som mätningar och tester avslöjade, och deras grundorsaker**
 
 1. **Fiskare lämnade hyttan och gick till bärsnår.** På frö 1 och 6 låg
    den närmaste strandrutan i en ficka, instängd av träd, klippor eller
@@ -903,6 +906,16 @@ plats), `fiske-arbete.png` (tre Samlare fiskar vid en färdig hytta) och
    spelaren aldrig har sett. Ett äldre webbläsartest fångade det.
    Rättat: outforskad mark kontrolleras först, och ett enhetstest håller
    fast det.
+5. **Det röda talet vid en nekad order kunde utebli på en långsam enhet.**
+   Blinkningen varar 300 ms, och tiden räknades från bildrutan *före*
+   tryckningen. Tog nästa bildruta längre än så var blinkningen slut
+   innan den hade ritats en enda gång. Felet är äldre än det här steget
+   och syntes som ett test som föll i ungefär var fjärde körning med
+   webbläsaren nedbromsad 8 gånger. Först såg det ut som att testet
+   frågade för sent; ett test som noterar blinkningen bildruta för
+   bildruta visade att den aldrig kom. Rättat: tiden börjar med den
+   bildruta som först visar blinkningen. 24 av 24 nedbromsade körningar
+   går nu igenom.
 
 **Val som uppdraget inte avgjorde**
 
@@ -921,9 +934,12 @@ plats), `fiske-arbete.png` (tre Samlare fiskar vid en färdig hytta) och
 
 **Saknas eller avviker**
 
-- **Hyttan kan byggas där den ger få eller inga fiskeplatser.**
-  Placeringsregeln kräver bara vatten intill. Spelaren ser antalet
-  ("1 fiskeplats", "0 fiskeplatser") men hindras inte.
+- **Hyttan kan byggas där den ger få fiskeplatser.** En plats som ger
+  en eller två är tillåten; spelaren ser antalet ("1 fiskeplats"). En
+  plats som inte ger någon alls vägras, med texten "Ingen fiskeplats
+  här" (tillagt efter användarens svar). På de tio första kartorna finns
+  ingen sådan plats, så regeln är prövad i enhetstester men inte i
+  webbläsaren.
 - **På standardkartan ligger den bästa stranden en bit bort.** Stranden
   närmast spelarens bas (9 rutor) ger en fiskeplats. Skärmdumparna är
   därför tagna på frö 2, där närmaste strand ger tre.
@@ -947,13 +963,16 @@ plats), `fiske-arbete.png` (tre Samlare fiskar vid en färdig hytta) och
 
 **Testresultat**
 
-- Vitest: 595 av 595 (39 nya: 32 för Fiskehyttans regler, övriga för
+- Vitest: 599 av 599 (43 nya: 36 för Fiskehyttans regler, övriga för
   datorspelaren, fiskeanimationen, hyttans atlas och outforskad mark)
 - Playwright: 121 av 121 (5 nya), även med webbläsaren nedbromsad 8 gånger
 - Lint och typkontroll utan anmärkning. Inga konsolfel.
 
 **Äldre tester som ändrades, och varför**
 
+- De två tester som kontrollerar blinkningen vid en nekad order noterar
+  den nu inne i sidan, bildruta för bildruta (`recordFlashes`), i stället
+  för att fråga efter tryckningen.
 - En nekad byggorder anger nu orsaken (`problem`), så tre tester som
   jämförde hela svaret har fått orsaken tillagd.
 - Testerna av byggmenyn väntar sig fem knappar.

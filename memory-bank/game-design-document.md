@@ -122,7 +122,7 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
   men långsammare än bär**: 1 mat var 1,6 s (37,5 mat/min utan gångväg).
   Uppmätt på sex kartor: 33–38 mat/min per Samlare. En hytta har högst 3
   fiskeplatser. Inga båtar, och ingen går på vatten. Värdena ligger i
-  `BUILDING_DEFS.fiskehytta`.
+  `BUILDING_DEFS.fiskehytta`. Värdena godkändes av användaren 2026-11-14.
 - **Arbetsplatser:** varje källa har upp till 4 fasta arbetsplatser, på de
   öppna rutorna runt den. En arbetare tar en ledig plats och behåller den
   medan den bär hem lasten. Är alla platser tagna går arbetaren till
@@ -217,6 +217,10 @@ hus:
 - Den **får bara stå intill vatten**: minst en ruta av fotavtrycket ska ha
   vatten sida vid sida med sig (hörn mot hörn räcker inte). Hyttan står på
   land.
+- **Den får inte stå där den inte ger någon fiskeplats** (beslutat av
+  användaren 2026-11-14): finns ingen strandruta som byggaren kan gå till
+  inom hyttans räckvidd nekas platsen, med texten "Ingen fiskeplats här".
+  En plats som ger en eller två fiskeplatser är tillåten.
 - **Fiskeplatser:** de öppna strandrutorna (gräs med vatten på någon av
   fyra sidor) närmast hyttan, högst 3 rutor från den och **högst 3
   stycken**. En plats räknas bara om Samlaren kan gå dit; en strandremsa
@@ -238,8 +242,8 @@ Byggregler:
   kartan: byggnadens bild, halvgenomskinlig, på sitt fotavtryck. Där den
   får stå är fotavtrycket grönt. Där den inte får stå är bild och
   fotavtryck **röda**, och under fotavtrycket står en kort förklaring:
-  "Platsen är upptagen", "Outforskad mark" eller "Måste stå intill
-  vatten". För en Fiskehytta som får stå visas i stället antalet
+  "Platsen är upptagen", "Outforskad mark", "Måste stå intill vatten"
+  eller "Ingen fiskeplats här". För en Fiskehytta som får stå visas i stället antalet
   fiskeplatser ("3 fiskeplatser") och en ring på varje plats. Giltigt =
   alla rutor gångbara, utforskade och fria från
   enheter/byggnader/resurser.

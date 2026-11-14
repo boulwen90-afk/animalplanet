@@ -50,6 +50,7 @@ export const STRINGS = {
       blocked: 'Platsen är upptagen',
       unexplored: 'Outforskad mark',
       needsShore: 'Måste stå intill vatten',
+      noWorkPlace: 'Ingen fiskeplats här',
       /** Shown where a fishing hut may stand: how many of its workers get a place on the shore. */
       workPlaces: (count: number) => (count === 1 ? '1 fiskeplats' : `${count} fiskeplatser`),
     },

@@ -208,7 +208,7 @@ spelare, AI och tester. Kommandon utförs direkt, mellan två steg.
 Svaret är en `CommandResult`: `{ ok: true }`, eller `{ ok: false, reason }`
 där `reason` är `insufficientResources` (med `missing`, listan över resurser
 som fattas), `populationCap`, `queueFull`, `invalidPlacement` (med
-`problem`: `blocked`, `unexplored` eller `needsShore`) eller
+`problem`: `blocked`, `unexplored`, `needsShore` eller `noWorkPlace`) eller
 `invalid`. En nekad order
 ändrar ingenting i tillståndet.
 
@@ -656,6 +656,12 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     `HudSource.cancelQueuedUnit`. `GameScene` gör om en träningsknapp till
     ett kommando. En byggknapp startar byggplaceringen, om spelaren har råd;
     annars blinkar resurssiffran.
+  - **Blinkningens tid börjar när den först visas.** En tryckning
+    hanteras mellan två bildrutor. `showRefusal` lägger därför
+    blinkningen i `flashPending`, och nästa `update` sätter sluttiden från
+    sin egen tid. Räknad från bildrutan före tryckningen kunde en
+    blinkning på 300 ms vara slut innan en långsam bildruta hade ritat
+    den.
   - Under resursradens högra ände ligger en rad knappar, 110×44 px:
     "Bas" (alltid) och till vänster om den "Avmarkera" (när något är
     markerat) eller "Avbryt" (medan en byggnad placeras, och avbryter då
@@ -734,13 +740,21 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
     röd där den inte får det. Byggnadstyper utan bild visar bara
     fotavtrycket.
   - **Förklaringen.** `placementProblem` säger varför en plats inte går:
-    `blocked`, `unexplored` eller `needsShore`. Texten till varje orsak
-    står i `STRINGS.hud.placement` och skrivs under fotavtryckets
-    närmaste hörn. `Placement` bär `problem` och `note`.
+    `blocked`, `unexplored`, `needsShore` eller `noWorkPlace`. Texten
+    till varje orsak står i `STRINGS.hud.placement` och skrivs under
+    fotavtryckets närmaste hörn. `Placement` bär `problem` och `note`.
+  - **Två nivåer.** `footprintProblem` är reglerna för marken (upptagen,
+    outforskad, intill vatten) och är billig; den räknas varje bildruta.
+    `placementProblem` lägger till `noWorkPlace`: en byggnad som arbetas
+    från stranden måste ge minst en arbetsplats, räknat från byggarens
+    ruta om en sådan anges (`plannedWorkTiles`). Det kräver ett vägrutnät,
+    så placeringen räknar det med arbetsplatserna nedan och inte varje
+    bildruta. Ett klick och kommandot `build` använder alltid hela regeln.
   - **Arbetsplatser.** För en byggnad som arbetas från stranden
     (Fiskehyttan) räknas `plannedWorkTiles` ut för platsen, från den
     byggare som är markerad. Varje plats får en vit ring, och texten
-    under fotavtrycket anger antalet ("3 fiskeplatser"). Uträkningen görs
+    under fotavtrycket anger antalet ("3 fiskeplatser"). Blir det ingen
+    plats alls visas byggnaden röd med "Ingen fiskeplats här". Uträkningen görs
     om när konturen flyttas, och annars högst varannan halvsekund.
   - Den måste skapas **efter** `SelectionController`. Phaser anropar
     lyssnare i den ordning de registrerades, och markeringslogiken ska hinna

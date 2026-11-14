@@ -5,7 +5,7 @@ import { worldToTile, type Point, type TileSize } from '../../sim/map/iso';
 import type { GameState, PlayerId } from '../../sim/state';
 import { STRINGS } from '../../data/strings';
 import { unitTile } from '../../sim/entities';
-import { placementProblem } from '../../sim/systems/construction';
+import { footprintProblem, placementProblem } from '../../sim/systems/construction';
 import { plannedWorkTiles } from '../../sim/systems/gathering';
 import type { Placement, PlacementView } from '../views/PlacementView';
 
@@ -102,9 +102,18 @@ export class PlacementController {
       this.touchOrigin = undefined;
       origin = this.originAt(building, pointer.x, pointer.y);
     }
-    const problem = this.problemAt(building, origin);
-    // A building that is worked from the shore shows where, and how many get a place.
-    const places = problem ? undefined : this.placesAt(building, origin);
+    // A building that is worked from the shore shows where, and how many
+    // get a place. With no place for anyone it may not stand there.
+    const ground = footprintProblem(
+      this.deps.getState(),
+      building,
+      origin.x,
+      origin.y,
+      this.deps.player,
+    );
+    const found = ground ? undefined : this.placesAt(building, origin);
+    const problem = ground ?? (found?.length === 0 ? 'noWorkPlace' : undefined);
+    const places = problem ? undefined : found;
     this.placement = {
       building,
       x: origin.x,
@@ -117,9 +126,22 @@ export class PlacementController {
     this.deps.view.update(this.placement);
   }
 
-  /** What stops the building from standing with its footprint's corner on a tile, if anything. */
+  /**
+   * What stops the building from standing with its footprint's corner on a
+   * tile, if anything: by the rules the simulation itself uses when it is ordered.
+   */
   private problemAt(building: BuildingType, origin: Point) {
-    return placementProblem(this.deps.getState(), building, origin.x, origin.y, this.deps.player);
+    const state = this.deps.getState();
+    const [builderId] = this.deps.getBuilderIds(building);
+    const builder = state.entities.find((entity) => entity.id === builderId);
+    return placementProblem(
+      state,
+      building,
+      origin.x,
+      origin.y,
+      this.deps.player,
+      builder?.kind === 'unit' ? unitTile(builder) : undefined,
+    );
   }
 
   /**

@@ -161,6 +161,71 @@ describe('where a fishing hut may stand', () => {
   });
 });
 
+describe('a place by the water with nowhere to fish from', () => {
+  it('is refused: the shore is all rock', () => {
+    // The hut on 3..4, 2..3 would touch the water, but every other tile by the water is rock.
+    const state = stateFromRows([
+      '..........',
+      '..........',
+      '..........',
+      'RRR..RRRRR',
+      'WWWWWWWWWW',
+    ]);
+    expect(placementProblem(state, 'fiskehytta', 3, 2)).toBe('noWorkPlace');
+    expect(canPlaceBuilding(state, 'fiskehytta', 3, 2)).toBe(false);
+    // One open tile of shore within reach is enough.
+    state.map.terrain[3 * state.map.width + 6] = 'grass';
+    expect(placementProblem(state, 'fiskehytta', 3, 2)).toBeUndefined();
+  });
+
+  it('is refused for a builder who could not walk to any of the shore', () => {
+    // There is open shore on both sides of the hut, but behind rocks.
+    const state = stateFromRows([
+      '..........',
+      'RRR..RRRRR',
+      '..R..R....',
+      '..R..R....',
+      'WWWWWWWWWW',
+    ]);
+    const worker = createUnit(state, 'samlare', 0, 1, 0);
+    state.players[0]!.resources.wood = 500;
+    // The lie of the land allows it; it is the walk that does not.
+    expect(placementProblem(state, 'fiskehytta', 3, 2)).toBeUndefined();
+    expect(placementProblem(state, 'fiskehytta', 3, 2, 0, unitTile(worker))).toBe('noWorkPlace');
+
+    expect(
+      applyCommand(state, {
+        type: 'build',
+        player: 0,
+        unitIds: [worker.id],
+        building: 'fiskehytta',
+        x: 3,
+        y: 2,
+      }),
+    ).toEqual({ ok: false, reason: 'invalidPlacement', problem: 'noWorkPlace' });
+    expect(wood(state)).toBe(500);
+    expect(state.entities.filter((e) => e.kind === 'building')).toHaveLength(0);
+  });
+
+  it('does not stop a hut where at least one fisher gets a place', () => {
+    const state = lake();
+    const worker = createUnit(state, 'samlare', 0, 3, 3);
+    expect(placementProblem(state, 'fiskehytta', 6, 5, 0, unitTile(worker))).toBeUndefined();
+  });
+
+  it('is not asked of other buildings', () => {
+    const state = stateFromRows([
+      '..........',
+      '..........',
+      '..........',
+      'RRR..RRRRR',
+      'WWWWWWWWWW',
+    ]);
+    expect(placementProblem(state, 'visthus', 3, 2)).toBeUndefined();
+    expect(placementProblem(state, 'odling', 3, 2)).toBeUndefined();
+  });
+});
+
 describe('the fishing places of a hut', () => {
   it('are the open tiles beside water closest to it, as many as it takes workers', () => {
     const { state, hut } = setup();

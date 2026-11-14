@@ -171,15 +171,16 @@ export function workTiles(
  * The places workers would have at a building of a type, if it stood with
  * its footprint's corner on a tile: as `workTiles` gives for a building that
  * stands, counting only places that can be walked to from `from` once the
- * building is there. For a building whose workers stand on it, they are its
- * own tiles. Used to show a player what a place by the water is worth, and
- * by the computer player to choose one.
+ * building is there. Without `from`, every open place counts. For a building
+ * whose workers stand on it, they are its own tiles. Used to refuse a place
+ * that gives no work, to show a player what a place by the water is worth,
+ * and by the computer player to choose one.
  */
 export function plannedWorkTiles(
   state: GameState,
   type: BuildingType,
   corner: Point,
-  from: Point,
+  from?: Point,
 ): Point[] {
   const def = BUILDING_DEFS[type];
   const work = def.work;
@@ -199,7 +200,7 @@ export function plannedWorkTiles(
         grid.blocked[y * grid.width + x] = 1;
     }
   }
-  const canReach = reachableTiles(grid, from);
+  const canReach = from && reachableTiles(grid, from);
   return shorePlaces(state, grid, corner, def.size, work.reach ?? 0, canReach).slice(
     0,
     work.workers,

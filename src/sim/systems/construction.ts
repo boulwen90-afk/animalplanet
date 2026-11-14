@@ -19,7 +19,7 @@ import type { Point } from '../map/iso';
 import { canStep, findPath, type PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
 import type { Building, GameState, PlayerId, Unit } from '../state';
-import { startWorking } from './gathering';
+import { plannedWorkTiles, startWorking } from './gathering';
 import { isTileExplored } from './visibility';
 
 /** Work, in worker-steps, needed to finish a building. */
@@ -42,9 +42,11 @@ export function buildFraction(building: Building): number {
  * Why a building cannot stand somewhere. `blocked`: the ground is off the
  * map, not open, taken by a building or a unit, or too close to a cave.
  * `unexplored`: the side has not seen the ground. `needsShore`: the building
- * must stand by water, and this place does not.
+ * must stand by water, and this place does not. `noWorkPlace`: the building
+ * is worked from the ground around it, and here its workers would have
+ * nowhere to stand: a fishing hut with no shore to fish from.
  */
-export type PlacementProblem = 'blocked' | 'unexplored' | 'needsShore';
+export type PlacementProblem = 'blocked' | 'unexplored' | 'needsShore' | 'noWorkPlace';
 
 /**
  * True if a building of this type may be placed with its footprint's
@@ -62,13 +64,36 @@ export function canPlaceBuilding(
 
 /**
  * What stops a building of this type from being placed with its footprint's
- * lowest corner on tile (x, y), or undefined if it may stand there. Every
- * tile must be on the map, walkable ground, free of buildings, resources
- * and units, and not on or next to a cave. If `player` is given, that side
- * must also have explored every tile. A building that needs the shore must
- * have a tile of its footprint side by side with water.
+ * lowest corner on tile (x, y), or undefined if it may stand there: the
+ * rules of `footprintProblem`, and for a building that is worked from the
+ * shore, that at least one of its workers gets a place there.
+ *
+ * @param from Where its builder stands. If given, only places the builder
+ * can walk to count; otherwise every open place does.
  */
 export function placementProblem(
+  state: GameState,
+  type: BuildingType,
+  x: number,
+  y: number,
+  player?: PlayerId,
+  from?: Point,
+): PlacementProblem | undefined {
+  const problem = footprintProblem(state, type, x, y, player);
+  if (problem) return problem;
+  if (BUILDING_DEFS[type].work?.places !== 'shore') return undefined;
+  return plannedWorkTiles(state, type, { x, y }, from).length === 0 ? 'noWorkPlace' : undefined;
+}
+
+/**
+ * What is wrong with the ground a building of this type would stand on,
+ * with its footprint's lowest corner on tile (x, y), or undefined if
+ * nothing is. Every tile must be on the map, walkable ground, free of
+ * buildings, resources and units, and not on or next to a cave. If `player`
+ * is given, that side must also have explored every tile. A building that
+ * needs the shore must have a tile of its footprint side by side with water.
+ */
+export function footprintProblem(
   state: GameState,
   type: BuildingType,
   x: number,
@@ -155,7 +180,9 @@ export function placeBuilding(
   if (!stock || builders.length === 0 || !Number.isInteger(x) || !Number.isInteger(y)) {
     return { ok: false, reason: 'invalid' };
   }
-  const problem = placementProblem(state, type, x, y, player);
+  // The first builder is the one who must be able to get to work there.
+  const [first] = builders;
+  const problem = placementProblem(state, type, x, y, player, first && unitTile(first));
   if (problem) return { ok: false, reason: 'invalidPlacement', problem };
   const missing = missingResources(stock, BUILDING_DEFS[type].cost);
   if (missing.length > 0) return { ok: false, reason: 'insufficientResources', missing };
