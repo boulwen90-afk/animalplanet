@@ -76,16 +76,25 @@ test.describe('the scenery', () => {
     await openGame(page, '&ai=0&fog=0');
     const state = await getState(page);
     const seen = { tree: new Set<string>(), rock: new Set<string>(), berries: new Set<string>() };
-    let checked = 0;
+    // Every third tile across the map, read in one go: asking the page about
+    // one tile at a time takes longer than the test has on a slow machine.
+    const tiles: { x: number; y: number }[] = [];
     for (let y = 0; y < state.map.height; y++) {
       for (let x = 0; x < state.map.width; x += 3) {
         const terrain = terrainAt(state, x, y)!;
-        if (terrain !== 'tree' && terrain !== 'rock' && terrain !== 'berries') continue;
-        const drawn = await scenery(page, x, y);
-        expect(drawn.object, `${terrain} at ${x},${y}`).toBe(objectFrame(terrain, x, y));
-        seen[terrain].add(drawn.object!);
-        checked++;
+        if (terrain === 'tree' || terrain === 'rock' || terrain === 'berries') tiles.push({ x, y });
       }
+    }
+    const drawn = await page.evaluate(
+      (list) => list.map(({ x, y }) => window.__TEST__!.getScenery(x, y).object),
+      tiles,
+    );
+    let checked = 0;
+    for (const [i, { x, y }] of tiles.entries()) {
+      const terrain = terrainAt(state, x, y) as 'tree' | 'rock' | 'berries';
+      expect(drawn[i], `${terrain} at ${x},${y}`).toBe(objectFrame(terrain, x, y));
+      seen[terrain].add(drawn[i]!);
+      checked++;
     }
     expect(checked).toBeGreaterThan(50);
     // A forest and a ridge of rock are not one picture repeated.

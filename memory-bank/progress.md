@@ -1002,8 +1002,10 @@ rad i metadatan (`layerAnimations`).
 - Vitest: 635 av 635 (33 nya: rättvis start, kartgenerering, last,
   miljöns regler och atlas, datorspelarens fiske)
 - Playwright: 129 av 129 i normal fart (8 nya i `scenery.spec.ts`).
-  Med webbläsaren nedbromsad 8 gånger: körningen var inte
-  klar när detta skrevs; resultatet förs in i nästa commit
+  Med webbläsaren nedbromsad 8 gånger: 127 av 129 i hela körningen.
+  De två som föll gick över sin tidsgräns på 30 s (se nedan); efter
+  rättning går de igenom nedbromsat på 18,5 s och 8,3 s. Hela den
+  nedbromsade körningen är inte gjord om efter rättningen
 - Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
   testerna eller när skärmdumparna togs.
 
@@ -1021,7 +1023,15 @@ rad i metadatan (`layerAnimations`).
 - **`phase3-units.spec.ts`:** ett test antog öppen mark runt en fast
   ruta vid basen. På den nya kartan står träd där. Hjälpfunktionen
   söker nu en ruta med öppen mark runt om som inte ligger bakom ett hus.
-- Inget test är avstängt.
+- **`buildings.spec.ts`, byggstadierna:** testet väntade på en bildruta
+  per två simuleringssteg. Nedbromsat tog det 25–29 s redan före den här
+  ändringen och 30,7 s nu, eftersom miljön gör varje bildruta lite
+  dyrare. Det tar nu fem steg per bildruta. Varje stadium varar cirka
+  200 steg, så inget missas.
+- **`scenery.spec.ts`, varianterna (nytt test):** frågade sidan om en
+  ruta i taget, över 200 anrop, vilket nedbromsat tog 30,5 s. Det läser
+  nu alla rutor i ett anrop.
+- Inget test är avstängt, och ingen tidsgräns är höjd.
 
 **Beslut och lärdomar**
 
