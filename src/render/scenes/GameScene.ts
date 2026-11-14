@@ -8,11 +8,19 @@ import { SIM_CONFIG, TICK_MS } from '../../data/sim';
 import { consumeSteps, createStepClock } from '../../sim/clock';
 import { BUILDING_DEFS } from '../../data/buildings';
 import { applyCommand, type CommandResult } from '../../sim/commands';
-import { createUnit, isUnit, populationRoom, reservedPopulation } from '../../sim/entities';
+import {
+  createUnit,
+  isBuilding,
+  isUnit,
+  populationRoom,
+  reservedPopulation,
+} from '../../sim/entities';
 import { missingResources } from '../../sim/economy';
 import { createGame } from '../../sim/game';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
-import type { GameState, PlayerId, SimEvent } from '../../sim/state';
+import { buildPathGrid } from '../../sim/pathfinding/passability';
+import type { Building, GameState, PlayerId, SimEvent } from '../../sim/state';
+import { workPlacesOf } from '../../sim/systems/gathering';
 import {
   isEntityVisibleTo,
   isTileExplored,
@@ -40,6 +48,7 @@ import { describeSelection, type SelectionInfo } from '../ui/selectionInfo';
 import { CaveView } from '../views/CaveView';
 import { EntityView } from '../views/EntityView';
 import { FogView } from '../views/FogView';
+import { SceneryLibrary } from '../scenery/SceneryLibrary';
 import { MapView } from '../views/MapView';
 import { PLAYER_COLORS } from '../views/visuals';
 import { PlacementView } from '../views/PlacementView';
@@ -66,6 +75,9 @@ export interface GameSceneOptions {
 }
 
 /** The side the person at the screen plays. */
+/** The fishing places on the shore are worked out again every this many frames. */
+const FISHING_PLACES_EVERY = 20;
+
 const LOCAL_PLAYER: PlayerId = 0;
 /** The side the computer plays. */
 const OPPONENT: PlayerId = 1;
@@ -81,6 +93,8 @@ export class GameScene extends Scene implements HudSource {
   /** False while the start screen is showing; the match has not begun. */
   private started: boolean;
   private mapView!: MapView;
+  /** Frames since the fishing places were last worked out. */
+  private fishingFrames = -1;
   private caveView!: CaveView;
   /** Undefined when the fog of war is off. */
   private fogView: FogView | undefined;
@@ -112,6 +126,7 @@ export class GameScene extends Scene implements HudSource {
     });
     CharacterLibrary.preload(this);
     BuildingLibrary.preload(this);
+    SceneryLibrary.preload(this);
   }
 
   create(): void {
@@ -126,8 +141,9 @@ export class GameScene extends Scene implements HudSource {
     this.state = state;
     if (stress > 0) this.putToWork(state);
 
-    this.mapView = new MapView(this, state.map, MAP_CONFIG);
-    this.caveView = new CaveView(this, state.map, MAP_CONFIG);
+    const scenery = new SceneryLibrary(this, PLAYER_COLORS);
+    this.mapView = new MapView(this, state.map, MAP_CONFIG, scenery);
+    this.caveView = new CaveView(this, state.map, MAP_CONFIG, scenery);
     if (state.fogEnabled) this.fogView = new FogView(this, state.map, MAP_CONFIG);
     const buildingArt = new BuildingLibrary(this, PLAYER_COLORS);
     this.entityView = new EntityView(
@@ -217,9 +233,13 @@ export class GameScene extends Scene implements HudSource {
     // Draw units part-way into the next step, so movement looks smooth.
     const alpha = Math.min(this.stepClock.accumulatorMs / TICK_MS, 1);
     const { width } = state.map;
-    this.mapView.update(state.map, (index) =>
-      isTileExplored(state, LOCAL_PLAYER, index % width, Math.floor(index / width)),
+    const { worldView } = this.cameras.main;
+    this.mapView.update(
+      state.map,
+      (index) => isTileExplored(state, LOCAL_PLAYER, index % width, Math.floor(index / width)),
+      worldView,
     );
+    this.updateFishingPlaces(state);
     this.caveView.update(
       state.map,
       LOCAL_PLAYER,
@@ -473,6 +493,29 @@ export class GameScene extends Scene implements HudSource {
     );
   }
 
+  /**
+   * Marks the fishing places of the fishing huts the player can see. They
+   * change only when a hut is built or lost, or the shore by one is built
+   * on, so they are worked out a few times a second, not every frame.
+   */
+  private updateFishingPlaces(state: GameState): void {
+    this.fishingFrames = (this.fishingFrames + 1) % FISHING_PLACES_EVERY;
+    if (this.fishingFrames !== 0) return;
+    const huts = state.entities.filter(
+      (entity): entity is Building =>
+        isBuilding(entity) &&
+        entity.complete &&
+        BUILDING_DEFS[entity.type].work?.places === 'shore' &&
+        isEntityVisibleTo(state, LOCAL_PLAYER, entity),
+    );
+    if (huts.length === 0) {
+      this.mapView.showFishingPlaces([]);
+      return;
+    }
+    const grid = buildPathGrid(state);
+    this.mapView.showFishingPlaces(huts.flatMap((hut) => workPlacesOf(state, grid, hut)));
+  }
+
   private installTestApi(state: GameState): void {
     const camera = this.cameras.main;
     this.testApi = installTestApi({
@@ -496,6 +539,8 @@ export class GameScene extends Scene implements HudSource {
       getFrameCount: () => this.frameCount,
       getUnitSprite: (id) => this.entityView.describeUnit(id) ?? null,
       getBuildingSprite: (id) => this.entityView.describeBuilding(id) ?? null,
+      getScenery: (tileX, tileY) => this.mapView.describe(tileX, tileY),
+      getObjectCount: () => this.mapView.objectCount,
       command: (command) => applyCommand(state, command),
       getSelection: () => [...this.selectionController.selection],
       getHud: () => (this.scene.get('Ui') as UiScene).getDisplay(),

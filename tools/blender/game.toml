@@ -50,6 +50,17 @@ leader = 0.66
 
 # The lowest a building may be on the screen, from the ground to the top of
 # its roof, by size class. Even the smallest is clearly taller than a warrior.
+# How tall what stands on the ground is on the screen, by kind: the lowest and
+# the highest it may be, in tile widths. A tree is about as tall as a small
+# house, so that a forest hides what is behind it; a bush is lower than a
+# worker; what is left of a source lies almost flat.
+[scale.scenery_height]
+tree = [0.9, 1.5]
+bush = [0.2, 0.45]
+rock = [0.25, 0.75]
+cave = [0.45, 0.8]
+remains = [0.0, 0.3]
+
 [scale.building_height]
 # A field is ground, not a house: it has no lowest height. What marks it as
 # bigger than a unit is its footprint.

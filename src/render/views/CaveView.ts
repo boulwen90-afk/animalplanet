@@ -3,11 +3,12 @@ import { CAVE_CONFIG } from '../../data/map';
 import { STRINGS } from '../../data/strings';
 import type { Cave, GameMap } from '../../sim/map/grid';
 import { tileCenterToWorld, type TileSize } from '../../sim/map/iso';
-import { CAVE_COLORS, CAVE_VISUAL, PLAYER_COLORS } from './visuals';
+import type { SceneryLibrary } from '../scenery/SceneryLibrary';
+import { CAVE_FRAME } from '../scenery/scenery';
 
 /**
- * Draws each cave as a mound with a dark opening, outlined in its side's
- * colour, with the number of units inside written above it.
+ * Draws each cave: a mound of rock with a dark opening and a pennant in its
+ * side's colour, with the number of units inside written above it.
  */
 export class CaveView {
   private readonly caves = new Map<
@@ -15,16 +16,14 @@ export class CaveView {
     { image: GameObjects.Image; text: GameObjects.Text; shown: string }
   >();
 
-  constructor(scene: Scene, map: GameMap, size: TileSize) {
+  constructor(scene: Scene, map: GameMap, size: TileSize, scenery: SceneryLibrary) {
     for (const cave of map.caves) {
       const centre = tileCenterToWorld(cave.x, cave.y, size);
-      const base = centre.y + size.tileHeight / 4;
       const image = scene.add
-        .image(centre.x, base, caveTexture(scene, cave))
-        .setOrigin(0.5, 1)
+        .image(centre.x, centre.y, scenery.textureKey(cave.owner), CAVE_FRAME)
         .setDepth(centre.y);
       const text = scene.add
-        .text(centre.x, base - CAVE_VISUAL.height - 2, '', {
+        .text(centre.x, centre.y - scenery.heightOf(CAVE_FRAME) - 2, '', {
           fontFamily: 'sans-serif',
           fontSize: '13px',
           fontStyle: 'bold',
@@ -63,27 +62,4 @@ export class CaveView {
       drawn.shown = next;
     }
   }
-}
-
-function caveTexture(scene: Scene, cave: Cave): string {
-  const key = `cave-${cave.owner}`;
-  if (scene.textures.exists(key)) return key;
-  const { width: w, height: h } = CAVE_VISUAL;
-  const g = scene.make.graphics({}, false);
-  // The mound: the upper half of an ellipse standing on the ground.
-  g.fillStyle(CAVE_COLORS.rock, 1);
-  g.slice(w / 2, h, w / 2 - 1, Math.PI, 0, false);
-  g.fillPath();
-  g.fillRect(1, h - 6, w - 2, 6);
-  g.lineStyle(3, PLAYER_COLORS[cave.owner as 0 | 1] ?? 0xffffff, 1);
-  g.beginPath();
-  g.arc(w / 2, h, w / 2 - 2, Math.PI, 0, false);
-  g.strokePath();
-  // The opening.
-  g.fillStyle(CAVE_COLORS.opening, 1);
-  g.slice(w / 2, h, w / 4, Math.PI, 0, false);
-  g.fillPath();
-  g.generateTexture(key, w, h);
-  g.destroy();
-  return key;
 }

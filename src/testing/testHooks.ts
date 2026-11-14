@@ -11,6 +11,7 @@ import type {
   StartScreenDisplay,
 } from '../render/scenes/UiScene';
 import type { BuildingSpriteInfo, UnitSpriteInfo } from '../render/views/EntityView';
+import type { SceneryInfo } from '../render/views/MapView';
 import type { Placement, PlacementPreviewInfo } from '../render/views/PlacementView';
 import type { Command, CommandResult } from '../sim/commands';
 import type { Point } from '../sim/map/iso';
@@ -51,6 +52,8 @@ export interface TestApiSource {
   getFrameCount(): number;
   getUnitSprite(id: number): UnitSpriteInfo | null;
   getBuildingSprite(id: number): BuildingSpriteInfo | null;
+  getScenery(tileX: number, tileY: number): SceneryInfo;
+  getObjectCount(): number;
   command(command: Command): CommandResult;
   getSelection(): number[];
   getHud(): HudDisplay;
@@ -110,6 +113,15 @@ export interface TestApi {
    */
   getUnitSprite(id: number): UnitSpriteInfo | null;
   getBuildingSprite(id: number): BuildingSpriteInfo | null;
+  /**
+   * What is drawn on a tile besides units and buildings: the picture of the
+   * tree, bush or rock standing on it, the pictures lying on its ground (a
+   * stump, a bare bush, the marks of a fishing place), and for a tile of
+   * water the pictures of the water and its shore.
+   */
+  getScenery(tileX: number, tileY: number): SceneryInfo;
+  /** How many trees, bushes and rocks are drawn on the map. */
+  getObjectCount(): number;
   /** Sends a command to the simulation, exactly as player input and the AI do, and returns its result. */
   command(command: Command): CommandResult;
   /** Ids of the selected entities. */
@@ -176,6 +188,8 @@ export function installTestApi(source: TestApiSource): TestApi {
     getFrameCount: () => source.getFrameCount(),
     getUnitSprite: (id) => source.getUnitSprite(id),
     getBuildingSprite: (id) => source.getBuildingSprite(id),
+    getScenery: (tileX, tileY) => source.getScenery(tileX, tileY),
+    getObjectCount: () => source.getObjectCount(),
     command: (command) => source.command(command),
     getSelection: () => source.getSelection(),
     getHud: () => source.getHud(),

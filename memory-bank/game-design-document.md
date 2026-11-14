@@ -268,6 +268,13 @@ Byggregler:
   fast standardfrö i MVP:n, så alla spelar samma karta.
 - Spelaren börjar i ena hörnet, AI:n i det motsatta. Varje startplats har
   1 Storide, 3 Samlare, bärsnår och skog inom 8 rutor.
+- **Rättvis start (beslutat av användaren 2026-11-14):** båda sidor har
+  likvärdig tillgång till vatten, trä och bär, för alla frön. Varje
+  startplats har därför en egen damm 7–11 rutor bort, med plats för en
+  Fiskehytta med alla tre fiskeplatserna inom 13 rutor från Storidet.
+  Marken närmast dammen hålls fri från skog, klippor och grottor. Eftersom
+  kartan är punktspeglad har motståndaren exakt samma sak på samma
+  avstånd. Ett test prövar det över 40 frön.
 - Varje sida har 2 grottor på sin halva av kartan (avsnitt 15).
 - **Krigsdimma, tre lägen per ruta:**
   - *Outforskad:* helt svart.
@@ -346,6 +353,23 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
   trianglar, bärsnår som röda cirklar, Samlare som liten cirkel, Ramkrigare
   som större fyrkant, byggnader som färgade block med en bokstav (S, V, K).
   Lagfärg: spelare blå, fiende röd.
+- **Efter MVP:n: miljön ritas med bilder** från figurpipelinen, i samma
+  låg-poly-stil som byggnaderna och efter samma skalstandard:
+  - Tre sorters träd (två granar, ett lövträd) och tre sorters klippor,
+    blandade efter rutans plats så att en skog inte ser upprepad ut.
+  - **Källor syns minska.** Ett bärsnår är fullt av bär tills hälften är
+    plockad, har sedan få bär, och står kvar som en buske utan bär när
+    det är tomt. Ett fällt träd lämnar en stubbe. Det som blir kvar är
+    bara bild: enheter går över det, och det går inte att samla från.
+  - Vatten med vågstreck och en mjuk övergång mot land i stället för en
+    skarp kant: vattnet ljusnar de sista 0,3 rutorna (cirka 9 px) mot
+    stranden, sedan en ljus bränning, 0,12 ruta sand (cirka 3 px) och
+    sand som tonar ut över ytterligare 0,14 ruta (cirka 4 px) av gräset.
+  - **Fiskeplatser** vid en färdig Fiskehytta är märkta på stranden med
+    trampad sand och en hink.
+  - Grottan är en klippa med mörk öppning och en vimpel i ägarens färg.
+  - **Korgen visar vad Samlaren bär:** vedträn, bär, fiskar eller kärvar.
+  - Gräset är fortfarande en enfärgad romb med rutnät.
 - Speltext på svenska, samlad i en strängfil så att den kan översättas senare.
 
 ## 13. Ingår INTE i MVP:n

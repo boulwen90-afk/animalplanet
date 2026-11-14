@@ -3,12 +3,7 @@ import { MAP_CONFIG } from '../../data/map';
 import { createBuilding, createUnit } from '../../sim/entities';
 import { tileCenterToWorld, tileToWorld } from '../../sim/map/iso';
 import { openState, stateFromRows } from '../../sim/testUtils';
-import {
-  BUILDING_VISUALS,
-  TERRAIN_OBJECT_VISUALS,
-  UNIT_VISUALS,
-  unitVisualCentre,
-} from '../views/visuals';
+import { BUILDING_VISUALS, pickBoxOf, UNIT_VISUALS, unitVisualCentre } from '../views/visuals';
 import { pickEntity, pickResourceTile, rectFromPoints, unitsInRect } from './picking';
 
 const size = MAP_CONFIG;
@@ -150,13 +145,32 @@ describe('pickResourceTile', () => {
     const { map } = stateFromRows(rows);
     const centre = tileCenterToWorld(2, 1, size);
     const base = centre.y + size.tileHeight / 4;
-    const height = TERRAIN_OBJECT_VISUALS.tree!.height;
+    const { height } = pickBoxOf('tree', 2, 1)!;
     expect(pickResourceTile(map, { x: centre.x, y: base - 2 }, size)).toEqual({ x: 2, y: 1 });
     // The crown reaches well above the tree's own tile.
     expect(pickResourceTile(map, { x: centre.x, y: base - height + 3 }, size)).toEqual({
       x: 2,
       y: 1,
     });
+  });
+
+  it('leaves the very tip of a tree to the ground behind it', () => {
+    const { map } = stateFromRows(rows);
+    const centre = tileCenterToWorld(2, 1, size);
+    const base = centre.y + size.tileHeight / 4;
+    const { height } = pickBoxOf('tree', 2, 1)!;
+    // Just above the box there is still a few pixels of tree in the picture.
+    expect(pickResourceTile(map, { x: centre.x, y: base - height - 2 }, size)).toBeUndefined();
+  });
+
+  it('has a click box for every picture of a tree and a bush, and none for a rock', () => {
+    for (let x = 0; x < 12; x++) {
+      expect(pickBoxOf('tree', x, 3)).toBeDefined();
+      expect(pickBoxOf('berries', x, 3)).toBeDefined();
+      expect(pickBoxOf('rock', x, 3)).toBeUndefined();
+    }
+    expect(pickBoxOf('grass', 1, 1)).toBeUndefined();
+    expect(pickBoxOf(undefined, 1, 1)).toBeUndefined();
   });
 
   it('picks a berry bush', () => {
@@ -169,7 +183,7 @@ describe('pickResourceTile', () => {
     const { map } = stateFromRows(rows);
     const centre = tileCenterToWorld(2, 1, size);
     const base = centre.y + size.tileHeight / 4;
-    const { width, height } = TERRAIN_OBJECT_VISUALS.tree!;
+    const { width, height } = pickBoxOf('tree', 2, 1)!;
     expect(pickResourceTile(map, tileCenterToWorld(0, 4, size), size)).toBeUndefined();
     expect(
       pickResourceTile(map, { x: centre.x + width / 2 + 20, y: base - height / 2 }, size),

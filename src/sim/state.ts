@@ -1,5 +1,5 @@
 import type { BuildingType } from '../data/buildings';
-import type { ResourceType } from '../data/resources';
+import type { LoadKind, ResourceType } from '../data/resources';
 import type { UnitType } from '../data/units';
 import type { GameMap } from './map/grid';
 import type { Point } from './map/iso';
@@ -124,6 +124,11 @@ export interface Unit {
   /** Kind and amount of resource the unit carries. The kind is kept when the amount is 0. */
   carryType: ResourceType | null;
   carryAmount: number;
+  /**
+   * What the load is, as it looks: berries, fish, grain or wood. It is that
+   * of the latest unit of the resource the unit got. Null with no load.
+   */
+  carryLoad: LoadKind | null;
   /** Simulation steps until the unit may strike again. */
   attackCooldown: number;
 }

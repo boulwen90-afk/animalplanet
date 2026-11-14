@@ -3,7 +3,7 @@ import { MAP_CONFIG, MAP_GEN_CONFIG } from '../../data/map';
 import type { Terrain } from '../../data/terrain';
 import { createRng } from '../rng';
 import { isReachable, isWalkable, mirrorTile, terrainAt, tileDistance, type GameMap } from './grid';
-import { generateMap, type MapGenConfig } from './mapgen';
+import { fishingSites, generateMap, hasFishingSite, type MapGenConfig } from './mapgen';
 
 const SEEDS = Array.from({ length: 40 }, (_, i) => i);
 
@@ -134,15 +134,42 @@ describe('generateMap', () => {
     }
   });
 
-  it('keeps lakes and rocks away from the start positions', () => {
+  it("keeps rocks away from the start positions, and water at arm's length", () => {
     for (const seed of SEEDS) {
       const map = generate(seed);
       for (const start of map.startPositions) {
         const radius = MAP_GEN_CONFIG.obstacleStartDistance;
-        expect(countNear(map, 'water', start, radius), `seed ${seed}`).toBe(0);
         expect(countNear(map, 'rock', start, radius), `seed ${seed}`).toBe(0);
+        // The pond a side fishes in from the start is the only water that near, and not nearer than this.
+        const nearest = MAP_GEN_CONFIG.startWater.nearest;
+        expect(countNear(map, 'water', start, nearest - 0.01), `seed ${seed}`).toBe(0);
       }
     }
+  });
+
+  it('gives each start position water to fish in, with open ground round it', () => {
+    const water = MAP_GEN_CONFIG.startWater;
+    for (const seed of SEEDS) {
+      const map = generate(seed);
+      for (const start of map.startPositions) {
+        // A pond within reach of the start position...
+        expect(
+          countNear(map, 'water', start, water.maxDistance + 3),
+          `seed ${seed}`,
+        ).toBeGreaterThanOrEqual(water.size);
+        // ...and a place by it for a fishing hut with all its fishing places.
+        expect(fishingSites(map, start, water).length, `seed ${seed}`).toBeGreaterThan(0);
+        expect(hasFishingSite(map, start, MAP_GEN_CONFIG)).toBe(true);
+      }
+    }
+  });
+
+  it('asks for no water at the start positions without a config for it', () => {
+    const { startWater, ...config } = MAP_GEN_CONFIG;
+    expect(startWater).toBeDefined();
+    const map = generate(1, { ...config, lakes: { count: 0, minSize: 1, maxSize: 1 } });
+    expect(countAll(map, 'water')).toBe(0);
+    expect(hasFishingSite(map, map.startPositions[0]!, config)).toBe(true);
   });
 
   it('falls back to a connected map when every random layout is blocked', () => {
@@ -155,7 +182,8 @@ describe('generateMap', () => {
     });
     const [a, b] = map.startPositions;
     expect(isReachable(map, a!, b!)).toBe(true);
-    expect(countAll(map, 'water')).toBe(0);
+    // Only the two ponds by the start positions are left of the water.
+    expect(countAll(map, 'water')).toBe(2 * MAP_GEN_CONFIG.startWater.size);
     expect(countNear(map, 'tree', a!, 8)).toBe(MAP_GEN_CONFIG.startTrees);
   });
 

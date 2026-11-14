@@ -24,7 +24,7 @@ apron = true            # leather, at the front, from the belt down
 belt = true
 basket = true           # wicker, on the back
 basket_radii = [0.27, 0.37]   # at the bottom and at the rim
-basket_loads = ["wood", "food"]   # what it can be filled with; see [[layer]] below
+basket_loads = ["wood", "berries", "fish", "grain"]   # what it can be filled with; see [[layer]] below
 
 [weapon]
 type = "axe"            # a hatchet: it fells trees, and strikes when the worker must fight
@@ -59,13 +59,28 @@ shown_in = ["fish"]
 
 # Pictures of their own in the atlas, drawn by the game on top of the figure:
 # the basket filled with what the unit carries.
+# A load is only drawn in the animations where it can be seen for long: while
+# the unit stands or walks with it, and while it does the work that fills the
+# basket. That keeps the atlas small; in other animations the basket looks empty.
 [[layer]]
 name = "load_wood"
 parts = "load.wood."
+shown_in = ["idle", "walk", "chop"]
 
 [[layer]]
-name = "load_food"
-parts = "load.food."
+name = "load_berries"
+parts = "load.berries."
+shown_in = ["idle", "walk", "pick"]
+
+[[layer]]
+name = "load_fish"
+parts = "load.fish."
+shown_in = ["idle", "walk", "fish"]
+
+[[layer]]
+name = "load_grain"
+parts = "load.grain."
+shown_in = ["idle", "walk", "till"]
 
 [colors]
 steel = "#8a94a0"
@@ -80,6 +95,13 @@ log = "#7a5230"
 log_end = "#dcb67c"
 berry = "#d8334a"
 berry_light = "#f06a78"
+fish = "#8fa0ad"
+fish_light = "#c3ced6"
+fish_dark = "#5d6b77"
+straw = "#c9a550"
+straw_dark = "#8f7332"
+grain = "#e0bd55"
+grain_light = "#f0d67c"
 
 # The static pose: which way each part of a limb points from its joint.
 # The figure faces -Y; its right side is -X.
