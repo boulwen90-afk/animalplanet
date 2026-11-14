@@ -1,11 +1,11 @@
-import { BUILDING_DEFS } from '../../data/buildings';
+import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
 import { GATHER_CONFIG, type ResourceType } from '../../data/resources';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
 import { isBuilding, isUnit, nearestBuildingTile, tileGapToBuilding, unitTile } from '../entities';
-import { tileDistance } from '../map/grid';
+import { isWater, tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
-import { findPath, reachableTiles, type PathGrid } from '../pathfinding/astar';
+import { findPath, isPassable, reachableTiles, type PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
 import { resourceAt, takeFromSource } from '../resources';
 import type { Building, GameState, GatherTask, Unit } from '../state';
@@ -112,7 +112,7 @@ export function startWorking(
 ): boolean {
   const capacity = UNIT_DEFS[unit.type].carryCapacity;
   if (capacity <= 0 || building.owner !== unit.owner) return false;
-  const site = freeWorkSite(state, unit, building);
+  const site = freeWorkSite(state, grid, unit, building);
   const work = site && BUILDING_DEFS[site.building.type].work;
   if (!site || !work) return false;
 
@@ -137,15 +137,142 @@ export function startWorking(
   return true;
 }
 
-/** The tiles of a building that its workers stand on, one each, from its far corner. */
-export function workTiles(building: Building): Point[] {
-  const count = BUILDING_DEFS[building.type].work?.workers ?? 0;
+/**
+ * The tiles that the workers of a building stand on, one each. On a field
+ * they are tiles of the building itself, from its far corner. For a fishing
+ * hut they are the open tiles beside water closest to the hut, within its
+ * reach: always the same ones as long as the ground there does not change.
+ *
+ * @param canReach If given (see `reachableTiles`), only tiles that can be
+ * walked to count. A stretch of shore shut in by trees, rocks or the hut
+ * itself is no place to fish from.
+ */
+export function workTiles(
+  state: GameState,
+  grid: PathGrid,
+  building: Building,
+  canReach?: Uint8Array,
+): Point[] {
+  const work = BUILDING_DEFS[building.type].work;
+  if (!work) return [];
   const size = BUILDING_DEFS[building.type].size;
-  const tiles: Point[] = [];
-  for (let i = 0; i < count && i < size * size; i++) {
-    tiles.push({ x: building.x + (i % size), y: building.y + Math.floor(i / size) });
+  const within = (tile: Point) => !canReach || canReach[tile.y * grid.width + tile.x] === 1;
+  if (work.places === 'inside') {
+    const tiles: Point[] = [];
+    for (let i = 0; i < work.workers && i < size * size; i++) {
+      tiles.push({ x: building.x + (i % size), y: building.y + Math.floor(i / size) });
+    }
+    return tiles.filter(within);
   }
-  return tiles;
+  return shorePlaces(state, grid, building, size, work.reach ?? 0, canReach).slice(0, work.workers);
+}
+
+/**
+ * The places workers would have at a building of a type, if it stood with
+ * its footprint's corner on a tile: as `workTiles` gives for a building that
+ * stands, counting only places that can be walked to from `from` once the
+ * building is there. Without `from`, every open place counts. For a building
+ * whose workers stand on it, they are its own tiles. Used to refuse a place
+ * that gives no work, to show a player what a place by the water is worth,
+ * and by the computer player to choose one.
+ */
+export function plannedWorkTiles(
+  state: GameState,
+  type: BuildingType,
+  corner: Point,
+  from?: Point,
+): Point[] {
+  const def = BUILDING_DEFS[type];
+  const work = def.work;
+  if (!work) return [];
+  if (work.places === 'inside') {
+    const tiles: Point[] = [];
+    for (let i = 0; i < work.workers && i < def.size * def.size; i++) {
+      tiles.push({ x: corner.x + (i % def.size), y: corner.y + Math.floor(i / def.size) });
+    }
+    return tiles;
+  }
+  // The building itself may shut a stretch of shore in.
+  const grid = buildPathGrid(state);
+  for (let y = corner.y; y < corner.y + def.size; y++) {
+    for (let x = corner.x; x < corner.x + def.size; x++) {
+      if (x >= 0 && y >= 0 && x < grid.width && y < grid.height)
+        grid.blocked[y * grid.width + x] = 1;
+    }
+  }
+  const canReach = from && reachableTiles(grid, from);
+  return shorePlaces(state, grid, corner, def.size, work.reach ?? 0, canReach).slice(
+    0,
+    work.workers,
+  );
+}
+
+/**
+ * The open tiles beside water around a square footprint, no further from it
+ * than `reach` tiles, the closest first. The footprint's own tiles are left
+ * out, so this can be asked before anything stands there.
+ */
+export function shorePlaces(
+  state: GameState,
+  grid: PathGrid,
+  corner: Point,
+  size: number,
+  reach: number,
+  canReach?: Uint8Array,
+): Point[] {
+  const centre = { x: corner.x + size / 2, y: corner.y + size / 2 };
+  const shore: { tile: Point; gap: number; distance: number }[] = [];
+  for (let y = corner.y - reach; y < corner.y + size + reach; y++) {
+    for (let x = corner.x - reach; x < corner.x + size + reach; x++) {
+      const inside = x >= corner.x && y >= corner.y && x < corner.x + size && y < corner.y + size;
+      if (inside || !isPassable(grid, x, y) || !isShore(state, x, y)) continue;
+      if (canReach && canReach[y * grid.width + x] !== 1) continue;
+      shore.push({
+        tile: { x, y },
+        gap: Math.max(
+          corner.x - x,
+          x - (corner.x + size - 1),
+          corner.y - y,
+          y - (corner.y + size - 1),
+          0,
+        ),
+        distance: Math.hypot(x + 0.5 - centre.x, y + 0.5 - centre.y),
+      });
+    }
+  }
+  // The closest first; ties are settled by the order of the tiles, so the result is always the same.
+  shore.sort((a, b) => a.gap - b.gap || a.distance - b.distance);
+  return shore.map((entry) => entry.tile);
+}
+
+/** True for a tile with water on one of its four sides. */
+function isShore(state: GameState, x: number, y: number): boolean {
+  return waterBeside(state, { x, y }) !== undefined;
+}
+
+/** The water tile on one of the four sides of a tile, if any: the first in a fixed order. */
+function waterBeside(state: GameState, tile: Point): Point | undefined {
+  for (const [dx, dy] of AROUND.slice(0, 4)) {
+    if (isWater(state.map, tile.x + dx, tile.y + dy)) return { x: tile.x + dx, y: tile.y + dy };
+  }
+  return undefined;
+}
+
+/**
+ * The point a unit at work on a building looks at, in tiles: the water it
+ * fishes in, or the middle of the field it tills. Undefined if its task is
+ * not work at that building.
+ */
+export function workFocus(state: GameState, unit: Unit, building: Building): Point | undefined {
+  const task = unit.task;
+  if (task.kind !== 'gather' || task.siteId !== building.id || !task.place) return undefined;
+  const work = BUILDING_DEFS[building.type].work;
+  if (work?.places === 'shore') {
+    const water = waterBeside(state, task.place);
+    if (water) return { x: water.x + 0.5, y: water.y + 0.5 };
+  }
+  const size = BUILDING_DEFS[building.type].size;
+  return { x: building.x + size / 2, y: building.y + size / 2 };
 }
 
 /** The units that work at a building, wherever they are on their round. */
@@ -172,9 +299,15 @@ function workSite(state: GameState, unit: Unit, id: number): Building | undefine
  */
 function freeWorkSite(
   state: GameState,
+  grid: PathGrid,
   unit: Unit,
   wanted: Building,
 ): { building: Building; tile: Point } | undefined {
+  // A place is one tile, whoever it belongs to: two huts that share a
+  // stretch of shore share its places too.
+  const taken = takenPlaces(state, grid, unit);
+  // And it must be a tile the unit can walk to.
+  const canReach = reachableTiles(grid, unitTile(unit));
   let best: { building: Building; tile: Point } | undefined;
   let bestDistance = Infinity;
   for (const entity of state.entities) {
@@ -182,11 +315,11 @@ function freeWorkSite(
     if (!workSite(state, unit, entity.id)) continue;
     const distance = entity === wanted ? -1 : tileDistance(entity.x, entity.y, wanted.x, wanted.y);
     if (distance > GATHER_CONFIG.searchRadius || distance >= bestDistance) continue;
-    const taken = workersAt(state, entity.id)
-      .filter((other) => other !== unit)
-      .map((other) => (other.task.kind === 'gather' ? other.task.place : null));
-    const tile = workTiles(entity).find(
-      (candidate) => !taken.some((t) => t && t.x === candidate.x && t.y === candidate.y),
+    const work = BUILDING_DEFS[entity.type].work;
+    const others = workersAt(state, entity.id).filter((other) => other !== unit).length;
+    if (!work || others >= work.workers) continue;
+    const tile = workTiles(state, grid, entity, canReach).find(
+      (candidate) => !taken.has(candidate.y * grid.width + candidate.x),
     );
     if (!tile) continue;
     best = { building: entity, tile };
@@ -323,10 +456,19 @@ function freePlaces(
  * kind near the unit, otherwise home with whatever it carries, otherwise idle.
  */
 function retarget(state: GameState, grid: PathGrid, unit: Unit, task: GatherTask): boolean {
-  // A building it worked at is gone, or was never reached: another of the
-  // same kind nearby, if there is one with room.
+  // A building it worked at is gone, or the unit did not get to its place:
+  // the same building again if it still stands, with any place it has free,
+  // otherwise another of the same kind nearby with room.
   if (task.siteId !== null) {
     const lost = state.entities.find((entity) => entity.id === task.siteId);
+    const still = workSite(state, unit, task.siteId);
+    if (still) {
+      const load = unit.carryAmount;
+      if (startWorking(state, grid, unit, still)) {
+        unit.carryAmount = load;
+        return false;
+      }
+    }
     const others = state.entities.filter(
       (entity): entity is Building =>
         isBuilding(entity) &&
@@ -443,12 +585,16 @@ function walkToSource(state: GameState, grid: PathGrid, unit: Unit, task: Gather
  */
 function headToDropoff(state: GameState, grid: PathGrid, unit: Unit, task: GatherTask): boolean {
   const here = unitTile(unit);
+  // What is got at some buildings is carried to that building and nowhere else: fish to the hut.
+  const site = task.siteId === null ? undefined : workSite(state, unit, task.siteId);
+  const own = site && BUILDING_DEFS[site.type].work?.deliverTo === 'here' ? site : undefined;
   let nearest: Building | undefined;
   let nearestGap = Infinity;
   for (const entity of state.entities) {
     if (!isBuilding(entity) || entity.owner !== unit.owner) continue;
+    if (own && entity !== own) continue;
     // A building under construction does not take deliveries.
-    if (!BUILDING_DEFS[entity.type].dropoff || !entity.complete) continue;
+    if ((!BUILDING_DEFS[entity.type].dropoff && entity !== own) || !entity.complete) continue;
     const gap = tileGapToBuilding(entity, here.x, here.y);
     if (gap < nearestGap) {
       nearest = entity;

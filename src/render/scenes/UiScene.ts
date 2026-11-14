@@ -196,6 +196,13 @@ export class UiScene extends Scene {
   private barShown: ResourceBarDisplay = { food: '', wood: '', population: '' };
   /** Frame time until which each resource bar text is shown in the warning colour. */
   private readonly flashUntil: Record<BarKey, number> = { food: 0, wood: 0, population: 0 };
+  /**
+   * Flashes asked for since the last frame, and how long each is to last in
+   * milliseconds. Their time starts with the frame that first shows them: a
+   * press is handled between two frames, and counted from the frame before
+   * it, a short flash would be over before a slow frame had drawn it once.
+   */
+  private readonly flashPending: Partial<Record<BarKey, number>> = {};
   /** Whether each resource bar text is currently drawn in the warning colour. */
   private readonly barFlashing: Record<BarKey, boolean> = {
     food: false,
@@ -397,6 +404,12 @@ export class UiScene extends Scene {
 
   override update(time: number): void {
     this.now = time;
+    for (const key of BAR_KEYS) {
+      const lasts = this.flashPending[key];
+      if (lasts === undefined) continue;
+      this.flashUntil[key] = time + lasts;
+      delete this.flashPending[key];
+    }
     this.updateLoading();
     this.updateDebug(time);
     this.updateResourceBar();
@@ -431,7 +444,12 @@ export class UiScene extends Scene {
 
   /** The resource bar texts that are flashing in the warning colour right now. */
   getFlashing(): BarKey[] {
-    return BAR_KEYS.filter((key) => this.now < this.flashUntil[key]);
+    return BAR_KEYS.filter((key) => this.isFlashing(key));
+  }
+
+  /** True for a number that is red now, or will be from the next frame. */
+  private isFlashing(key: BarKey): boolean {
+    return this.flashPending[key] !== undefined || this.now < this.flashUntil[key];
   }
 
   /** What the command panel shows right now. */
@@ -708,12 +726,13 @@ export class UiScene extends Scene {
   /** Flashes the resource bar texts that explain why an order was refused. */
   showRefusal(result: CommandResult): void {
     if (result.ok) return;
-    const until = this.now + UI_CONFIG.refusalFlashMs;
     if (result.reason === 'insufficientResources') {
-      for (const resource of result.missing) this.flashUntil[resource] = until;
+      for (const resource of result.missing) {
+        this.flashPending[resource] = UI_CONFIG.refusalFlashMs;
+      }
     } else if (result.reason === 'housingFull' || result.reason === 'populationCap') {
       // The number stays red as long as the message that explains it shows.
-      this.flashUntil.population = this.now + UI_CONFIG.noticeMs;
+      this.flashPending.population = UI_CONFIG.noticeMs;
       this.showNotice(
         result.reason === 'housingFull'
           ? STRINGS.hud.housingFull(housingName())
@@ -738,7 +757,7 @@ export class UiScene extends Scene {
 
     // Changing a text's colour redraws it, so only do it when the flash starts or ends.
     for (const key of BAR_KEYS) {
-      const flashing = this.now < this.flashUntil[key];
+      const flashing = this.isFlashing(key);
       if (flashing === this.barFlashing[key]) continue;
       this.barFlashing[key] = flashing;
       this.barTexts[key].setColor(flashing ? FLASH_COLOR : TEXT_COLOR);

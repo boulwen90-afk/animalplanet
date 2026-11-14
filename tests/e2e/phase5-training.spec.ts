@@ -10,6 +10,7 @@ import {
   getSelection,
   getState,
   openGame,
+  recordFlashes,
   tileToScreen,
   trackConsoleErrors,
 } from './helpers';
@@ -154,9 +155,10 @@ test.describe('phase 5: training workers', () => {
     expect((await getState(page)).players[0]!.resources.food).toBe(START_FOOD - affordable * COST);
     expect(await page.evaluate(() => window.__TEST__!.getFlashing())).toEqual([]);
 
+    const flashed = await recordFlashes(page);
     await clickTrain(page);
 
-    expect(await page.evaluate(() => window.__TEST__!.getFlashing())).toEqual(['food']);
+    await expect.poll(flashed).toEqual(['food']);
     const state = await getState(page);
     expect(playerStoride(state).queue).toHaveLength(affordable);
     expect(state.players[0]!.resources.food).toBe(START_FOOD - affordable * COST);

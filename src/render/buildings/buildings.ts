@@ -5,6 +5,9 @@ import bearBarracksMaskUrl from '../../../assets/buildings/bear_barracks/bear_ba
 import bearFieldAtlasUrl from '../../../assets/buildings/bear_field/bear_field.json?url';
 import bearFieldBaseUrl from '../../../assets/buildings/bear_field/bear_field.png';
 import bearFieldMaskUrl from '../../../assets/buildings/bear_field/bear_field_mask.png';
+import bearFisheryAtlasUrl from '../../../assets/buildings/bear_fishery/bear_fishery.json?url';
+import bearFisheryBaseUrl from '../../../assets/buildings/bear_fishery/bear_fishery.png';
+import bearFisheryMaskUrl from '../../../assets/buildings/bear_fishery/bear_fishery_mask.png';
 import bearMainAtlasUrl from '../../../assets/buildings/bear_main/bear_main.json?url';
 import bearMainBaseUrl from '../../../assets/buildings/bear_main/bear_main.png';
 import bearMainMaskUrl from '../../../assets/buildings/bear_main/bear_main_mask.png';
@@ -43,6 +46,12 @@ export const BUILDING_ART: Partial<Record<BuildingType, BuildingSource>> = {
     atlasUrl: bearBarracksAtlasUrl,
     baseUrl: bearBarracksBaseUrl,
     maskUrl: bearBarracksMaskUrl,
+  },
+  fiskehytta: {
+    name: 'bear_fishery',
+    atlasUrl: bearFisheryAtlasUrl,
+    baseUrl: bearFisheryBaseUrl,
+    maskUrl: bearFisheryMaskUrl,
   },
   odling: {
     name: 'bear_field',

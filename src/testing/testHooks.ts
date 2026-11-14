@@ -11,7 +11,7 @@ import type {
   StartScreenDisplay,
 } from '../render/scenes/UiScene';
 import type { BuildingSpriteInfo, UnitSpriteInfo } from '../render/views/EntityView';
-import type { Placement } from '../render/views/PlacementView';
+import type { Placement, PlacementPreviewInfo } from '../render/views/PlacementView';
 import type { Command, CommandResult } from '../sim/commands';
 import type { Point } from '../sim/map/iso';
 import type { GameState, PlayerId } from '../sim/state';
@@ -58,6 +58,7 @@ export interface TestApiSource {
   getFlashing(): string[];
   getCommandPanel(): CommandPanelDisplay;
   getPlacement(): Placement | null;
+  getPlacementPreview(): PlacementPreviewInfo | null;
   getOrderMarkerCount(): number;
   tileToScreen(tileX: number, tileY: number): Point;
   centerCameraOnTile(tileX: number, tileY: number): void;
@@ -123,6 +124,11 @@ export interface TestApi {
   getCommandPanel(): CommandPanelDisplay;
   /** The building being placed and where its outline is, or null when no building is being placed. */
   getPlacement(): Placement | null;
+  /**
+   * The picture of the building being placed: its texture, and whether it
+   * is shown in red. Null when no building is being placed or it has no pictures.
+   */
+  getPlacementPreview(): PlacementPreviewInfo | null;
   /** Number of order rings currently visible. */
   getOrderMarkerCount(): number;
   /**
@@ -177,6 +183,7 @@ export function installTestApi(source: TestApiSource): TestApi {
     getFlashing: () => source.getFlashing(),
     getCommandPanel: () => source.getCommandPanel(),
     getPlacement: () => source.getPlacement(),
+    getPlacementPreview: () => source.getPlacementPreview(),
     getOrderMarkerCount: () => source.getOrderMarkerCount(),
     tileToScreen: (tileX, tileY) => source.tileToScreen(tileX, tileY),
     centerCameraOnTile: (tileX, tileY) => source.centerCameraOnTile(tileX, tileY),

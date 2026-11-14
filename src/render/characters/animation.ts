@@ -17,7 +17,7 @@ export const DIRECTIONS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
 export type Direction = (typeof DIRECTIONS)[number];
 
 export type CharacterAnimation =
-  'idle' | 'walk' | 'attack' | 'chop' | 'pick' | 'till' | 'hammer' | 'defeat';
+  'idle' | 'walk' | 'attack' | 'chop' | 'pick' | 'till' | 'fish' | 'hammer' | 'defeat';
 
 /** What a unit is doing, as far as its animation goes. */
 export type Activity = Exclude<CharacterAnimation, 'defeat'>;
@@ -38,16 +38,20 @@ export interface AnimationInfo {
 
 /** What a character has pictures of. Every character can stand, walk and give up. */
 export type CharacterAnimations = Record<'idle' | 'walk' | 'defeat', AnimationInfo> &
-  Partial<Record<'attack' | 'chop' | 'pick' | 'till' | 'hammer', AnimationInfo>>;
+  Partial<Record<'attack' | 'chop' | 'pick' | 'till' | 'fish' | 'hammer', AnimationInfo>>;
 
 /** How a unit works each resource: it chops wood and picks food. */
 export const GATHER_ACTIVITY: Record<ResourceType, Activity> = { wood: 'chop', food: 'pick' };
 
 /**
  * How a unit works a building that yields a resource, where that differs
- * from working the same resource on the map: it tills a field with a hoe.
+ * from working the same resource on the map: it tills a field with a hoe,
+ * and fishes with a rod by a fishing hut.
  */
-export const SITE_ACTIVITY: Partial<Record<BuildingType, Activity>> = { odling: 'till' };
+export const SITE_ACTIVITY: Partial<Record<BuildingType, Activity>> = {
+  odling: 'till',
+  fiskehytta: 'fish',
+};
 
 /** How a unit raises a building. */
 export const BUILD_ACTIVITY: Activity = 'hammer';
@@ -153,6 +157,7 @@ const STAND_INS: Record<Activity, readonly CharacterAnimation[]> = {
   chop: ['attack'],
   pick: ['chop'],
   till: ['pick', 'chop'],
+  fish: ['pick', 'chop'],
   hammer: ['chop'],
 };
 

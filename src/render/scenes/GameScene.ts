@@ -76,6 +76,7 @@ export class GameScene extends Scene implements HudSource {
   private cameraController!: CameraController;
   private selectionController!: SelectionController;
   private placementController!: PlacementController;
+  private placementView!: PlacementView;
   private touchController!: TouchController;
   /** False while the start screen is showing; the match has not begun. */
   private started: boolean;
@@ -128,11 +129,12 @@ export class GameScene extends Scene implements HudSource {
     this.mapView = new MapView(this, state.map, MAP_CONFIG);
     this.caveView = new CaveView(this, state.map, MAP_CONFIG);
     if (state.fogEnabled) this.fogView = new FogView(this, state.map, MAP_CONFIG);
+    const buildingArt = new BuildingLibrary(this, PLAYER_COLORS);
     this.entityView = new EntityView(
       this,
       MAP_CONFIG,
       new CharacterLibrary(this, PLAYER_COLORS),
-      new BuildingLibrary(this, PLAYER_COLORS),
+      buildingArt,
     );
     this.selectionView = new SelectionView(this);
 
@@ -151,6 +153,7 @@ export class GameScene extends Scene implements HudSource {
       view: this.selectionView,
     });
 
+    this.placementView = new PlacementView(this, MAP_CONFIG, buildingArt, LOCAL_PLAYER);
     // Created after the selection controller: see PlacementController.
     this.placementController = new PlacementController(this, {
       getState: () => state,
@@ -161,7 +164,7 @@ export class GameScene extends Scene implements HudSource {
         builderUnitIds(this.selectionController.selection, state.entities, LOCAL_PLAYER, type),
       player: LOCAL_PLAYER,
       tileSize: MAP_CONFIG,
-      view: new PlacementView(this, MAP_CONFIG),
+      view: this.placementView,
     });
 
     this.touchController = new TouchController(this, {
@@ -503,6 +506,7 @@ export class GameScene extends Scene implements HudSource {
         const placement = this.placementController.current;
         return placement ? { ...placement } : null;
       },
+      getPlacementPreview: () => this.placementView.describePreview(),
       getOrderMarkerCount: () => this.selectionView.orderMarkerCount,
       tileToScreen: (tileX, tileY) => {
         const world = tileToWorld(tileX, tileY, MAP_CONFIG);

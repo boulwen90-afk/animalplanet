@@ -508,7 +508,51 @@ def stakes(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
         b.limb(f"{name}.cord_{i}", at + UP * h * 0.8, nxt + UP * h * 0.8, 0.01, 0.01, pal["sack"], 4)
 
 
+def fish_rack(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """A drying rack: two posts and a rail, with fish hung from it by their tails."""
+    x, y = p["at"]
+    z0, w, h = p.get("z", 0.0), p.get("width", 0.7), p.get("height", 0.5)
+    _, along = FACES[p.get("face", "-y")]
+    centre = Vector((x, y, z0))
+    for i, sign in enumerate((-1.0, 1.0)):
+        foot = centre + along * sign * w / 2
+        b.limb(f"{name}.post_{i}", foot, foot + UP * h, 0.035, 0.03, pal["timber_dark"], 4)
+    b.limb(f"{name}.rail", centre + along * (-w / 2 - 0.05) + UP * h * 0.95, centre + along * (w / 2 + 0.05) + UP * h * 0.95, 0.025, 0.025, pal["timber_dark"], 4)
+    count = p.get("count", 4)
+    for i in range(count):
+        at = centre + along * w * ((i + 0.5) / count - 0.5) + UP * h * 0.95
+        # They are not all the same size, in a fixed pattern.
+        long = 0.2 + 0.04 * ((i * 3) % 3)
+        b.limb(f"{name}.tail_{i}", at, at - UP * 0.06, 0.035, 0.012, pal["fish_dark"], 4)
+        b.ellipsoid(f"{name}.fish_{i}", at - UP * (0.06 + long / 2), (0.045, 0.02, long / 2), pal["fish"], detail=1)
+
+
+def net(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """A fishing net hung to dry between two poles, with floats along its top."""
+    x, y = p["at"]
+    z0, w, h = p.get("z", 0.0), p.get("width", 0.7), p.get("height", 0.55)
+    normal, along = FACES[p.get("face", "-y")]
+    centre = Vector((x, y, z0))
+    for i, sign in enumerate((-1.0, 1.0)):
+        foot = centre + along * sign * w / 2
+        b.limb(f"{name}.pole_{i}", foot, foot + UP * h, 0.03, 0.025, pal["timber_dark"], 4)
+    # The net sags between the poles and hangs a little away from them at the foot.
+    rows = []
+    for v in (1.0, 0.6, 0.2):
+        row = []
+        for u in (-1.0, -0.5, 0.0, 0.5, 1.0):
+            sag = 0.1 * (1 - u * u)
+            row.append(tuple(centre + along * u * w / 2 + UP * (h * v - sag * v) + normal * 0.05 * (1 - v)))
+        rows.append(row)
+    b.sheet(f"{name}.mesh", rows, pal["net"])
+    for i, u in enumerate((-0.6, -0.2, 0.2, 0.6)):
+        at = centre + along * u * w / 2 + UP * (h - 0.1 * (1 - u * u))
+        b.ellipsoid(f"{name}.float_{i}", at, (0.04, 0.04, 0.04), pal["timber_new"], detail=1)
+
+
 PARTS = {
+    "fish_rack": fish_rack,
+    "net": net,
     "soil": soil,
     "crops": crops,
     "fence": fence,

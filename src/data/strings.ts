@@ -14,6 +14,7 @@ export const STRINGS = {
     krigshall: 'Krigshall',
     ide: 'Ide',
     odling: 'Odling',
+    fiskehytta: 'Fiskehytta',
   } satisfies Record<BuildingType, string>,
   /** One short line about each building, shown in the build menu. */
   buildingInfo: {
@@ -22,6 +23,7 @@ export const STRINGS = {
     krigshall: 'Tränar Ramkrigare',
     ide: '+5 befolkning',
     odling: 'Oändlig mat, 1 Samlare',
+    fiskehytta: 'Fiske vid vatten, 3 Samlare',
   } satisfies Record<BuildingType, string>,
   /** One short line about each unit, shown on its train button. */
   unitInfo: {
@@ -43,6 +45,15 @@ export const STRINGS = {
     /** Shown when a unit cannot be trained for lack of room. */
     housingFull: (housing: string) => `Ingen plats – bygg ett ${housing}`,
     populationCap: (cap: number) => `Befolkningstaket ${cap} är nått`,
+    /** Shown by the outline of a building where it cannot be placed: why not. */
+    placement: {
+      blocked: 'Platsen är upptagen',
+      unexplored: 'Outforskad mark',
+      needsShore: 'Måste stå intill vatten',
+      noWorkPlace: 'Ingen fiskeplats här',
+      /** Shown where a fishing hut may stand: how many of its workers get a place on the shore. */
+      workPlaces: (count: number) => (count === 1 ? '1 fiskeplats' : `${count} fiskeplatser`),
+    },
     gathering: (resource: string, carried: number, capacity: number) =>
       `Samlar ${resource.toLowerCase()} ${carried}/${capacity}`,
     carrying: (resource: string, carried: number) => `Bär ${carried} ${resource.toLowerCase()}`,

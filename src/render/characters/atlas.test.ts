@@ -44,7 +44,7 @@ const FIGURES: {
     unit: 'samlare',
     sizeClass: 'worker',
     tileWidths: 0.46,
-    animations: ['idle', 'walk', 'chop', 'pick', 'hammer', 'defeat'],
+    animations: ['idle', 'walk', 'chop', 'pick', 'till', 'fish', 'hammer', 'defeat'],
     layers: ['load_wood', 'load_food'],
   },
 ];

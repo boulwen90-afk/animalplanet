@@ -3,8 +3,14 @@ import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
 import type { Command, CommandResult } from '../../sim/commands';
 import { worldToTile, type Point, type TileSize } from '../../sim/map/iso';
 import type { GameState, PlayerId } from '../../sim/state';
-import { canPlaceBuilding } from '../../sim/systems/construction';
+import { STRINGS } from '../../data/strings';
+import { unitTile } from '../../sim/entities';
+import { footprintProblem, placementProblem } from '../../sim/systems/construction';
+import { plannedWorkTiles } from '../../sim/systems/gathering';
 import type { Placement, PlacementView } from '../views/PlacementView';
+
+/** How often the work places of the building being placed are worked out again, in milliseconds. */
+const PLACES_REFRESH_MS = 500;
 
 export interface PlacementControllerDeps {
   getState(): GameState;
@@ -23,7 +29,8 @@ export interface PlacementControllerDeps {
 
 /**
  * Choosing where to put a building. While active, an outline of the
- * building follows the mouse: green where it may stand, red where not.
+ * building follows the mouse: green where it may stand, red where not, and
+ * there with a few words that say why not.
  * Left click places it there if the place is valid; right click or Esc cancels.
  *
  * A finger cannot hover, so on a touch screen the outline starts in the
@@ -39,6 +46,9 @@ export class PlacementController {
   private placement: Placement | undefined;
   /** Where a finger has put the outline; undefined while the mouse leads it. */
   private touchOrigin: Point | undefined;
+  /** The work places last worked out, and for which outline and when. */
+  private places:
+    { building: BuildingType; x: number; y: number; at: number; tiles: Point[] } | undefined;
 
   constructor(
     private readonly scene: Scene,
@@ -92,13 +102,73 @@ export class PlacementController {
       this.touchOrigin = undefined;
       origin = this.originAt(building, pointer.x, pointer.y);
     }
+    // A building that is worked from the shore shows where, and how many
+    // get a place. With no place for anyone it may not stand there.
+    const ground = footprintProblem(
+      this.deps.getState(),
+      building,
+      origin.x,
+      origin.y,
+      this.deps.player,
+    );
+    const found = ground ? undefined : this.placesAt(building, origin);
+    const problem = ground ?? (found?.length === 0 ? 'noWorkPlace' : undefined);
+    const places = problem ? undefined : found;
     this.placement = {
       building,
       x: origin.x,
       y: origin.y,
-      valid: canPlaceBuilding(this.deps.getState(), building, origin.x, origin.y, this.deps.player),
+      valid: problem === undefined,
+      // Where it may not stand, a few words say why.
+      ...(problem ? { problem, note: STRINGS.hud.placement[problem] } : {}),
+      ...(places ? { places, note: STRINGS.hud.placement.workPlaces(places.length) } : {}),
     };
     this.deps.view.update(this.placement);
+  }
+
+  /**
+   * What stops the building from standing with its footprint's corner on a
+   * tile, if anything: by the rules the simulation itself uses when it is ordered.
+   */
+  private problemAt(building: BuildingType, origin: Point) {
+    const state = this.deps.getState();
+    const [builderId] = this.deps.getBuilderIds(building);
+    const builder = state.entities.find((entity) => entity.id === builderId);
+    return placementProblem(
+      state,
+      building,
+      origin.x,
+      origin.y,
+      this.deps.player,
+      builder?.kind === 'unit' ? unitTile(builder) : undefined,
+    );
+  }
+
+  /**
+   * Where the workers of the building would stand around it, for a building
+   * that is worked from the shore; undefined for other buildings. It is
+   * worked out again only when the outline moves, or after half a second.
+   */
+  private placesAt(building: BuildingType, origin: Point): Point[] | undefined {
+    if (BUILDING_DEFS[building].work?.places !== 'shore') return undefined;
+    const now = this.scene.time.now;
+    const cached = this.places;
+    if (
+      cached &&
+      cached.building === building &&
+      cached.x === origin.x &&
+      cached.y === origin.y &&
+      now - cached.at < PLACES_REFRESH_MS
+    ) {
+      return cached.tiles;
+    }
+    const state = this.deps.getState();
+    const [builderId] = this.deps.getBuilderIds(building);
+    const builder = state.entities.find((entity) => entity.id === builderId);
+    const tiles =
+      builder?.kind === 'unit' ? plannedWorkTiles(state, building, origin, unitTile(builder)) : [];
+    this.places = { building, x: origin.x, y: origin.y, at: now, tiles };
+    return tiles;
   }
 
   /** The footprint corner that puts the middle of the building at a screen position. */
@@ -151,8 +221,7 @@ export class PlacementController {
   /** Orders the building at a footprint corner, if it may stand there. */
   private place(building: BuildingType, origin: Point): void {
     // On an invalid place a click does nothing; the outline is already red.
-    if (!canPlaceBuilding(this.deps.getState(), building, origin.x, origin.y, this.deps.player))
-      return;
+    if (this.problemAt(building, origin)) return;
     const result = this.deps.issue({
       type: 'build',
       player: this.deps.player,

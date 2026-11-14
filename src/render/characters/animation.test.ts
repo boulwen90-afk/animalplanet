@@ -114,6 +114,11 @@ describe('activityOf for a worker', () => {
     expect(activityOf(gathering('gathering', 'food'), 'visthus')).toBe('pick');
   });
 
+  it('fishes while it works by a fishing hut', () => {
+    expect(activityOf(gathering('gathering', 'food'), 'fiskehytta')).toBe('fish');
+    expect(activityOf(gathering('toSource', 'food'), 'fiskehytta')).toBe('idle');
+  });
+
   it('goes on working when a neighbour nudges it aside', () => {
     const nudged = gathering('gathering');
     nudged.prevX = nudged.x - 0.02;
@@ -212,6 +217,11 @@ describe('animationFor', () => {
     expect(animationFor(chopper, 'pick')).toBe('chop');
     expect(animationFor(chopper, 'hammer')).toBe('chop');
     expect(animationFor(chopper, 'till')).toBe('chop');
+  });
+
+  it('lets a character without a rod fish as it picks', () => {
+    expect(animationFor(worker, 'fish')).toBe('pick');
+    expect(animationFor({ ...worker, fish: info }, 'fish')).toBe('fish');
   });
 
   it('lets a character without a hoe till as it picks', () => {

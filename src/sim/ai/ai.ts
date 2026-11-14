@@ -13,12 +13,16 @@ import {
   isBuilding,
   isUnit,
   reservedPopulation,
+  unitTile,
 } from '../entities';
-import { inBounds, isWalkable, tileDistance } from '../map/grid';
+import { inBounds, isWalkable, isWater, tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
 import { resourceAmountAt, resourceAt } from '../resources';
 import type { AiState, Building, GameState, PlayerId, Unit } from '../state';
+import { reachableTiles, type PathGrid } from '../pathfinding/astar';
+import { buildPathGrid } from '../pathfinding/passability';
 import { canPlaceBuilding } from '../systems/construction';
+import { plannedWorkTiles } from '../systems/gathering';
 
 /**
  * The computer opponent. It plays by the same rules as a person: everything
@@ -144,7 +148,7 @@ function build(
   }
 
   const centre = buildingCentre(base);
-  const wanted: { type: BuildingType; near: Point }[] = [];
+  const wanted: { type: BuildingType; near: Point; within?: number }[] = [];
   // Housing comes first: without room it can train nothing else. It builds
   // the next house while there is still a little room left.
   const housing = buildableHousing();
@@ -162,15 +166,24 @@ function build(
     if (storehouse && forest) wanted.push({ type: storehouse, near: forest });
   }
 
-  // Fields last: they are for when the berries run low, not instead of the rest.
-  const field = buildableField('food');
-  if (field && fieldsWanted(state, centre, workers.length) > fieldsOf(buildings, 'food').length) {
-    wanted.push({ type: field, near: centre });
+  // Food without end last: it is for when the berries run low, not instead
+  // of the rest. A fishing hut if there is water within reach, since fish
+  // comes faster; otherwise, and after it, fields.
+  if (placesWanted(state, centre, workers.length) > workPlacesOf(buildings, 'food')) {
+    const hut = buildableWorkplace('food', true);
+    const huts = buildings.filter((b) => b.type === hut).length;
+    const shore =
+      hut && huts < AI_CONFIG.fishing.max
+        ? findBuildSite(state, player, hut, centre, AI_CONFIG.fishing.reach)
+        : undefined;
+    const field = buildableWorkplace('food', false);
+    if (hut && shore) wanted.push({ type: hut, near: centre, within: AI_CONFIG.fishing.reach });
+    else if (field) wanted.push({ type: field, near: centre });
   }
 
-  for (const { type, near } of wanted) {
+  for (const { type, near, within } of wanted) {
     if (!canAfford(state, player, BUILDING_DEFS[type].cost)) continue;
-    const site = findBuildSite(state, player, type, near);
+    const site = findBuildSite(state, player, type, near, within);
     const builder = site && nearestWorker(workers, site, (w) => w.task.kind !== 'build');
     if (!site || !builder) continue;
     applyCommand(state, {
@@ -208,16 +221,28 @@ function needsHousing(state: GameState, player: PlayerId, buildings: readonly Bu
   return room - reservedPopulation(state, player) <= AI_CONFIG.housingMargin;
 }
 
-/** The building type where workers work for a resource without end. */
-function buildableField(resource: ResourceType): BuildingType | undefined {
+/**
+ * The building type where workers work for a resource without end: the one
+ * that must stand by water (a fishing hut), or the one that can stand
+ * anywhere (a field).
+ */
+function buildableWorkplace(resource: ResourceType, shore: boolean): BuildingType | undefined {
   return (Object.keys(BUILDING_DEFS) as BuildingType[]).find(
-    (type) => BUILDING_DEFS[type].buildTime > 0 && BUILDING_DEFS[type].work?.resource === resource,
+    (type) =>
+      BUILDING_DEFS[type].buildTime > 0 &&
+      BUILDING_DEFS[type].work?.resource === resource &&
+      (BUILDING_DEFS[type].shore === true) === shore,
   );
 }
 
-/** A side's fields for a resource, finished or not. */
-function fieldsOf(buildings: readonly Building[], resource: ResourceType): Building[] {
-  return buildings.filter((b) => BUILDING_DEFS[b.type].work?.resource === resource);
+/** How many workers a side's fields and huts for a resource take, finished or not. */
+function workPlacesOf(buildings: readonly Building[], resource: ResourceType): number {
+  let places = 0;
+  for (const building of buildings) {
+    const work = BUILDING_DEFS[building.type].work;
+    if (work?.resource === resource) places += work.workers;
+  }
+  return places;
 }
 
 /** How much food is left in the berry bushes within reach of a point. */
@@ -236,11 +261,12 @@ function berriesLeft(state: GameState, centre: Point): number {
 }
 
 /**
- * How many fields the side should have by now: none while there are plenty
- * of berries near its base, then more the lower they run, and never more
- * than it has workers for food.
+ * How many places to work for food without end the side should have by now,
+ * where a field is one: none while there are plenty of berries near its
+ * base, then more the lower they run, and never more than it has workers
+ * for food.
  */
-function fieldsWanted(state: GameState, centre: Point, workers: number): number {
+function placesWanted(state: GameState, centre: Point, workers: number): number {
   const { startWhenFoodLeft, foodPerField, max } = AI_CONFIG.fields;
   const short = startWhenFoodLeft - berriesLeft(state, centre);
   if (short <= 0) return 0;
@@ -287,16 +313,36 @@ function nearestWorker(
 
 /**
  * A place for a building as close to `near` as possible, with a tile of open
- * ground all round it, so that it does not wall anything in.
+ * ground all round it, so that it does not wall anything in. A building
+ * that stands by water may have water there. With `within`, the middle of
+ * the building must be no further than that from `near`, in tiles.
  */
 function findBuildSite(
   state: GameState,
   player: PlayerId,
   type: BuildingType,
   near: Point,
+  within?: number,
 ): Point | undefined {
+  const radius = Math.ceil(within ?? AI_CONFIG.buildSearchRadius);
   const size = BUILDING_DEFS[type].size;
-  const radius = AI_CONFIG.buildSearchRadius;
+  const waterAllowed = BUILDING_DEFS[type].shore === true;
+  const work = BUILDING_DEFS[type].work;
+  // Its workers must be able to walk there: made when the first place is tried.
+  let grid: PathGrid | undefined;
+  let canReach: Uint8Array | undefined;
+  const reachable = (x: number, y: number): boolean => {
+    grid ??= buildPathGrid(state);
+    canReach ??= reachFromBase(state, grid, player);
+    // Next to it is enough: a builder works from beside the footprint.
+    for (let ty = y - 1; ty <= y + size; ty++) {
+      for (let tx = x - 1; tx <= x + size; tx++) {
+        if (tx < 0 || ty < 0 || tx >= grid.width || ty >= grid.height) continue;
+        if (canReach[ty * grid.width + tx] === 1) return true;
+      }
+    }
+    return false;
+  };
   const centreX = Math.floor(near.x);
   const centreY = Math.floor(near.y);
   let best: Point | undefined;
@@ -305,9 +351,16 @@ function findBuildSite(
   for (let y = centreY - radius; y <= centreY + radius; y++) {
     for (let x = centreX - radius; x <= centreX + radius; x++) {
       const distance = tileDistance(x + size / 2, y + size / 2, near.x, near.y);
-      if (distance >= bestDistance) continue;
+      if (distance >= bestDistance || (within !== undefined && distance > within)) continue;
       if (!canPlaceBuilding(state, type, x, y, player)) continue;
-      if (!hasOpenBorder(state, x, y, size)) continue;
+      if (!hasOpenBorder(state, x, y, size, waterAllowed)) continue;
+      if (!reachable(x, y)) continue;
+      // A hut is worth building only where all its fishers get a place on
+      // the shore that they can walk to.
+      if (work?.places === 'shore') {
+        const from = workerTile(state, player);
+        if (!from || plannedWorkTiles(state, type, { x, y }, from).length < work.workers) continue;
+      }
       best = { x, y };
       bestDistance = distance;
     }
@@ -315,8 +368,36 @@ function findBuildSite(
   return best;
 }
 
-/** True if every tile in the ring around a footprint is open, walkable ground without a building. */
-function hasOpenBorder(state: GameState, x: number, y: number, size: number): boolean {
+/** The tile one of a side's workers stands on, if it has any. */
+function workerTile(state: GameState, player: PlayerId): Point | undefined {
+  const worker = state.entities.find(
+    (entity): entity is Unit =>
+      isUnit(entity) &&
+      entity.owner === player &&
+      !hasSurrendered(entity) &&
+      UNIT_DEFS[entity.type].carryCapacity > 0,
+  );
+  return worker && unitTile(worker);
+}
+
+/** The tiles a side's workers can walk to from where they are; all of the map if it has none. */
+function reachFromBase(state: GameState, grid: PathGrid, player: PlayerId): Uint8Array {
+  const from = workerTile(state, player);
+  if (!from) return new Uint8Array(grid.width * grid.height).fill(1);
+  return reachableTiles(grid, from);
+}
+
+/**
+ * True if every tile in the ring around a footprint is open, walkable ground
+ * without a building, or, where that is allowed, water.
+ */
+function hasOpenBorder(
+  state: GameState,
+  x: number,
+  y: number,
+  size: number,
+  waterAllowed: boolean,
+): boolean {
   const occupied = new Set<number>();
   for (const entity of state.entities) {
     if (!isBuilding(entity)) continue;
@@ -329,6 +410,7 @@ function hasOpenBorder(state: GameState, x: number, y: number, size: number): bo
     for (let tx = x - 1; tx <= x + size; tx++) {
       const inside = tx >= x && ty >= y && tx < x + size && ty < y + size;
       if (inside) continue;
+      if (waterAllowed && isWater(state.map, tx, ty)) continue;
       if (!inBounds(tx, ty, state.map) || !isWalkable(state.map, tx, ty)) return false;
       if (occupied.has(ty * state.map.width + tx)) return false;
     }
@@ -377,19 +459,9 @@ function assignIdleWorkers(
       source !== undefined &&
       tileDistance(source.x, source.y, centre.x, centre.y) <= AI_CONFIG.fields.berryRadius;
     if (source && (resource === 'wood' || near)) gather(state, player, worker, source);
-    // With none near, or none with a place free, it works a field.
-    if (worker.task.kind === 'idle' && resource === 'food') {
-      const field = state.entities.find(
-        (entity): entity is Building =>
-          isBuilding(entity) &&
-          entity.owner === player &&
-          entity.complete &&
-          BUILDING_DEFS[entity.type].work?.resource === 'food',
-      );
-      if (field) {
-        applyCommand(state, { type: 'work', player, unitIds: [worker.id], buildingId: field.id });
-      }
-    }
+    // With none near, or none with a place free, it fishes or works a
+    // field: where the food comes fastest first.
+    if (worker.task.kind === 'idle' && resource === 'food') workForFood(state, player, worker);
     // Then berries however far away, and last the other resource.
     if (worker.task.kind === 'idle' && source) gather(state, player, worker, source);
     if (worker.task.kind === 'idle') {
@@ -397,6 +469,40 @@ function assignIdleWorkers(
       if (other) gather(state, player, worker, other);
     }
     if (gatheredResource(worker) === 'wood') onWood++;
+  }
+
+  // A worker picking berries far from the base moves to a hut or a field as
+  // soon as one has a place free: the walk home with each load is long.
+  for (const worker of workers) {
+    const task = worker.task;
+    if (task.kind !== 'gather' || task.resource !== 'food' || task.siteId !== null) continue;
+    const far =
+      tileDistance(task.node.x, task.node.y, centre.x, centre.y) > AI_CONFIG.fields.berryRadius;
+    if (far) workForFood(state, player, worker);
+  }
+}
+
+/**
+ * Orders a worker to a fishing hut or a field of its side: the one where
+ * food comes fastest first. It keeps what it was doing if none has a place free.
+ */
+function workForFood(state: GameState, player: PlayerId, worker: Unit): void {
+  const places = state.entities
+    .filter(
+      (entity): entity is Building =>
+        isBuilding(entity) &&
+        entity.owner === player &&
+        entity.complete &&
+        BUILDING_DEFS[entity.type].work?.resource === 'food',
+    )
+    .sort(
+      (a, b) =>
+        (BUILDING_DEFS[a.type].work?.secondsPerUnit ?? 0) -
+          (BUILDING_DEFS[b.type].work?.secondsPerUnit ?? 0) || a.id - b.id,
+    );
+  for (const place of places) {
+    if (worker.task.kind === 'gather' && worker.task.siteId !== null) return;
+    applyCommand(state, { type: 'work', player, unitIds: [worker.id], buildingId: place.id });
   }
 }
 

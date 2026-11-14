@@ -72,6 +72,7 @@ export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label:
   krigshall: { wallHeight: 62, label: 'K' },
   ide: { wallHeight: 22, label: 'I' },
   odling: { wallHeight: 6, label: 'O' },
+  fiskehytta: { wallHeight: 44, label: 'F' },
 };
 
 /**
@@ -88,6 +89,22 @@ export const BUILDING_COVER_SHARE = 0.8;
 
 /** Colours of the outline shown while placing a building: where it may stand, and where not. */
 export const PLACEMENT_COLORS = { valid: 0x35e06a, invalid: 0xe8384f } as const;
+
+/**
+ * The building shown while it is being placed: how solid its picture is,
+ * the tint that makes it red where it may not stand and leaves it as it is
+ * where it may, and how far under the footprint the explanation is written,
+ * in pixels.
+ */
+export const PLACEMENT_PREVIEW = {
+  alpha: 0.7,
+  validTint: 0xffffff,
+  invalidTint: 0xff5a5a,
+  noteGap: 6,
+  /** The rings that mark where its workers would stand: their colour and width in pixels. */
+  placeColor: 0xffffff,
+  placeWidth: 30,
+} as const;
 
 /** How see-through a building under construction is when just placed; it turns solid as it is built. */
 export const CONSTRUCTION_START_ALPHA = 0.35;

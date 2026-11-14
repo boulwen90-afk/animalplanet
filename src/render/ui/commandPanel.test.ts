@@ -135,6 +135,12 @@ describe('describeCommandPanel', () => {
           cost: '60 trä',
           info: 'Oändlig mat, 1 Samlare',
         },
+        {
+          action: { kind: 'build', building: 'fiskehytta' },
+          label: 'Bygg Fiskehytta',
+          cost: '100 trä',
+          info: 'Fiske vid vatten, 3 Samlare',
+        },
       ],
       progress: 0,
     };

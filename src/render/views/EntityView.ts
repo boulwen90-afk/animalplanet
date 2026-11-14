@@ -9,7 +9,7 @@ import { tileToWorld, type Point, type TileSize } from '../../sim/map/iso';
 import type { Building, Entity, GameState, Unit } from '../../sim/state';
 import { strikeTicks } from '../../sim/systems/combat';
 import { buildFraction } from '../../sim/systems/construction';
-import { ticksPerUnit } from '../../sim/systems/gathering';
+import { ticksPerUnit, workFocus } from '../../sim/systems/gathering';
 import {
   DIRECTIONS,
   BUILD_ACTIVITY,
@@ -243,7 +243,7 @@ export class EntityView {
       this.updateFlash(entity.id, sprite);
       if (entity.kind === 'unit') {
         if (sprite.character) {
-          this.updateCharacter(entity, sprite, alpha, selected.has(entity.id), byId);
+          this.updateCharacter(state, entity, sprite, alpha, selected.has(entity.id), byId);
         } else {
           this.updateUnit(entity, sprite, alpha, selected.has(entity.id));
         }
@@ -371,6 +371,7 @@ export class EntityView {
    * facing the way it moves or the target it strikes.
    */
   private updateCharacter(
+    state: GameState,
     unit: Unit,
     sprite: EntitySprite,
     alpha: number,
@@ -433,7 +434,10 @@ export class EntityView {
       } else if (task.kind === 'gather' && task.phase === 'gathering') {
         // One swing or one handful for each unit of the resource: it is taken
         // as the loop starts. Slow work, as on a field, takes several strokes.
-        face(site ? buildingCentre(site) : { x: task.node.x + 0.5, y: task.node.y + 0.5 });
+        // At a building it looks at its work: the field, or the water it fishes in.
+        face(
+          (site && workFocus(state, unit, site)) ?? { x: task.node.x + 0.5, y: task.node.y + 0.5 },
+        );
         const ticks = ticksPerUnit(unit, site);
         const loops = workLoops(info, ticks / SIM_CONFIG.ticksPerSecond);
         frame = progressFrame(info, (task.workTicks + alpha) / ticks, loops);

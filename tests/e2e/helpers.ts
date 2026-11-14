@@ -208,3 +208,24 @@ export async function buildNearHome(
 export async function buildHouse(page: Page): Promise<void> {
   await buildNearHome(page, 'ide');
 }
+
+/**
+ * Starts noting, frame by frame inside the page, which numbers of the
+ * resource bar flash red. A flash for a refused order lasts 300 ms, and on
+ * a slow machine a question from the test can arrive after it has ended:
+ * what was noted in the page does not depend on how fast the test gets
+ * there. Returns a function that gives everything that has flashed since.
+ */
+export async function recordFlashes(page: Page): Promise<() => Promise<string[]>> {
+  await page.evaluate(() => {
+    const seen = new Set<string>();
+    (window as unknown as { __flashes: Set<string> }).__flashes = seen;
+    const note = () => {
+      for (const key of window.__TEST__!.getFlashing()) seen.add(key);
+      requestAnimationFrame(note);
+    };
+    requestAnimationFrame(note);
+  });
+  return () =>
+    page.evaluate(() => [...(window as unknown as { __flashes: Set<string> }).__flashes].sort());
+}

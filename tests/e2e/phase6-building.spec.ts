@@ -3,7 +3,14 @@ import { BUILDING_DEFS } from '../../src/data/buildings';
 import { START_CONFIG } from '../../src/data/setup';
 import { SIM_CONFIG } from '../../src/data/sim';
 import type { Building, GameState, Unit } from '../../src/sim/state';
-import { getSelection, getState, openGame, tileToScreen, trackConsoleErrors } from './helpers';
+import {
+  getSelection,
+  getState,
+  openGame,
+  recordFlashes,
+  tileToScreen,
+  trackConsoleErrors,
+} from './helpers';
 
 const VISTHUS = BUILDING_DEFS.visthus;
 const VISTHUS_TICKS = VISTHUS.buildTime * SIM_CONFIG.ticksPerSecond;
@@ -116,6 +123,7 @@ test.describe('phase 6: building', () => {
       ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
       ['Bygg Ide', '30 trä', '+5 befolkning'],
       ['Bygg Odling', '60 trä', 'Oändlig mat, 1 Samlare'],
+      ['Bygg Fiskehytta', '100 trä', 'Fiske vid vatten, 3 Samlare'],
     ]);
     expect(panel.queue).toEqual([]);
     expect(await placement(page)).toBeNull();
@@ -213,9 +221,10 @@ test.describe('phase 6: building', () => {
     // The starting 100 wood does not pay for a Krigshall at 150.
     expect(START_WOOD).toBeLessThan(BUILDING_DEFS.krigshall.cost.wood!);
 
+    const flashed = await recordFlashes(page);
     await clickBuildButton(page, 'Bygg Krigshall');
 
-    expect(await page.evaluate(() => window.__TEST__!.getFlashing())).toEqual(['wood']);
+    await expect.poll(flashed).toEqual(['wood']);
     expect(await placement(page)).toBeNull();
     expect(playerBuildings(await getState(page), 'krigshall')).toEqual([]);
   });

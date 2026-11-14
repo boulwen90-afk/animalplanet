@@ -11,6 +11,19 @@ export interface WorkDef {
   workers: number;
   /** Seconds a worker works for one unit of the resource. */
   secondsPerUnit: number;
+  /**
+   * Where the workers stand. `inside`: on the building's own tiles, as on a
+   * field. `shore`: on open ground beside water near the building, as when
+   * fishing; the places are the ones closest to the building.
+   */
+  places: 'inside' | 'shore';
+  /** For places on the shore: how far from the building they may be, in tiles. */
+  reach?: number;
+  /**
+   * Where the workers carry what they get. `nearest`: the side's nearest
+   * drop-off building. `here`: this building, which takes nothing else.
+   */
+  deliverTo: 'nearest' | 'here';
 }
 
 export interface BuildingDef {
@@ -39,6 +52,8 @@ export interface BuildingDef {
   walkable: boolean;
   /** What workers can do at the finished building, if anything. */
   work?: WorkDef;
+  /** True for a building that must stand with a side of its footprint against water. */
+  shore?: boolean;
 }
 
 /** Building types. See GDD section 8. */
@@ -110,7 +125,39 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     armor: 0,
     housing: 0,
     walkable: true,
-    work: { resource: 'food', workers: 1, secondsPerUnit: 2.5 },
+    work: {
+      resource: 'food',
+      workers: 1,
+      secondsPerUnit: 2.5,
+      places: 'inside',
+      deliverTo: 'nearest',
+    },
+  },
+  /**
+   * A fishing hut. It must stand by water. Its workers fish from the shore
+   * near it and carry the catch to the hut itself. It never runs out, and
+   * gives food faster than a field but more slowly than berries.
+   */
+  fiskehytta: {
+    trains: [],
+    hp: 350,
+    sight: 5,
+    size: 2,
+    dropoff: false,
+    cost: { wood: 100 },
+    buildTime: 25,
+    armor: 0,
+    housing: 0,
+    walkable: false,
+    shore: true,
+    work: {
+      resource: 'food',
+      workers: 3,
+      secondsPerUnit: 1.6,
+      places: 'shore',
+      reach: 3,
+      deliverTo: 'here',
+    },
   },
 };
 
