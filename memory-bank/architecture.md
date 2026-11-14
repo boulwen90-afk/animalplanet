@@ -772,8 +772,9 @@ Figurerna byggs helt med kod i Blender, utan fönster och utan externa
 tjänster. Spelet ritas med Phaser i 2D, så slutprodukten blir spritesheets
 (PNG + JSON-atlas). Två figurer finns: **björnkrigaren** (Ramkrigaren) och
 **björnarbetaren** (Samlaren). Båda har skelett och animationer, renderas
-i åtta riktningar och ritas i spelet. Byggnaderna är fortfarande
-platshållare.
+i åtta riktningar och ritas i spelet. Björnarnas tre **byggnader** är
+byggda i pipelinen och har färdiga atlaser, men spelet ritar dem inte än:
+där är byggnaderna fortfarande platshållare. Se "Byggnader" nedan.
 
 **Körning**
 
@@ -786,6 +787,8 @@ tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior
 tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior --animations
 tools/blender/.venv/bin/python tools/blender/build.py --emblems
 tools/blender/.venv/bin/python tools/blender/build.py --overview
+tools/blender/.venv/bin/python tools/blender/build.py --race bear --building main
+tools/blender/.venv/bin/python tools/blender/build.py --race bear --building main --sprites
 tools/blender/.venv/bin/python tools/blender/build.py --race bear --unit warrior --check-mask
 ```
 
@@ -806,9 +809,13 @@ alla figurer från konfigfilerna. En figurs atlas tar cirka 1,5 minut.
 
 | Fil | Ansvar |
 |---|---|
-| `build.py` | Bygger en figur (`--race`, `--unit`) och renderar förhandsbilderna till `assets/previews/<ras>_<enhet>/`. `--sprites` renderar figurens atlas till `assets/characters/`, och `--all` gör det för alla figurer i `figures.toml`. `--animations` ritar varje animation som en rad bildrutor. `--emblems` ritar alla sigill. `--overview` ritar alla figurer i `figures.toml` bredvid varandra till `assets/previews/overview.png`. `--check-mask` jämför färgning via masken med direkt rendering. `--out` väljer annan mapp |
+| `build.py` | Bygger en figur (`--race`, `--unit`) och renderar förhandsbilderna till `assets/previews/<ras>_<enhet>/`. `--sprites` renderar figurens atlas till `assets/characters/`, och `--all` gör det för alla figurer i `figures.toml`. `--animations` ritar varje animation som en rad bildrutor. `--emblems` ritar alla sigill. `--overview` ritar alla figurer och byggnader i `figures.toml` till `assets/previews/overview.png`. `--building` (med `--race`) gör samma sak för en byggnad: förhandsbilder, eller atlas med `--sprites`. `--check-mask` jämför färgning via masken med direkt rendering. `--out` väljer annan mapp |
 | `build.sh` | Det `npm run build:characters` kör: sätter upp Blender vid behov och bygger alla figurer |
-| `figures.toml` | Listan över figurer som spelet använder |
+| `figures.toml` | Listan över figurer och byggnader som spelet använder |
+| `buildings.py` | Bygger och renderar byggnader: läser konfig, ställer upp scenen, kontrollerar storleksstandarden, renderar stadierna och skriver atlas och förhandsbilder |
+| `buildings/<ras>/style.toml` | Rasens byggnadsstil: färgerna som alla dess byggnader delar |
+| `buildings/<ras>/<namn>.toml` | En byggnad: storleksklass, fotavtryck och listan av delar med mått och stadier |
+| `lib/structures.py` | Byggnadsdelarna: stengrund, timmerväggar, stomme, sadeltak, takstolar, tornspira, dörr, sköld, baner, vimpel, palissad, tunna, låda, säck, vedtrave, brädhög, vapenställ, träningsdocka, byggnadsställning, skorsten |
 | `animations/` | Det gemensamma animationsbiblioteket: `base.py` (byggstenar), `idle.py`, `walk.py`, `attack.py`, `chop.py`, `pick.py`, `hammer.py`, `defeat.py` |
 | `lib/atlas.py` | Packar bildrutorna till en atlas och skriver JSON-filen |
 | `lib/scale.py` | Storleksstandarden: räknar ut hur mycket en figur skalas, och kontrollerar bredden |
@@ -1027,6 +1034,51 @@ hammare när den bygger. Huvudet är bart. Den använder `idle`, `walk`,
 `chop`, `pick`, `hammer` och `defeat`, och har inget sigill: det sitter
 på sköld och mantel, som arbetaren saknar.
 
+**Byggnader.** En byggnad har inget skelett och rör sig inte, så den går
+inte genom figurkoden. Den sätts ihop av delar ur `lib/structures.py`
+enligt sin konfig och renderas med samma kamera, ljus, kontur och
+lagfärgsmask som figurerna (`buildings.py`).
+
+- **Egen ram.** Konfigen anger allt i **rutor**: origo är fotavtryckets
+  mitt på marken, x går längs spelets x-axel (nedåt höger på skärmen), y
+  uppåt höger och z uppåt. Spelaren ser väggarna mot −y (till vänster) och
+  +x (till höger). Byggnaden vrids ett åttondels varv och skalas till
+  rutans storlek när den ställs i scenen.
+- **Delar.** Varje `[[part]]` har en `type` och sina mått. Nya byggnader
+  görs genom att kombinera delar i en ny konfigfil; en ny sorts del är en
+  ny funktion i `lib/structures.py`.
+- **Stadier.** Tre: `construction_1` (grund och stomme), `construction_2`
+  (väggarna uppe, taket öppet) och `complete`. En del syns från sitt
+  `from`-stadium till sitt `until`-stadium; utan dem hör den bara till den
+  färdiga byggnaden. Spelet har i dag två lägen för en byggnad, under
+  uppförande (med en byggandel 0–1) och färdig. En förstörd byggnad tas
+  bort ur spelet, så något ruinstadium finns inte.
+- **Storleksstandarden kontrolleras i bygget.** Taket måste nå minst den
+  höjd storleksklassen kräver (vimplar och baner räknas inte), och ingen
+  del får sticka ut mer än 0,12 rutor utanför fotavtrycket. Annars stannar
+  bygget med ett felmeddelande.
+- **Atlas.** `assets/buildings/<ras>_<namn>/` har samma tre filer som en
+  figur. Bildrutorna är `construction_1`, `construction_2`, `complete`
+  och `shadow` (den färdiga byggnadens skugga på marken, som egen bild).
+  `anchor` är fotavtryckets mitt på marken. `meta.building` anger vilken
+  byggnad i spelet den är till för, storleksklass, fotavtryck, takhöjd och
+  lägsta tillåtna takhöjd.
+- **Lagfärg:** nockens täckbräda, baner, vimplar och sköldarnas fält.
+
+| Byggnad | I spelet | Fotavtryck | Klass | Krav | Takhöjd |
+|---|---|---|---|---|---|
+| `storage` | Visthus | 2×2 | `small` | 64 px | 79 px |
+| `barracks` | Krigshall | 3×3 | `large` | 90 px | 112 px |
+| `main` | Storide | 3×3 | `main` | 115 px | 137 px |
+
+Björnarnas stil (`buildings/bear/style.toml`): timmerhus på stengrund,
+branta skiffergrå tak, järnbeslag och korsade vindskidor på gavlarna.
+Storiden är en stor hall med ett torn mitt över taket, rasens sigill över
+porten och baner på var sida. Krigshallen är en hall med ett lägre torn i
+ena änden bakom en gård med palissad, träningsdocka och vapenställ.
+Visthuset är ett litet hus med bred port och tunnor, lådor och säckar
+längs sidan.
+
 **Lagfärg och mask.** Hjälmkam, mantel, vapenrock, sköldens fält,
 arbetarens tunika och sigillets `field`-delar använder materialet
 `team_color`. De renderas inte
@@ -1073,11 +1125,15 @@ bara kontrollerat på samma maskin och samma Blender-version.
 
 **Förhandsbilder**
 
-- `assets/previews/overview.png`: **alla figurer bredvid varandra i
-  verklig skala**, i båda lagfärgerna, på spelets rutnät. Övre bilden är
-  fyra gånger spelets pixlar (`[overview] scale` i `game.toml`); den
-  nedre är samma bild i spelets egna pixlar. Ordningen är den i
-  `figures.toml`: björnkrigare, björnarbetare.
+- `assets/previews/overview.png`: **alla figurer och byggnader i verklig
+  skala** på spelets rutnät: byggnaderna i en rad längst bak, figurerna i
+  båda lagfärgerna framför. Övre bilden är fyra gånger spelets pixlar
+  (`[overview] scale` i `game.toml`); den nedre är samma bild i spelets
+  egna pixlar. Ordningen är den i `figures.toml`.
+- `assets/previews/bear_storage/`, `bear_barracks/`, `bear_main/`:
+  `stages.png` (de tre stadierna på spelets mark, i dubbel storlek) och
+  `teams.png` (den färdiga byggnaden i båda lagfärgerna, tre gånger
+  spelets pixlar).
 - `assets/previews/bear_worker/`: samma bilder för björnarbetaren, och
   `animations.png` med animationerna som bildrutor.
 - `assets/previews/bear_warrior/`: `front.png`, `side.png`, `back.png`,

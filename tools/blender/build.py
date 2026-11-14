@@ -19,6 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from animations import ANIMATIONS, Context  # noqa: E402
 from animations.walk import ground_share  # noqa: E402
+import buildings  # noqa: E402
 from lib import export  # noqa: E402
 from lib.camera import make_camera, make_lights, make_shadow_catcher  # noqa: E402
 from lib.atlas import write_atlas  # noqa: E402
@@ -426,9 +427,10 @@ def render_previews(race: dict, unit: dict, game: dict, out: Path) -> None:
 
 def render_overview(game: dict, out: Path) -> None:
     """
-    Every figure in figures.toml side by side on the game's ground, in both
-    team colours and in true scale to each other and to the tiles: enlarged
-    on top, and in the game's own pixels below.
+    Every figure and building in figures.toml on the game's ground, in true
+    scale to each other and to the tiles: the buildings in a row at the back,
+    the figures in both team colours in front. Enlarged on top, and in the
+    game's own pixels below.
     """
     out.mkdir(parents=True, exist_ok=True)
     sprite, preview, teams = game["sprite"], game["preview"], game["teams"]
@@ -453,14 +455,38 @@ def render_overview(game: dict, out: Path) -> None:
             shots.append(export.recolor(base, mask, color, NEUTRAL))
         scratch.unlink(missing_ok=True)
         print(f"  overview: rendered {race['name']} {unit['name']}", flush=True)
+    structures = buildings.overview_pictures(game, out, NEUTRAL, scale)
 
-    # The figures stand on the centres of tiles in one row across the picture, two tiles apart.
-    ground = export.iso_ground(
-        len(shots) * 2 * tile_w, tile_h * 9 // 2, tile_w, tile_h, preview["background"], preview["ground_edge"]
+    # Places are counted in half tiles: (column, row) is the middle of a tile
+    # when their sum is odd and a corner where four tiles meet when it is even.
+    # A building's middle is a tile's middle if its side is odd, else a corner.
+    places = []
+    column = 1
+    for shot in structures:
+        n = shot["footprint"]
+        column += n
+        places.append(column)
+        column += n + 1
+    half_w, half_h = tile_w // 2, tile_h // 2
+    tallest = max((shot["size"] for shot in structures), default=0)
+    back_row = math.ceil(tallest * 0.62 / half_h) if structures else 0
+    front_row = back_row + (max((shot["footprint"] for shot in structures), default=0) + 5 if structures else 7)
+    columns = max(column, 4 * len(shots) + 2)
+    # The figures are spread over the width of the row of buildings.
+    spread = max(4, (columns - 2) // max(1, len(shots)) // 2 * 2)
+    ground = buildings.tiled_ground(
+        columns * half_w, (front_row + 2) * half_h, tile_w, tile_h, preview["background"], preview["ground_edge"]
     )
+    for shot, k in zip(structures, places):
+        n = shot["footprint"]
+        j = back_row if (k + back_row) % 2 == n % 2 else back_row + 1
+        x, y = k * half_w, j * half_h
+        export.over(ground, shot["picture"], round(x - shot["size"] / 2), round(y - shot["size"] / 2 - shot["feet"]))
+    # The figures stand on the middles of tiles in one row in front, two tiles apart.
     for index, shot in enumerate(shots):
-        x, y = tile_w + index * 2 * tile_w, tile_h * 7 // 2
-        export.over(ground, shot, x - size // 2, round(y - size / 2 - feet))
+        k = 2 + spread // 2 + spread * index
+        j = front_row if (k + front_row) % 2 == 1 else front_row + 1
+        export.over(ground, shot, k * half_w - size // 2, round(j * half_h - size / 2 - feet))
 
     # The same picture in the game's own pixels, centred on a dark band.
     small = ground
@@ -469,7 +495,10 @@ def render_overview(game: dict, out: Path) -> None:
     band = export.flat(ground.shape[1], small.shape[0] + 32, "#20262c")
     export.over(band, small, (band.shape[1] - small.shape[1]) // 2, 16)
     export.write_png(out / "overview.png", np.concatenate([ground, band], axis=0))
-    print(f"Wrote the overview of {len(shots) // len(poses)} figures to {out / 'overview.png'}")
+    print(
+        f"Wrote the overview of {len(shots) // len(poses)} figures and {len(structures)} buildings "
+        f"to {out / 'overview.png'}"
+    )
 
 
 def fit_square(pixels: np.ndarray, size: int) -> np.ndarray:
@@ -545,6 +574,10 @@ def main() -> None:
         help="build the sprites of every figure listed in figures.toml",
     )
     parser.add_argument(
+        "--building",
+        help="name of a building in buildings/<race>/, e.g. main: render its previews, or with --sprites its atlas",
+    )
+    parser.add_argument(
         "--overview",
         action="store_true",
         help="draw every figure in figures.toml side by side in true scale to assets/previews/overview.png",
@@ -569,10 +602,26 @@ def main() -> None:
         render_overview(game, Path(args.out) if args.out else REPO / "assets" / "previews")
         return
     characters = REPO / "assets" / "characters"
+    structures = REPO / "assets" / "buildings"
     if args.all:
         for figure in load_figures():
             name = f"{figure['race']}_{figure['unit']}"
             export_sprites(load_race(figure["race"]), load_unit(figure["unit"]), game, characters / name)
+        for entry in buildings.load_buildings():
+            name = f"{entry['race']}_{entry['building']}"
+            building = buildings.load_building(entry["race"], entry["building"])
+            buildings.export_building(load_race(entry["race"]), building, game, structures / name, NEUTRAL)
+        return
+    if args.building:
+        if not args.race:
+            parser.error("--building needs --race")
+        race, building = load_race(args.race), buildings.load_building(args.race, args.building)
+        name = f"{args.race}_{args.building}"
+        if args.sprites:
+            buildings.export_building(race, building, game, Path(args.out) if args.out else structures / name, NEUTRAL)
+        else:
+            previews = Path(args.out) if args.out else REPO / "assets" / "previews" / name
+            buildings.render_building_previews(race, building, game, previews, NEUTRAL)
         return
     if not args.race or not args.unit:
         parser.error("--race and --unit are required unless --emblems, --overview or --all is given")

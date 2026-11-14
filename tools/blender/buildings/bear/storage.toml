@@ -1,0 +1,138 @@
+# The bears' storehouse, the Visthus: a small log house with a wide door,
+# and barrels, crates and sacks stacked beside it.
+name = "storage"
+game_building = "visthus"
+size_class = "small"
+footprint = 2
+
+[[part]]
+type = "base"
+box = [-0.9, -0.9, 0.9, 0.9]
+height = 0.12
+corner = 0.13
+from = "construction_1"
+
+[[part]]
+type = "frame"
+box = [-0.72, -0.72, 0.5, 0.72]
+z = [0.12, 0.8]
+spacing = 0.6
+thickness = 0.08
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "logpile"
+at = [-0.1, 0.0]
+z = 0.12
+along = "y"
+length = 0.45
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "scaffold"
+box = [-0.72, -0.72, 0.5, 0.72]
+height = 0.88
+out = 0.1
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "planks"
+at = [0.7, 0.3]
+z = 0.12
+along = "y"
+length = 0.5
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "walls"
+box = [-0.72, -0.72, 0.5, 0.72]
+z = [0.12, 0.8]
+log = 0.115
+ends = 0.05
+from = "construction_2"
+
+[[part]]
+type = "rafters"
+box = [-0.72, -0.72, 0.5, 0.72]
+eave = 0.76
+ridge = 1.7
+along = "y"
+overhang = 0.12
+count = 5
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "door"
+face = "-y"
+wall = -0.72
+at = -0.11
+z = 0.12
+width = 0.6
+height = 0.56
+split = true
+from = "construction_2"
+
+[[part]]
+type = "gable_roof"
+box = [-0.72, -0.72, 0.5, 0.72]
+eave = 0.76
+ridge = 1.7
+along = "y"
+overhang = 0.12
+courses = 4
+cap = "team"
+
+[[part]]
+type = "shield"
+face = "-y"
+wall = -0.72
+at = -0.11
+z = 1.02
+radius = 0.2
+
+[[part]]
+type = "pennant"
+at = [-0.11, -0.8]
+z = 1.72
+height = 0.42
+face = "-y"
+
+# What is stored: along the side of the house, on the footing.
+[[part]]
+type = "barrel"
+at = [0.7, -0.62]
+z = 0.12
+
+[[part]]
+type = "barrel"
+at = [0.72, -0.34]
+z = 0.12
+radius = 0.12
+height = 0.27
+
+[[part]]
+type = "crate"
+at = [0.7, -0.02]
+z = 0.12
+
+[[part]]
+type = "sack"
+at = [0.66, 0.32]
+z = 0.12
+
+[[part]]
+type = "sack"
+at = [0.76, 0.52]
+z = 0.12
+size = 0.13
+
+[[part]]
+type = "sack"
+at = [0.64, 0.66]
+z = 0.12
+size = 0.14

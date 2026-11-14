@@ -10,8 +10,11 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   björnarbetaren (Samlaren). Sex förbättringar av Samlaren och grunden är
   gjorda och väntar på att användaren ser skärmdumparna. Se "Efter MVP:n"
 - **Väntar på användaren:** uppdraget "bygg resten av figurerna" har tre
-  punkter med stopp efter varje. Punkt 1 (björnarbetaren) är klar. Punkt 2
-  (byggnader) och 3 (tigrar) är inte påbörjade
+  punkter med stopp efter varje. Punkt 1 (björnarbetaren) och punkt 2
+  (byggnader) är klara; punkt 2 väntar på att användaren ser
+  översiktsbilden. Punkt 3 (tigrar) är inte påbörjad
+- **Inte gjort:** byggnaderna ritas inte i spelet än. Atlaserna finns,
+  men spelet visar fortfarande block med bokstäver
 - **Beslutat men inte påbörjat:** skarp rendering i skärmens verkliga
   upplösning. Den står som egen punkt sist i `implementation-plan.md`
 - **Mäta på telefon:** `?debug=1` visar bilder per sekund, och
@@ -819,6 +822,70 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Figurgrafik: björnarnas byggnader (2026-11-14)
+
+Punkt 2 i uppdraget "bygg resten av figurerna": byggnader för björnrasen
+i samma stil, med byggnadsstadier om spelet stöder det. Användaren
+bekräftade först tolkningen av stegfrekvensen ("Det är korrekt").
+
+**Översiktsbild:** `assets/previews/overview.png` visar de tre
+byggnaderna och de två figurerna i verklig skala. Per byggnad:
+`assets/previews/bear_main/`, `bear_barracks/` och `bear_storage/`
+(`stages.png` och `teams.png`).
+
+**Vad som gjordes**
+
+| Byggnad | I spelet | Fotavtryck | Krav på takhöjd | Takhöjd |
+|---|---|---|---|---|
+| Huvudbyggnad (`main`) | Storide | 3×3 rutor | 115 px | 137 px |
+| Kasern (`barracks`) | Krigshall | 3×3 rutor | 90 px | 112 px |
+| Förråd (`storage`) | Visthus | 2×2 rutor | 64 px | 79 px |
+
+- **Byggsats.** Byggnader sätts ihop av delar (grund, timmerväggar,
+  sadeltak, torn, port, baner, palissad, tunnor med mera) enligt en
+  konfigfil per byggnad, i rutor. Rasens färger ligger i en gemensam
+  stilfil.
+- **Stadier.** Tre bilder per byggnad: grund och stomme, väggar med öppet
+  tak, och färdig. Dessutom den färdiga byggnadens skugga som egen bild.
+- **Storleksstandarden kontrolleras i bygget:** taket måste nå klassens
+  lägsta höjd och inget får sticka ut utanför fotavtrycket.
+- **Lagfärg** via samma mask som figurerna: nock, baner, vimplar och
+  sköldar. Rasens sigill sitter över porten och på baneren.
+- **Atlaser** i `assets/buildings/`, 0,1–0,2 MB per byggnad.
+
+**Byggnadsstadier och vad spelet stöder**
+
+- Spelet har två lägen: under uppförande (med en byggandel från 0 till 1)
+  och färdig. Två bilder finns för uppförandet, tänkta för under respektive
+  över halva bygget.
+- **Förstörd finns inte.** En byggnad som faller tas bort ur spelet i
+  samma steg, så det finns ingen ruin att visa. Ingen ruinbild är gjord.
+- Storiden kan inte byggas i spelet, men har stadierna ändå, så att alla
+  byggnader är gjorda på samma sätt.
+
+**Saknas eller avviker**
+
+- **Byggnaderna ritas inte i spelet.** Uppdraget gällde att bygga dem i
+  pipelinen och visa översiktsbilden. Att rita dem i spelet rör djup,
+  klick, livstapel, byggplacering och dimma, och är ett eget steg.
+- **Gemensam kod ändrad:** `build.py` fick flaggan `--building`, bygger
+  byggnaderna i `--all` och ritar dem i översiktsbilden. Det behövdes
+  eftersom en byggnad inte är en figur med skelett. Ny kod ligger i egna
+  filer (`buildings.py`, `lib/structures.py`). Figurernas atlaser är
+  oförändrade.
+- **Storiden och Krigshallen liknar varandra i grundformen** (hall med
+  torn). De skiljer sig i höjd, tornets plats, palissadgården och porten.
+- **Träd, bärsnår, klippor och grottor** är fortfarande platshållare.
+
+**Testresultat**
+
+- Vitest: 489 av 489 (11 nya: byggnadernas atlaser stämmer med spelets
+  fotavtryck, storleksstandarden och varandra)
+- Lint och typkontroll utan anmärkning
+- `npm run build:characters` kört i sin helhet: alla figurers och
+  byggnaders atlaser blir identiska med de incheckade
+- Webbläsartesterna är inte körda om: ingen spelkod är ändrad
 
 ### Samlaren och grunden: sex förbättringar (2026-11-13)
 
