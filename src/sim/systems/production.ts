@@ -1,6 +1,6 @@
 import { BUILDING_DEFS } from '../../data/buildings';
+import { POPULATION_CONFIG } from '../../data/population';
 import { PRODUCTION_CONFIG } from '../../data/production';
-import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS, type UnitType } from '../../data/units';
 import type { CommandResult } from '../commands';
@@ -10,6 +10,7 @@ import {
   createUnit,
   isBuilding,
   isUnit,
+  populationRoom,
   reservedPopulation,
   unitDestination,
 } from '../entities';
@@ -78,8 +79,12 @@ export function queueUnit(
   if (building.queue.length >= PRODUCTION_CONFIG.maxQueue) {
     return { ok: false, reason: 'queueFull' };
   }
-  if (reservedPopulation(state, player) >= START_CONFIG.populationCap) {
-    return { ok: false, reason: 'populationCap' };
+  // Units in the queues count: they will need room when they are done.
+  const room = populationRoom(state, player);
+  if (reservedPopulation(state, player) + UNIT_DEFS[type].population > room) {
+    // More housing helps until the hard cap is reached; after that nothing does.
+    const atCap = room >= POPULATION_CONFIG.hardCap;
+    return { ok: false, reason: atCap ? 'populationCap' : 'housingFull' };
   }
   const missing = missingResources(stock, UNIT_DEFS[type].cost);
   if (missing.length > 0) return { ok: false, reason: 'insufficientResources', missing };

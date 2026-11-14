@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { BUILDING_DEFS } from '../../src/data/buildings';
 import { START_CONFIG } from '../../src/data/setup';
 import { UNIT_DEFS } from '../../src/data/units';
 import type { GameState, Unit } from '../../src/sim/state';
@@ -56,7 +57,7 @@ test.describe('phase 4: resources and gathering', () => {
     expect(await resourceBar(page)).toEqual({
       food: `Mat ${START.food}`,
       wood: `Trä ${START.wood}`,
-      population: `Befolkning 3/${START_CONFIG.populationCap}`,
+      population: `Befolkning 3/${BUILDING_DEFS.storide.housing}`,
     });
     const state = await getState(page);
     expect(state.players.map((p) => p.resources)).toEqual([START, START]);

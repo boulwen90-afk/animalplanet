@@ -105,6 +105,9 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `tests/e2e/phase9-ai.spec.ts` | Webbläsartester för fas 9 | 9 |
 | `tests/e2e/phase10-touch-start.spec.ts` | Webbläsartester för fas 10: startskärm, hela flödet, basknapp, pekstyrning, telefonskärm | 10 |
 | `src/sim/balance.test.ts` | Balansmålen som enhetstester: matchlängd AI mot AI, försvar mot första vågen | 10 |
+| `src/data/population.ts` | Det hårda befolkningstaket | Efter MVP |
+| `src/sim/population.test.ts` | Enhetstester för befolkningsreglerna: plats, träning mot platsen, förlorad bostad | Efter MVP |
+| `tests/e2e/population.spec.ts` | Webbläsartester för befolkningen: räknaren, meddelandet, Idet, datorspelaren | Efter MVP |
 | `src/render/characters/characters.ts` | Vilka enhetstyper som ritas som figurer, och var deras filer ligger | Efter MVP |
 | `src/render/characters/CharacterLibrary.ts` | Laddar figurernas atlaser och färgar en kopia per spelare | Efter MVP |
 | `src/render/characters/recolor.ts` | Lagfärgen: räknar om atlasens pixlar via masken | Efter MVP |
@@ -271,6 +274,25 @@ motsvarande längre tid.
 - Att avbryta den enhet som tränas nollställer `trainTicks`; nästa i kön
   börjar från början.
 
+### Befolkning
+
+- **Plats** (`populationRoom`): summan av `housing` för sidans färdiga
+  byggnader (`BUILDING_DEFS`), högst `POPULATION_CONFIG.hardCap` (50).
+  Storiden ger 5 och varje Ide 5. En byggnad under uppförande ger inget.
+- **Upptagen plats** (`reservedPopulation`): summan av `population`
+  (`UNIT_DEFS`, i dag 1 för alla) för sidans enheter som inte har
+  kapitulerat, plus enheterna i alla dess produktionsköer.
+- **Träning** (`queueUnit`): nekas om upptagen plats plus den nya enhetens
+  kostnad överstiger platsen. Skälet är `housingFull` när fler bostäder
+  skulle hjälpa och `populationCap` när platsen redan är 50. Inget dras
+  och inget köas.
+- **Förlorad bostad:** platsen räknas om från de byggnader som finns, så
+  den sjunker i samma steg som en bostad försvinner. Inga enheter tas
+  bort; befolkningen kan alltså vara större än platsen. En enhet som redan
+  står i kö tränas klart.
+- Värdet 30 som fanns förut låg i `START_CONFIG.populationCap` och är
+  borttaget.
+
 ### Strid
 
 - Skada per slag = anfallarens `damage` − målets `armor`, minst 1.
@@ -371,8 +393,11 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
   (`visibilityAt` och `isEntityVisibleTo` ger alltid synligt).
 - Varje beslut går igenom samma lista, i den här ordningen:
   1. **Arbetare:** träna en i taget tills den har 8.
-  2. **Byggen:** ett bygge utan byggare får närmaste lediga arbetare. Saknas
-     kasern byggs en vid basen; därefter ett förråd vid närmaste skog.
+  2. **Byggen:** ett bygge utan byggare får närmaste lediga arbetare.
+     Först bostäder: har den högst `AI_CONFIG.housingMargin` (3) lediga
+     platser kvar, räknat med bostäder under uppförande och enheter i kö,
+     bygger den ett Ide vid basen, tills platsen når det hårda taket.
+     Saknas kasern byggs en vid basen; därefter ett förråd vid närmaste skog.
      Platsen ska ha en ruta fri mark runt om, så att inget stängs in.
   3. **Sysslolösa arbetare** skickas att samla vid källan närmast basen.
      Tre av åtta hålls på trä och resten på mat (`woodShare` 0,375).
@@ -529,7 +554,13 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
 - **`UiScene`** ligger ovanpå `GameScene` med egen kamera, så att
   gränssnittet står still när kartan rullar. Den hämtar sitt innehåll från
   `GameScene` via gränssnittet `HudSource`.
-  - Resursraden längs överkanten visar mat, trä och befolkning (`3/30`).
+  - Resursraden längs överkanten visar mat, trä och befolkning som
+    upptagen plats mot plats (`3/5` vid start). Enheter i kö räknas med i
+    det första talet.
+  - Nekas en träningsorder för att platsen är full blir befolkningstalet
+    rött i 2,5 sekunder (`UI_CONFIG.noticeMs`), och ett meddelande visas
+    lika länge mitt under resursraden, 30 px under varningstextens plats:
+    "Ingen plats – bygg ett Ide" eller "Befolkningstaket 50 är nått".
   - Markeringspanelen ligger nere till vänster och syns bara när något är
     markerat. För en egen enhet visas även vad den gör, t.ex.
     `Liv 40/40 · Samlar mat 7/10`, `Liv 40/40 · Bygger Visthus` eller
@@ -1273,6 +1304,7 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getFrameCount()` | Antal ritade bildrutor hittills. Med en klocka ger det bildfrekvensen |
 | `getUnitSprite(id)` | Hur en enhet som ritas som figur ser ut just nu: `animation`, `direction`, `frame` (bildrutans namn), `texture`, `load` (bildrutan för lasten som ritas ovanpå, eller `null`) och `behindBuilding` (om den står bakom en byggnad och ritas svagt ovanpå den). `null` för platshållare |
 | `getDebug()` | Vad räknaren från `?debug=1` visar: `visible`, `text` och `fps` |
+| `getNotice()` | Meddelandet som förklarar en nekad order, eller en tom sträng |
 | `getBuildingSprite(id)` | Hur en byggnad som ritas från bilder ser ut just nu: `frame` (`construction_1`, `construction_2` eller `complete`) och `texture`. `null` för platshållarblock |
 | `command(cmd)` | Skickar ett kommando till simuleringen och ger tillbaka dess `CommandResult` |
 | `getSelection()` | Id för markerade entiteter |

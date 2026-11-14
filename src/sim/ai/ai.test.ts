@@ -3,7 +3,14 @@ import { AI_CONFIG } from '../../data/ai';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
-import { buildingCentre, createUnit, hasSurrendered, populationOf } from '../entities';
+import {
+  buildingCentre,
+  createUnit,
+  hasSurrendered,
+  populationOf,
+  populationRoom,
+  reservedPopulation,
+} from '../entities';
 import { createGame } from '../game';
 import { tileDistance } from '../map/grid';
 import type { Building, GameState, Unit } from '../state';
@@ -106,12 +113,30 @@ describe('the computer opponent plays by the rules', () => {
     );
   });
 
-  it('never has more units than the population cap', () => {
+  it('never has more units than it has room for', () => {
     const state = againstNobody(2);
     for (let i = 0; i < 5 * MINUTE && state.winner === null; i++) {
       tick(state);
-      expect(populationOf(state, 1)).toBeLessThanOrEqual(START_CONFIG.populationCap);
+      expect(populationOf(state, 1)).toBeLessThanOrEqual(populationRoom(state, 1));
     }
+  });
+
+  it('builds housing in time: it is never left waiting for room for long', () => {
+    const state = againstNobody(2);
+    // Steps in a row in which it has no room for another unit.
+    let stuck = 0;
+    let longest = 0;
+    for (let i = 0; i < 8 * MINUTE && state.winner === null; i++) {
+      tick(state);
+      const full = reservedPopulation(state, 1) >= populationRoom(state, 1);
+      stuck = full ? stuck + 1 : 0;
+      longest = Math.max(longest, stuck);
+    }
+    // A house takes 15 seconds to raise; it is never without room for much longer than that.
+    expect(longest).toBeLessThan(30 * SIM_CONFIG.ticksPerSecond);
+    // And it did grow: well past the room its main building gives.
+    expect(populationOf(state, 1)).toBeGreaterThan(15);
+    expect(buildingsOf(state, 1, 'ide').length).toBeGreaterThanOrEqual(3);
   });
 
   it('decides once a second, not every step', () => {

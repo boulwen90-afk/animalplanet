@@ -1,12 +1,19 @@
 import { AI_CONFIG } from '../../data/ai';
 import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
+import { POPULATION_CONFIG } from '../../data/population';
 import type { ResourceType } from '../../data/resources';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
 import { applyCommand } from '../commands';
 import { missingResources } from '../economy';
-import { buildingCentre, hasSurrendered, isBuilding, isUnit } from '../entities';
+import {
+  buildingCentre,
+  hasSurrendered,
+  isBuilding,
+  isUnit,
+  reservedPopulation,
+} from '../entities';
 import { inBounds, isWalkable, tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
 import { resourceAt } from '../resources';
@@ -109,8 +116,8 @@ function trainSoldiers(
 }
 
 /**
- * Builds what is missing: first a barracks, then a storehouse by the forest.
- * A site left without a builder gets a new one.
+ * Builds what is missing: housing when room is running out, then a barracks,
+ * then a storehouse by the forest. A site left without a builder gets a new one.
  */
 function build(
   state: GameState,
@@ -138,6 +145,12 @@ function build(
 
   const centre = buildingCentre(base);
   const wanted: { type: BuildingType; near: Point }[] = [];
+  // Housing comes first: without room it can train nothing else. It builds
+  // the next house while there is still a little room left.
+  const housing = buildableHousing();
+  if (housing && needsHousing(state, player, buildings)) {
+    wanted.push({ type: housing, near: centre });
+  }
   if (
     !buildings.some((b) => BUILDING_DEFS[b.type].trains.some((t) => UNIT_DEFS[t].aggroRadius > 0))
   ) {
@@ -164,6 +177,29 @@ function build(
     });
     return;
   }
+}
+
+/** The building type that only gives room for more units. */
+function buildableHousing(): BuildingType | undefined {
+  return (Object.keys(BUILDING_DEFS) as BuildingType[]).find(
+    (type) =>
+      BUILDING_DEFS[type].buildTime > 0 &&
+      BUILDING_DEFS[type].housing > 0 &&
+      BUILDING_DEFS[type].trains.length === 0 &&
+      !BUILDING_DEFS[type].dropoff,
+  );
+}
+
+/**
+ * True if the side is about to run out of room: counting the houses already
+ * under construction, it has no more than the margin left, and it has not
+ * reached the most room a side can have.
+ */
+function needsHousing(state: GameState, player: PlayerId, buildings: readonly Building[]): boolean {
+  let room = 0;
+  for (const building of buildings) room += BUILDING_DEFS[building.type].housing;
+  if (room >= POPULATION_CONFIG.hardCap) return false;
+  return room - reservedPopulation(state, player) <= AI_CONFIG.housingMargin;
 }
 
 /** The building type that trains soldiers. */

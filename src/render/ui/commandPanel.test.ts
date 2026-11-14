@@ -111,6 +111,7 @@ describe('describeCommandPanel', () => {
           label: 'Bygg Krigshall',
           cost: '150 trä',
         },
+        { action: { kind: 'build', building: 'ide' }, label: 'Bygg Ide', cost: '30 trä' },
       ],
       progress: 0,
     };

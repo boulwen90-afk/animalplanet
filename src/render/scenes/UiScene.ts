@@ -1,5 +1,7 @@
 import { Scene, type GameObjects, type Input } from 'phaser';
 import { PRODUCTION_CONFIG } from '../../data/production';
+import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
+import { POPULATION_CONFIG } from '../../data/population';
 import { STRINGS } from '../../data/strings';
 import { UI_CONFIG } from '../../data/ui';
 import type { CommandResult } from '../../sim/commands';
@@ -26,8 +28,10 @@ import type { SelectionInfo } from '../ui/selectionInfo';
 export interface ResourceBarInfo {
   food: number;
   wood: number;
+  /** The population taken up, units in production queues included. */
   population: number;
-  populationCap: number;
+  /** How many units the side has room for. */
+  populationRoom: number;
 }
 
 export type HudButtonId = 'base' | 'deselect';
@@ -139,6 +143,17 @@ export interface CommandPanelDisplay {
   progress: number;
 }
 
+/** How far below the warning text the notice is written, in pixels. */
+const NOTICE_BELOW_ALERT = 30;
+
+/** The name of the building a side builds to get room for more units. */
+function housingName(): string {
+  const type = (Object.keys(BUILDING_DEFS) as BuildingType[]).find(
+    (name) => BUILDING_DEFS[name].housing > 0 && BUILDING_DEFS[name].buildTime > 0,
+  );
+  return type ? STRINGS.buildings[type] : '';
+}
+
 const PANEL_COLOR = 0x10141a;
 const PANEL_EDGE = 0x4a5568;
 const BUTTON_COLOR = 0x2d3748;
@@ -182,6 +197,9 @@ export class UiScene extends Scene {
   private commandLayout: CommandPanelLayout | undefined;
 
   private alert!: GameObjects.Text;
+  /** A short message that explains a refused order, and when it goes away. */
+  private notice!: GameObjects.Text;
+  private noticeUntil = 0;
   private alertShown = '';
 
   private outcome!: GameObjects.Graphics;
@@ -251,6 +269,18 @@ export class UiScene extends Scene {
         })
         .setOrigin(0.5),
     );
+
+    this.notice = this.add
+      .text(0, 0, '', {
+        fontFamily: 'sans-serif',
+        fontSize: '18px',
+        fontStyle: 'bold',
+        color: FLASH_COLOR,
+        stroke: '#10141a',
+        strokeThickness: 4,
+      })
+      .setOrigin(0.5, 0)
+      .setVisible(false);
 
     this.alert = this.add
       .text(0, 0, '', {
@@ -665,12 +695,31 @@ export class UiScene extends Scene {
     const until = this.now + UI_CONFIG.refusalFlashMs;
     if (result.reason === 'insufficientResources') {
       for (const resource of result.missing) this.flashUntil[resource] = until;
-    } else if (result.reason === 'populationCap') {
-      this.flashUntil.population = until;
+    } else if (result.reason === 'housingFull' || result.reason === 'populationCap') {
+      // The number stays red as long as the message that explains it shows.
+      this.flashUntil.population = this.now + UI_CONFIG.noticeMs;
+      this.showNotice(
+        result.reason === 'housingFull'
+          ? STRINGS.hud.housingFull(housingName())
+          : STRINGS.hud.populationCap(POPULATION_CONFIG.hardCap),
+      );
     }
   }
 
+  /** Shows a short message under the resource bar for a few seconds. */
+  private showNotice(text: string): void {
+    this.noticeUntil = this.now + UI_CONFIG.noticeMs;
+    this.notice.setText(text).setVisible(true);
+  }
+
+  /** The message shown right now, or an empty string. */
+  getNoticeDisplay(): string {
+    return this.notice.visible ? this.notice.text : '';
+  }
+
   private updateResourceBar(): void {
+    if (this.notice.visible && this.now >= this.noticeUntil) this.notice.setVisible(false);
+
     // Changing a text's colour redraws it, so only do it when the flash starts or ends.
     for (const key of BAR_KEYS) {
       const flashing = this.now < this.flashUntil[key];
@@ -686,7 +735,7 @@ export class UiScene extends Scene {
       wood: `${STRINGS.resources.wood} ${info.wood}`,
       population: `${STRINGS.hud.population} ${STRINGS.hud.populationCount(
         info.population,
-        info.populationCap,
+        info.populationRoom,
       )}`,
     };
     for (const key of BAR_KEYS) {
@@ -818,6 +867,8 @@ export class UiScene extends Scene {
     this.detail.setPosition(rect.x + 12, rect.y + 36);
 
     this.alert.setPosition(this.scale.width / 2, alertTop(this.scale.width));
+    // Under the warning, so that both can show at once.
+    this.notice.setPosition(this.scale.width / 2, alertTop(this.scale.width) + NOTICE_BELOW_ALERT);
     this.drawHudButtons();
     this.layoutStartScreen();
     this.drawLoading();

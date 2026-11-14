@@ -99,7 +99,14 @@ export type Command =
 export type CommandResult =
   | { ok: true }
   | { ok: false; reason: 'insufficientResources'; missing: ResourceType[] }
-  | { ok: false; reason: 'populationCap' | 'queueFull' | 'invalidPlacement' | 'invalid' };
+  | {
+      ok: false;
+      /**
+       * `housingFull`: no room for the unit until more housing is built.
+       * `populationCap`: no room, and the side already has the most it can ever have.
+       */
+      reason: 'housingFull' | 'populationCap' | 'queueFull' | 'invalidPlacement' | 'invalid';
+    };
 
 const OK: CommandResult = { ok: true };
 

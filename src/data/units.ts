@@ -6,6 +6,8 @@ export type { UnitType } from './types';
 export interface UnitDef {
   /** Price of training one. */
   cost: Cost;
+  /** How much of its side's population room one takes up. */
+  population: number;
   /** Time to train one, in seconds. */
   trainTime: number;
   /** Hit points. */
@@ -44,13 +46,14 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
   /** Worker: gathers resources and constructs buildings. */
   samlare: {
     cost: { food: 50 },
+    population: 1,
     trainTime: 12,
     hp: 40,
     speed: 2.5,
     sight: 6,
     carryCapacity: 10,
     gatherRate: 1,
-    builds: ['visthus', 'krigshall'],
+    builds: ['visthus', 'krigshall', 'ide'],
     damage: 3,
     armor: 0,
     attackCooldown: 1.5,
@@ -60,6 +63,7 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
   /** Soldier: fights hand to hand. */
   ramkrigare: {
     cost: { food: 60, wood: 25 },
+    population: 1,
     trainTime: 18,
     hp: 100,
     speed: 2.2,

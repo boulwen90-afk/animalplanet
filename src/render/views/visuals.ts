@@ -70,6 +70,7 @@ export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label:
   storide: { wallHeight: 84, label: 'S' },
   visthus: { wallHeight: 48, label: 'V' },
   krigshall: { wallHeight: 62, label: 'K' },
+  ide: { wallHeight: 22, label: 'I' },
 };
 
 /**

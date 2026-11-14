@@ -12,6 +12,7 @@ export const STRINGS = {
     storide: 'Storide',
     visthus: 'Visthus',
     krigshall: 'Krigshall',
+    ide: 'Ide',
   } satisfies Record<BuildingType, string>,
   resources: {
     food: 'Mat',
@@ -24,7 +25,10 @@ export const STRINGS = {
     building: (name: string) => `Bygger ${name}`,
     costPart: (amount: number, resource: string) => `${amount} ${resource.toLowerCase()}`,
     population: 'Befolkning',
-    populationCount: (current: number, cap: number) => `${current}/${cap}`,
+    populationCount: (current: number, room: number) => `${current}/${room}`,
+    /** Shown when a unit cannot be trained for lack of room. */
+    housingFull: (housing: string) => `Ingen plats – bygg ett ${housing}`,
+    populationCap: (cap: number) => `Befolkningstaket ${cap} är nått`,
     gathering: (resource: string, carried: number, capacity: number) =>
       `Samlar ${resource.toLowerCase()} ${carried}/${capacity}`,
     carrying: (resource: string, carried: number) => `Bär ${carried} ${resource.toLowerCase()}`,
