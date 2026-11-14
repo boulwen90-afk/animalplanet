@@ -8,6 +8,11 @@ unit = "warrior"
 race = "bear"
 unit = "worker"
 
+# The first figure of the next race. No unit in the game uses it yet.
+[[figure]]
+race = "tiger"
+unit = "raider"
+
 # Buildings: `build.py --all` builds them too. Their configs are in buildings/<race>/.
 [[building]]
 race = "bear"

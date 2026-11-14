@@ -311,6 +311,58 @@ def build_armor(
                 rows.append([(across - 0.055, y, z), (across + 0.055, y, z)])
             b.sheet(f"armor.basket_strap_{side}", rows, pal["leather"])
 
+    if armor.get("harness"):
+        # Two leather straps crossing the chest and the back, with a brass disc where they meet in front.
+        b.attach("chest")
+
+        def skin(x: float, z: float, toward: float) -> float:
+            """Where the chest's surface is at a point across and up it; `toward` is -1 for the front, 1 for the back."""
+            inside = max(0.0, 1.0 - (x / cx) ** 2 - ((z - chest.z) / cz) ** 2)
+            return chest.y + toward * (cy * 1.04 * math.sqrt(inside) + 0.03)
+
+        for face, toward in (("front", -1.0), ("back", 1.0)):
+            for side, sign in (("l", 1.0), ("r", -1.0)):
+                rows = []
+                for t in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0):
+                    x = sign * cx * (0.6 - 1.15 * t)
+                    z = chest.z + cz * (0.66 - 1.3 * t)
+                    y = skin(x, z, toward)
+                    rows.append([(x - 0.05, y, z + 0.03), (x + 0.05, y, z - 0.03)])
+                b.sheet(f"armor.harness_{face}_{side}", rows, pal["leather"])
+        middle = Vector((0.0, skin(0.0, chest.z + cz * 0.01, -1.0), chest.z + cz * 0.01))
+        b.limb("armor.harness_disc", middle, middle + Vector((0, -0.04, 0)), 0.12, 0.1, pal["brass"], 10)
+
+    if armor.get("sash"):
+        # A wide cloth in the team colour wound around the waist, with one end hanging at the hip.
+        b.attach("hips")
+        waist = hips + Vector((0, -0.02, 0.2))
+        b.limb("armor.sash", waist - Vector((0, 0, 0.09)), waist + Vector((0, 0, 0.09)), bx * 1.1, bx * 1.06, pal["team"], 12, by / bx)
+        knot = waist + Vector((bx * 0.95, -by * 0.35, 0.0))
+        b.ellipsoid("armor.sash_knot", knot, (0.09, 0.09, 0.09), pal["team"], detail=1)
+        b.limb("armor.sash_end", knot, knot + Vector((0.1, -0.02, -0.5)), 0.085, 0.05, pal["team"], 6, 0.4)
+
+    if armor.get("headband"):
+        # A band in the team colour around the brow, knotted behind with two tails.
+        hx, hy, hz = p["head_radii"]
+        b.attach("head")
+        up = tuple(head_turn.to_3x3() @ Vector((1, 0, 0)))
+        b.limb(
+            "armor.headband",
+            on_head(0, 0.0, hz * 0.3),
+            on_head(0, 0.0, hz * 0.5),
+            hx * 1.05,
+            hx * 0.99,
+            pal["team"],
+            12,
+            hy / hx,
+            up,
+        )
+        knot = on_head(0, hy * 1.02, hz * 0.38)
+        b.ellipsoid("armor.headband_knot", knot, (0.06, 0.06, 0.06), pal["team"], detail=1)
+        for side, sign in (("l", 1.0), ("r", -1.0)):
+            tip = on_head(sign * 0.12, hy * 1.5, -hz * 0.7)
+            b.limb(f"armor.headband_tail_{side}", knot, tip, 0.05, 0.025, pal["team"], 6, 0.4)
+
     if armor.get("belt"):
         middle = hips + Vector((0, -0.02, 0.16))
         b.attach("hips")

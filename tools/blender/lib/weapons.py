@@ -58,6 +58,20 @@ def build_weapon(b: Builder, weapon: dict, hand: Vector, pal: Palette, group: st
         b.box(f"{group}.axe_head", head, (0.34, 0.07, 0.34), pal["blade"], turn)
         b.box(f"{group}.axe_edge", head + across * 0.2, (0.07, 0.045, 0.5), pal["steel_dark"], turn)
         b.limb(f"{group}.axe_spike", top, top + d * 0.18, 0.05, 0.0, pal["steel_dark"], 4)
+    elif kind == "glaive":
+        # A long haft with a curved, single-edged blade, and a tassel in the team colour under it.
+        width = weapon.get("width", 0.2)
+        top = hand + d * length
+        butt = hand - d * (length * 0.45)
+        b.limb(f"{group}.haft", butt, top, 0.04, 0.038, pal["wood"], 6)
+        b.limb(f"{group}.butt", butt - d * 0.08, butt, 0.0, 0.055, pal["brass"], 6)
+        b.ellipsoid(f"{group}.collar", top, (0.07,) * 3, pal["brass"], detail=1)
+        reach = weapon.get("blade", 0.7)
+        belly = top + d * (reach * 0.6) + across * (width * 0.25)
+        tip = top + d * reach - across * (width * 0.15)
+        b.limb(f"{group}.blade", top + d * 0.03, belly, width * 0.42, width * 0.55, pal["blade"], 4, 0.2, wide)
+        b.limb(f"{group}.blade_tip", belly, tip, width * 0.55, 0.0, pal["blade"], 4, 0.2, wide)
+        b.limb(f"{group}.tassel", top - d * 0.04, top - d * 0.3 + across * 0.05, 0.06, 0.02, pal["team"], 6)
     elif kind == "hammer":
         # A mallet: a short haft with a block of iron across its end.
         top = hand + d * length

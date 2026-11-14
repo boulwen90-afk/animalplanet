@@ -770,9 +770,10 @@ Alla tal ligger i `MAP_GEN_CONFIG`. Antal fläckar anges per karthalva.
 
 Figurerna byggs helt med kod i Blender, utan fönster och utan externa
 tjänster. Spelet ritas med Phaser i 2D, så slutprodukten blir spritesheets
-(PNG + JSON-atlas). Två figurer finns: **björnkrigaren** (Ramkrigaren) och
-**björnarbetaren** (Samlaren). Båda har skelett och animationer, renderas
-i åtta riktningar och ritas i spelet. Björnarnas tre **byggnader** är
+(PNG + JSON-atlas). Tre figurer finns: **björnkrigaren** (Ramkrigaren) och
+**björnarbetaren** (Samlaren), som ritas i spelet, och **tigerkrigaren**,
+den första figuren för nästa ras, som inte används i spelet än. Alla har
+skelett och animationer och renderas i åtta riktningar. Björnarnas tre **byggnader** är
 byggda i pipelinen och har färdiga atlaser, men spelet ritar dem inte än:
 där är byggnaderna fortfarande platshållare. Se "Byggnader" nedan.
 
@@ -827,9 +828,10 @@ alla figurer från konfigfilerna. En figurs atlas tar cirka 1,5 minut.
 | `lib/materials.py` | Material från hexfärger; lagfärgsmaterialet `team_color` |
 | `lib/mesh.py` | `Builder` med grundformerna: `ellipsoid` (även kupol), `limb` (avsmalnande cylinder mellan två punkter), `box`, `sheet` (tyg). Sätter mjuka eller hårda kanter per delgrupp |
 | `lib/skeleton.py` | Det gemensamma skelettet: benen (`BONES`), lösaren `solve` som placerar leder och ben för en pose, och `Rig` som bygger Blender-skelettet, binder delarna och bakar animationer |
+| `lib/coat.py` | Pälsteckning och lång svans: ränder runt lemmar, bål och huvud, och en ringlad svans i segment. Slås på i rasens konfig under `[markings]` och `[tail]` |
 | `lib/body.py` | Kroppen: bål, puckel, huvud, kinder, nos, käke, huggtänder, ögon, ögonbryn, öron, armar, ben, tassar, klor, svans |
-| `lib/armor.py` | Rustnings- och klädesdelar. Krigarens: ringbrynja, bröstplåt med bukskenor, höftplåtar, axelskydd med taggar, pälskrage, armskenor, benskenor, bälte, vapenrock, hjälm med kam, mantel. Arbetarens: tunika, läderlindor, ett axelskydd av läder, förkläde, korg med remmar |
-| `lib/weapons.py` | Svärd, yxa, hammare och rundsköld |
+| `lib/armor.py` | Rustnings- och klädesdelar. Krigarens: ringbrynja, bröstplåt med bukskenor, höftplåtar, axelskydd med taggar, pälskrage, armskenor, benskenor, bälte, vapenrock, hjälm med kam, mantel. Arbetarens: tunika, läderlindor, ett axelskydd av läder, förkläde, korg med remmar. Lätt rustning: korsade läderremmar med bröstbricka, midjeskärp och pannband i lagfärg |
+| `lib/weapons.py` | Svärd, yxa, glav, hammare och rundsköld |
 | `lib/emblem.py` | Läser ett sigill och lägger det på en yta (sköld eller mantel); ritar det även som platt bild |
 | `lib/figure.py` | Sätter ihop kropp, rustning, vapen, sköld och sigill till en figur och binder den till sitt skelett |
 | `lib/camera.py` | Ortografisk kamera, ljus och den osynliga mark som fångar skuggan |
@@ -993,6 +995,7 @@ tittar på skärmen; `s` är mot betraktaren) med samma kamera, ljus och
 skala för alla figurer. Varje bildruta renderas i två pass (figur och
 mask) och får sin kontur. Björnkrigaren blir 248 bildrutor.
 Björnarbetaren blir 344, och med sina två lager 1032 bilder i atlasen.
+Tigerkrigaren blir 248.
 
 - **Trimning och packning.** Tom yta runt varje bild skärs bort och
   bilderna packas i rader (`lib/atlas.py`). Masken har exakt samma
@@ -1079,7 +1082,32 @@ ena änden bakom en gård med palissad, träningsdocka och vapenställ.
 Visthuset är ett litet hus med bred port och tunnor, lådor och säckar
 längs sidan.
 
+**Tigrarna** (`races/tiger.toml`) är den andra rasen i pipelinen. De är
+byggda för att skilja sig från björnarna i siluett, inte bara i färg:
+
+| | Björn | Tiger |
+|---|---|---|
+| Höjd mot standarden (`stature`) | 1,0 | 1,1 |
+| Krigarens höjd på skärmen | 35 px | 39 px |
+| Axelbredd (halv) | 0,66 | 0,44 |
+| Benlängd (lår + smalben) | 0,66 | 0,96 |
+| Bröstets bredd | 0,66 | 0,42 |
+| Öron | runda | spetsiga |
+| Svans | stubbe | lång och ringlad |
+| Päls | enfärgad, puckel | randig |
+
+**Tigerkrigaren** (`units/raider.toml`, storleksklass `warrior`) har lätt
+rustning: korsade läderremmar med en mässingsbricka, läderlindor, ett
+axelskydd av läder, midjeskärp, höftskynke och pannband i lagfärg. Den
+bär en glav (långt skaft med krökt klinga) och en liten rundsköld med
+tigersigillet. Den använder samma skelett och samma animationer som
+björnkrigaren (`idle`, `walk`, `attack`, `defeat`) utan ändringar i
+dem. Farten är satt till 2,8 rutor per sekund, vilket ger 2,35 varv per
+sekund med den naturliga gången; någon sådan enhet finns inte i spelet
+än, så talet är det den är tänkt att få.
+
 **Lagfärg och mask.** Hjälmkam, mantel, vapenrock, sköldens fält,
+pannband, skärp, höftskynke, glavens tofs,
 arbetarens tunika och sigillets `field`-delar använder materialet
 `team_color`. De renderas inte
 i någon lagfärg, utan i en neutral grå (`#bcbcbc`), och färgas efteråt.
@@ -1130,6 +1158,7 @@ bara kontrollerat på samma maskin och samma Blender-version.
   båda lagfärgerna framför. Övre bilden är fyra gånger spelets pixlar
   (`[overview] scale` i `game.toml`); den nedre är samma bild i spelets
   egna pixlar. Ordningen är den i `figures.toml`.
+- `assets/previews/tiger_raider/`: samma bilder som för björnkrigaren.
 - `assets/previews/bear_storage/`, `bear_barracks/`, `bear_main/`:
   `stages.png` (de tre stadierna på spelets mark, i dubbel storlek) och
   `teams.png` (den färdiga byggnaden i båda lagfärgerna, tre gånger
