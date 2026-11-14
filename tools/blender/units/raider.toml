@@ -1,0 +1,60 @@
+# The light warrior: a leather harness and wraps instead of plate, a long
+# glaive and a small buckler. Fast and lightly armoured.
+# Built for the tigers. No unit in the game uses it yet.
+name = "raider"
+size_class = "warrior"   # which height the size standard gives it; see game.toml
+
+# How fast it moves, in tiles a second; the gait is fitted to it. There is no
+# such unit in the game yet, so this is the speed it is meant to have.
+[movement]
+speed = 2.8
+
+# The animations this unit is drawn with, from the shared library in animations/.
+[animations]
+list = ["idle", "walk", "attack", "defeat"]
+
+[armor]
+harness = true          # leather straps crossing the chest, with a brass disc
+wraps = true            # leather around the forearms and the shins
+shoulder_guard = "right" # one leather plate, on the weapon arm
+sash = true             # team colour, around the waist
+tabard = true           # team colour, hanging at the front
+skirt_length = 0.2
+headband = true         # team colour, with tails behind
+
+[weapon]
+type = "glaive"         # a long haft with a curved blade
+hand = "right"
+length = 0.95           # from the hand to where the blade starts
+blade = 0.75
+width = 0.24
+direction = [-0.30, -0.25, 1.0]   # where the blade points
+flat_axis = [-0.2, -0.95, -0.3]   # the edge faces forward
+
+[shield]
+type = "round"          # a small buckler
+arm = "left"
+radius = 0.36
+emblem = "race"
+normal = [0.45, -1.0, 0.1]        # the way the face of the shield points
+
+[colors]
+steel = "#8a94a0"
+steel_dark = "#49515c"
+blade = "#cfd6de"
+brass = "#c2933a"
+leather = "#4a2e1a"
+wood = "#5a3d26"
+
+# The static pose: which way each part of a limb points from its joint.
+# The figure faces -Y; its right side is -X. A low, ready stance.
+[pose]
+head_pitch_deg = 10.0
+upper_arm_r = [-0.70, -0.10, -0.65]
+forearm_r = [-0.25, -0.60, 0.70]
+upper_arm_l = [0.50, -0.50, -0.70]
+forearm_l = [-0.30, -0.80, 0.35]
+thigh_l = [0.26, -0.45, -1.0]     # the left foot leads
+shin_l = [0.02, 0.30, -1.0]
+thigh_r = [-0.28, 0.22, -1.0]
+shin_r = [-0.04, 0.18, -1.0]

@@ -1,0 +1,66 @@
+# Tigers: tall, lean and long-legged, with narrow shoulders, a striped coat and
+# a long tail. Lengths are in Blender units. The figure stands on z = 0 and faces -Y.
+name = "tiger"
+stature = 1.1                  # height against the size standard: a head taller than a bear
+emblem = "tiger"               # the sigil in emblems/, shown on shields and capes
+
+[proportions]
+hip_height = 1.0
+torso_length = 0.85
+chest_forward = 0.08          # how far the chest leans forward
+shoulder_half_width = 0.44
+shoulder_drop = 0.12          # shoulders below the top of the torso
+hip_half_width = 0.2
+upper_arm = 0.46
+forearm = 0.46
+thigh = 0.5
+shin = 0.46
+chest_radii = [0.42, 0.33, 0.42]
+belly_radii = [0.31, 0.27, 0.36]
+neck_radius = 0.19
+head_radii = [0.27, 0.28, 0.25]
+head_forward = 0.14
+arm_radius = [0.15, 0.12]     # at the shoulder and at the wrist
+leg_radius = [0.17, 0.11]     # at the hip and at the ankle
+hand_radius = 0.14
+foot_size = [0.13, 0.24, 0.09]
+
+[features]
+muzzle_radii = [0.15, 0.17, 0.11]
+muzzle_drop = 0.06
+cheek_radius = 0.15           # the ruff of fur on a tiger's cheeks
+brow = 0.4
+fangs = true
+ear = "pointed"               # "round" or "pointed"
+ear_radius = 0.09
+ear_spread = 0.72
+ear_height = 0.6
+hump = 0.0
+tail = "none"                 # the long tail is built by [tail] below
+
+# Bands of the darker colour around the limbs and the body, and over the head.
+[markings]
+type = "stripes"
+color = "stripe"
+width = 0.07
+upper_arm = 2
+forearm = 2
+thigh = 3
+shin = 2
+belly = [-0.35, 0.25]         # heights on the belly and the chest, as shares of their height
+chest = [-0.4, 0.05, 0.5]
+
+# A long tail that sweeps back and curls up at the tip, ringed in the darker colour.
+[tail]
+length = 0.9
+radius = [0.075, 0.045]
+color = "stripe"
+
+[colors]
+fur = "#e08a2c"
+fur_dark = "#8a4a16"
+fur_light = "#f6ead2"
+stripe = "#2a1a12"
+nose = "#c9706a"
+eye = "#b8e04a"
+claw = "#ece2c8"

@@ -2,6 +2,7 @@
 
 from .armor import build_armor
 from .body import build_body
+from .coat import build_coat
 from .emblem import load_emblem
 from .materials import Palette
 from .mesh import Builder
@@ -67,6 +68,7 @@ def build_figure(
     builder = Builder(name, (style or {}).get("smooth_deg"))
 
     build_body(builder, race, joints, head_turn, palette)
+    build_coat(builder, race, joints, head_turn, palette)
     build_armor(builder, race, unit, joints, head_turn, palette, emblem)
 
     weapon = unit.get("weapon")

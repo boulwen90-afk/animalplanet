@@ -9,12 +9,11 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   enhetstyperna ritas som figurer: björnkrigaren (Ramkrigaren) och
   björnarbetaren (Samlaren). Sex förbättringar av Samlaren och grunden är
   gjorda och väntar på att användaren ser skärmdumparna. Se "Efter MVP:n"
-- **Väntar på användaren:** uppdraget "bygg resten av figurerna" har tre
-  punkter med stopp efter varje. Punkt 1 (björnarbetaren) och punkt 2
-  (byggnader) är klara; punkt 2 väntar på att användaren ser
-  översiktsbilden. Punkt 3 (tigrar) är inte påbörjad
-- **Inte gjort:** byggnaderna ritas inte i spelet än. Atlaserna finns,
-  men spelet visar fortfarande block med bokstäver
+- **Väntar på användaren:** uppdraget "bygg resten av figurerna" är klart
+  i alla tre punkter (björnarbetare, byggnader, tigerkrigare). Punkt 3
+  väntar på att användaren ser översiktsbilden. Punkt 1 och 2 är mergade
+- **Inte gjort:** byggnaderna ritas inte i spelet än, och tigrarna finns
+  inte som ras i spelet. Atlaserna finns för båda
 - **Beslutat men inte påbörjat:** skarp rendering i skärmens verkliga
   upplösning. Den står som egen punkt sist i `implementation-plan.md`
 - **Mäta på telefon:** `?debug=1` visar bilder per sekund, och
@@ -822,6 +821,59 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Figurgrafik: tigrarna och en tigerkrigare (2026-11-14)
+
+Punkt 3 i uppdraget "bygg resten av figurerna": en raskonfig för tigrar
+(smal, snabb, lätt rustning, randig päls) och en tigerkrigare som skiljer
+sig tydligt från björnen i siluett. Användaren bad först att
+pull request 11 skulle mergas ("Medge och gå vidare", läst som "Merga");
+den är mergad, och detta arbete ligger i en ny pull request.
+
+**Översiktsbild:** `assets/previews/overview.png` visar nu tre figurer
+och tre byggnader i verklig skala. Tigerns egna bilder ligger i
+`assets/previews/tiger_raider/`.
+
+**Vad som gjordes**
+
+- **Raskonfig** `races/tiger.toml`: smalare axlar och bröst, 45 % längre
+  ben, mindre huvud med spetsiga öron och kindpäls, ingen puckel. Tigern
+  är 10 % högre än björnen i samma storleksklass (39 px mot 35).
+- **Randig päls och lång svans** som nya delar (`lib/coat.py`): ränder
+  runt armar, ben, bål och över huvudet, och en lång ringlad svans.
+- **Tigerkrigaren** `units/raider.toml`: lätt rustning (läderremmar med
+  bröstbricka, lindor, ett axelskydd), pannband, skärp och höftskynke i
+  lagfärg, en glav och en liten sköld med tigersigillet.
+- **Samma skelett och animationer** som björnkrigaren, utan ändringar i
+  dem. Spritearket byggdes utan fel: ingen bild klipps, fötterna glider
+  inte, och takten blir 2,35 varv per sekund vid 2,8 rutor per sekund.
+
+**Saknas eller avviker**
+
+- **Tigrarna finns inte i spelet.** Det finns ingen tigerenhet, ingen
+  rasväljare och inga tigerbyggnader. Uppdraget gällde att förbereda
+  rasen i pipelinen.
+- **Farten 2,8 rutor per sekund är ett antagande.** Den står i enhetens
+  konfig för att gången ska kunna anpassas, men ingen enhet i spelet har
+  den farten.
+- **Ränderna är hela ringar** runt lemmar och bål. De bryts inte upp som
+  på en riktig tiger, och magen är inte ljus.
+- **Glavens egg vetter åt sidan i hugget.** Anfallsanimationen är gjord
+  för ett svärd och vrider bladet efter det.
+- **Gemensam kod ändrad:** `lib/figure.py` fick en rad som bygger
+  pälsteckningen (ingen verkan för raser utan `[markings]` eller
+  `[tail]`). `lib/armor.py` och `lib/weapons.py` fick bara nya delar.
+  Hela `npm run build:characters` kördes efteråt: björnarnas figurer
+  och byggnader blev identiska med de incheckade.
+- **Enhetens namn är `raider`**, inte `warrior`: enhetskonfigerna är
+  gemensamma för raserna, och `warrior` är björnarnas tunga utrustning.
+  Figuren heter därför `tiger_raider`.
+
+**Testresultat**
+
+- Vitest: 490 av 490 (1 nytt: tigerns storlek, animationer och takt)
+- Lint och typkontroll utan anmärkning
+- Webbläsartesterna är inte körda om: ingen spelkod är ändrad
 
 ### Figurgrafik: björnarnas byggnader (2026-11-14)
 

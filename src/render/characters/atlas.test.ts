@@ -124,4 +124,19 @@ describe('the figures against each other', () => {
     const [warrior, worker] = FIGURES.map((figure) => read(figure.name).meta.figure.height);
     expect(worker).toBeLessThan(warrior!);
   });
+
+  it('a tiger warrior is a tenth taller than a bear warrior: the same class, another stature', () => {
+    // The tigers are not in the game yet; their first figure is built to prepare for them.
+    const tiger = read('tiger_raider').meta;
+    const bear = read('bear_warrior').meta;
+    expect(tiger.figure.sizeClass).toBe('warrior');
+    expect(tiger.figure.height / bear.figure.height).toBeCloseTo(1.1, 2);
+    for (const animation of ['idle', 'walk', 'attack', 'defeat']) {
+      expect(tiger.animations[animation], animation).toBeDefined();
+    }
+    const [slowest, fastest] = tiger.loopsPerSecondRange;
+    const pace = tiger.animations.walk!.loopsPerSecond!;
+    expect(pace).toBeGreaterThanOrEqual(slowest);
+    expect(pace).toBeLessThanOrEqual(fastest);
+  });
 });
