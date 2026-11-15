@@ -940,8 +940,8 @@ och en Samlare på 5 skott.
 
 - Vitest: 724 av 724 (40 nya: tornets skjutande, projektilens bana,
   datorspelarens torn, texterna och byggmenyn)
-- Playwright: körningarna var inte klara när detta skrevs; resultatet förs in
-  i nästa commit. De sju nya testerna i `tower.spec.ts` går igenom
+- Playwright: 145 av 145 i normal fart (7 nya i `tower.spec.ts`), och 145
+  av 145 med webbläsaren nedbromsad 8 gånger
 - Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
   testerna eller när skärmdumparna togs.
 
