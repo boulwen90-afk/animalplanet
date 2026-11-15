@@ -10,12 +10,22 @@ import type {
   LoadingDisplay,
   StartScreenDisplay,
 } from '../render/scenes/UiScene';
+import type { DamageInfo } from '../render/views/DamageView';
 import type { BuildingSpriteInfo, UnitSpriteInfo } from '../render/views/EntityView';
 import type { SceneryInfo } from '../render/views/MapView';
 import type { Placement, PlacementPreviewInfo } from '../render/views/PlacementView';
 import type { Command, CommandResult } from '../sim/commands';
 import type { Point } from '../sim/map/iso';
 import type { GameState, PlayerId } from '../sim/state';
+
+/** What the mouse pointer looks like right now. */
+export interface PointerInfo {
+  shown: 'default' | 'repair';
+  /** The CSS cursor of the game's canvas. */
+  css: string;
+  /** The id of the building a right click would send the selected units to repair, or null. */
+  repairTarget: number | null;
+}
 
 /**
  * Test interface exposed as window.__TEST__ when the game runs with ?test=1.
@@ -41,6 +51,7 @@ export interface TestApiSource {
   getState(): GameState;
   advance(steps: number): void;
   spawnUnit(type: UnitType, owner: PlayerId, tileX: number, tileY: number): number;
+  setLife(id: number, life: number): void;
   getAlert(): string;
   getNotice(): string;
   getOutcome(): OutcomeDisplay;
@@ -52,6 +63,8 @@ export interface TestApiSource {
   getFrameCount(): number;
   getUnitSprite(id: number): UnitSpriteInfo | null;
   getBuildingSprite(id: number): BuildingSpriteInfo | null;
+  getBuildingDamage(id: number): DamageInfo;
+  getPointer(): PointerInfo;
   getScenery(tileX: number, tileY: number): SceneryInfo;
   getObjectCount(): number;
   command(command: Command): CommandResult;
@@ -113,6 +126,20 @@ export interface TestApi {
    */
   getUnitSprite(id: number): UnitSpriteInfo | null;
   getBuildingSprite(id: number): BuildingSpriteInfo | null;
+  /**
+   * Sets the life of a unit or building to a number above 0, as if it had
+   * been struck or mended. Tests use it to get a building damaged without
+   * playing a fight first.
+   */
+  setLife(id: number, life: number): void;
+  /** The damage drawn on a building: whether it smokes or burns, and how many puffs and fires show. */
+  getBuildingDamage(id: number): DamageInfo;
+  /**
+   * The mouse pointer: `repair` while it is the hammer shown over a damaged
+   * building that the selected units would repair, the CSS cursor of the
+   * game's canvas, and the id of that building.
+   */
+  getPointer(): PointerInfo;
   /**
    * What is drawn on a tile besides units and buildings: the picture of the
    * tree, bush or rock standing on it, the pictures lying on its ground (a
@@ -188,6 +215,9 @@ export function installTestApi(source: TestApiSource): TestApi {
     getFrameCount: () => source.getFrameCount(),
     getUnitSprite: (id) => source.getUnitSprite(id),
     getBuildingSprite: (id) => source.getBuildingSprite(id),
+    getBuildingDamage: (id) => source.getBuildingDamage(id),
+    setLife: (id, life) => source.setLife(id, life),
+    getPointer: () => source.getPointer(),
     getScenery: (tileX, tileY) => source.getScenery(tileX, tileY),
     getObjectCount: () => source.getObjectCount(),
     command: (command) => source.command(command),

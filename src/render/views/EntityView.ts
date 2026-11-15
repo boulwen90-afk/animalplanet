@@ -25,6 +25,8 @@ import {
   type CharacterAnimation,
 } from '../characters/animation';
 import type { BuildingLibrary, BuildingSheet } from '../buildings/BuildingLibrary';
+import { damageLevel } from '../effects/damage';
+import type { DamageInfo, DamageView } from './DamageView';
 import { SHADOW_FRAME, buildingCovers, stageOf } from '../buildings/stage';
 import type { CharacterLibrary, CharacterSheet } from '../characters/CharacterLibrary';
 import {
@@ -157,6 +159,8 @@ export class EntityView {
     private readonly size: TileSize,
     private readonly characters?: CharacterLibrary,
     private readonly buildingArt?: BuildingLibrary,
+    /** Draws the smoke and fire on damaged buildings; without it damage shows only on the life bar. */
+    private readonly damage?: DamageView,
   ) {
     this.marks = scene.add.graphics().setDepth(GROUND_MARK_DEPTH);
     this.overlay = scene.add.graphics().setDepth(OVERLAY_DEPTH);
@@ -198,6 +202,7 @@ export class EntityView {
     this.marks.clear();
     this.marks.lineStyle(2, SELECTION_COLOR, 1);
     this.overlay.clear();
+    this.damage?.begin(now);
 
     const byId = new Map<number, Entity>();
     for (const entity of state.entities) byId.set(entity.id, entity);
@@ -269,6 +274,8 @@ export class EntityView {
       }
     }
 
+    this.damage?.end();
+
     this.fading = this.fading.filter((fade) => {
       const t = (now - fade.since) / UI_CONFIG.fadeOutMs;
       if (t >= 1) {
@@ -288,6 +295,11 @@ export class EntityView {
       frame: sprite.image.frame.name,
       texture: sprite.image.texture.key,
     };
+  }
+
+  /** The smoke and fire drawn on a building right now. */
+  describeDamage(id: number): DamageInfo {
+    return this.damage?.describe(id) ?? { level: 'none', puffs: 0, flames: 0 };
   }
 
   /** What a unit drawn as a character looks like right now, or undefined. */
@@ -441,7 +453,7 @@ export class EntityView {
         const ticks = ticksPerUnit(unit, site);
         const loops = workLoops(info, ticks / SIM_CONFIG.ticksPerSecond);
         frame = progressFrame(info, (task.workTicks + alpha) / ticks, loops);
-      } else if (activity === BUILD_ACTIVITY && task.kind === 'build') {
+      } else if (activity === BUILD_ACTIVITY && (task.kind === 'build' || task.kind === 'repair')) {
         const site = byId.get(task.buildingId);
         face(site?.kind === 'building' ? buildingCentre(site) : undefined);
         frame = frameAt(info, this.now, unit.id * 3);
@@ -585,6 +597,16 @@ export class EntityView {
     if (building.complete) {
       const centre = buildingCentre(building);
       const ground = tileToWorld(centre.x, centre.y, this.size);
+      const def = BUILDING_DEFS[building.type];
+      this.damage?.show(
+        building.id,
+        damageLevel(building.hp, def.hp, building.complete),
+        ground,
+        // A field lies under the units; its smoke stands up among them.
+        ground.y,
+        def.size,
+        sheet.roofHeight,
+      );
       this.drawLifeBar(
         ground.x,
         ground.y - sheet.roofHeight - 12,

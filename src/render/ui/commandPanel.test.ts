@@ -139,13 +139,68 @@ describe('describeCommandPanel', () => {
           action: { kind: 'build', building: 'fiskehytta' },
           label: 'Bygg Fiskehytta',
           cost: '100 trä',
-          info: 'Fiske vid vatten, 3 Samlare',
+          info: 'Vid vatten, 3 Samlare',
+        },
+        {
+          action: { kind: 'repair' },
+          label: 'Laga',
+          cost: '',
+          info: 'Inget är skadat',
+          disabled: true,
         },
       ],
       progress: 0,
     };
     expect(describeCommandPanel(state.entities, new Set([a.id]), 0)).toEqual(expected);
     expect(describeCommandPanel(state.entities, new Set([a.id, b.id]), 0)).toEqual(expected);
+  });
+
+  it('ends the menu with a repair button that names the nearest damaged building and its cost', () => {
+    const { state, storide } = setup();
+    const worker = createUnit(state, 'samlare', 0, 1, 1);
+    const far = createBuilding(state, 'visthus', 0, 9, 9);
+    const repairButton = () =>
+      describeCommandPanel(state.entities, new Set([worker.id]), 0)?.buttons.at(-1);
+
+    // Nothing is damaged: the button is there, but dimmed.
+    expect(repairButton()).toMatchObject({ label: 'Laga', disabled: true });
+
+    far.hp = 100;
+    expect(repairButton()).toEqual({
+      action: { kind: 'repair', buildingId: far.id },
+      label: 'Laga',
+      // 300 life at ten life for a unit of wood.
+      cost: 'ca 30 trä',
+      info: 'Visthus, 25 % liv',
+    });
+
+    // The main building is nearer the worker.
+    storide.hp = 750;
+    expect(repairButton()).toEqual({
+      action: { kind: 'repair', buildingId: storide.id },
+      label: 'Laga',
+      cost: 'ca 75 trä',
+      info: 'Storide, 50 % liv',
+    });
+  });
+
+  it('counts only finished buildings of the player`s own as damaged', () => {
+    const { state } = setup();
+    const worker = createUnit(state, 'samlare', 0, 1, 1);
+    const theirs = createBuilding(state, 'visthus', 1, 9, 9);
+    theirs.hp = 100;
+    const site = createBuilding(state, 'visthus', 0, 9, 2);
+    site.complete = false;
+    site.hp = 40;
+    const button = describeCommandPanel(state.entities, new Set([worker.id]), 0)?.buttons.at(-1);
+    expect(button).toMatchObject({ label: 'Laga', disabled: true, info: 'Inget är skadat' });
+  });
+
+  it('has no repair button for units that cannot repair', () => {
+    const { state, storide } = setup();
+    storide.hp = 100;
+    const soldier = createUnit(state, 'ramkrigare', 0, 1, 1);
+    expect(describeCommandPanel(state.entities, new Set([soldier.id]), 0)).toBeUndefined();
   });
 
   it('shows no build menu for enemy units', () => {

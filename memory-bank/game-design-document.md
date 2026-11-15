@@ -52,6 +52,7 @@ En match ska ta ungefär 10–20 minuter.
 | Samla | Högerklick på resurs (med arbetare markerade) |
 | Hjälp till att bygga | Högerklick på eget bygge (med arbetare markerade) |
 | Arbeta på en Odling eller fiska | Högerklick på egen färdig Odling eller Fiskehytta (med arbetare markerade) |
+| Laga | Högerklick på egen skadad byggnad (med arbetare markerade), eller knappen "Laga" |
 | Bygga / träna | Knappar i kommandopanelen |
 | Avbryt byggplacering | Högerklick eller Esc |
 | Panorera kameran | Piltangenter / WASD, muspekaren mot skärmkanten, eller dra med mittenknappen |
@@ -63,7 +64,7 @@ En match ska ta ungefär 10–20 minuter.
 | Panorera | Dra med ett finger |
 | Markera | Tryck på enhet/byggnad |
 | Dragruta | Håll inne 300 ms, dra sedan |
-| Kommando (flytta/attackera/samla) | Tryck på mål när enheter är markerade |
+| Kommando (flytta/attackera/samla/laga) | Tryck på mål när enheter är markerade |
 | Avmarkera | Knappen "Avmarkera" i HUD:en |
 
 ### HUD
@@ -260,6 +261,40 @@ Byggregler:
 - Nya enheter dyker upp på närmaste lediga ruta intill byggnaden.
 - Byggnader anfaller inte.
 
+**Lagning** (infört 2026-11-15 på användarens begäran; värdena är förslag
+som väntar på godkännande och ligger i `src/data/repair.ts`):
+- **Vem:** Samlare lagar egna färdiga byggnader som har förlorat liv. Ett
+  bygge under uppförande byggs, det lagas inte.
+- **Order:** högerklick (eller tryck) på den skadade byggnaden med Samlare
+  markerade, eller knappen "Laga" sist i Samlarens meny. Knappen skickar
+  de markerade till den skadade byggnad som ligger närmast och visar vad
+  det kostar och vilken byggnad det gäller ("ca 75 trä", "Storide, 50 %
+  liv"). Är inget skadat är knappen nedtonad med texten "Inget är skadat".
+- **Markören** blir en hammare över en skadad egen byggnad när Samlare är
+  markerade, alltså precis när ett högerklick skulle ge en lagning.
+- **Kostnad:** trä, i proportion till det liv som lagas. En full lagning,
+  från inget liv till allt, kostar **halva byggnadens pris**: Visthus 40,
+  Krigshall 75, Ide 15, Odling 30, Fiskehytta 50. Storidet har inget pris
+  och räknas som 300 trä: 150 för en full lagning. Träet dras ett i taget
+  medan arbetet pågår, inte i förskott. Det ger 7–20 liv per trä.
+- **Slut på trä:** arbetet står still, Samlarna står kvar med hammaren
+  nere, och meddelandet "Slut på trä – lagningen väntar" visas i 2,5 s
+  medan träsiffran är röd. När trä kommer in fortsätter de utan ny order.
+- **Takt:** en Samlare lagar **6 liv per sekund**. Det är långsammare än
+  att bygga nytt, där en Samlare ger 9–18 liv per sekund. Varje
+  ytterligare Samlare ger 60 % av vad den förra gav: två gör 1,6 Samlares
+  arbete, tre 1,96, och hur många de än är blir det aldrig 2,5.
+- **Platser:** varje Samlare tar en egen ledig ruta intill byggnaden (också
+  i hörnen), den närmaste den kan gå till. De som inte får plats fortsätter
+  med det de gjorde.
+- **Avbrott:** en ny order avbryter lagningen. Det liv som har lagats
+  finns kvar och inget betalas tillbaka. Lagningen kan tas upp igen av
+  vem som helst och kostar då bara det som återstår.
+- **Efteråt** blir Samlarna sysslolösa. Lagade de en Odling eller en
+  Fiskehytta börjar de arbeta där.
+- **Skadan syns:** under 50 % liv ryker byggnaden, under 25 % brinner den
+  också. Se avsnitt 11.
+
 ## 9. Karta och krigsdimma
 
 - Fast storlek: 64×64 rutor, isometrisk (romb), ruta 64×32 px.
@@ -306,6 +341,12 @@ som spelaren (inget fusk med resurser):
    den som tre Odlingar. Samlare som plockar bär långt från basen flyttas
    till en ledig fiskeplats eller Odling. Värdena ligger i
    `AI_CONFIG.fishing`.
+   **Lagar** när basen är i fred: finns ingen fiende inom 12 rutor från
+   Storidet lagar den sina färdiga byggnader som har under 90 % liv, den
+   värst skadade först och en i taget, med 2 Samlare, tills byggnaden är
+   hel. Den börjar inte med mindre än 20 trä. Kommer en fiende nära, eller
+   tar träet slut, går Samlarna tillbaka till att samla. Värdena ligger i
+   `AI_CONFIG.repair`.
 5. Tränar Ramkrigare kontinuerligt.
 6. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
    ligger i en datafil (t.ex. våg 1: 4 krigare tidigast vid 4 min, därefter
@@ -337,6 +378,11 @@ krigsdimman. En svårighetsgrad.
 | Skadad enhet/byggnad | Livstapel visas ovanför (grön > 50 %, gul > 25 %, röd annars) |
 | Enhet kapitulerar | En vit flagga visas på enheten medan den går till grottan |
 | Enhet går in i en grotta, eller försvinner för att grottorna är fulla | Tonas bort på 300 ms |
+| Färdig byggnad under 50 % liv | Rök: en pelare per ruta av byggnadens sida (2 eller 3), med 3 puffar var. En puff stiger 44 px på 2,2 s, växer från 70 % till 150 % av sin storlek och tunnas ut till ingenting |
+| Färdig byggnad under 25 % liv | Eld under varje rökpelare: fyra bilder som växlar var 110:e ms, ritade i 130 % storlek |
+| Lagning | Samlarna slår med hammaren (samma slag som vid bygge); livstapeln växer; ring vid byggnaden när ordern ges |
+| Lagning möjlig | Muspekaren blir en hammare över byggnaden; knappen "Laga" är tänd och visar kostnaden |
+| Slut på trä under lagning | "Slut på trä – lagningen väntar" i 2,5 s, träsiffran röd lika länge, Samlarna står still |
 | Byggnad förstörs | Skärmen skakar 150 ms med 4 px amplitud om byggnaden är i bild |
 | Egen bas anfalls | Texten "Din bas anfalls!" i överkant i 3 s, högst en gång per 10 s |
 | Ogiltig byggplats | Spökbilden är röd; klick gör ingenting |

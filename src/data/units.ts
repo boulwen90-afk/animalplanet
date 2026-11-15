@@ -22,6 +22,8 @@ export interface UnitDef {
   gatherRate: number;
   /** Building types this unit can construct. */
   builds: readonly BuildingType[];
+  /** True for a unit that can repair its side's damaged buildings. */
+  repairs: boolean;
   /** Life taken from the target per strike, before the target's armour. */
   damage: number;
   /** Taken off the damage of every strike against this unit. */
@@ -54,6 +56,7 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     carryCapacity: 10,
     gatherRate: 1,
     builds: ['visthus', 'krigshall', 'ide', 'odling', 'fiskehytta'],
+    repairs: true,
     damage: 3,
     armor: 0,
     attackCooldown: 1.5,
@@ -71,6 +74,7 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     carryCapacity: 0,
     gatherRate: 0,
     builds: [],
+    repairs: false,
     damage: 10,
     armor: 1,
     attackCooldown: 1.2,

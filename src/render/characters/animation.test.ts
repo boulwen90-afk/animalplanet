@@ -139,6 +139,18 @@ describe('activityOf for a worker', () => {
     builder.prevX = builder.x - 0.1;
     expect(activityOf(builder)).toBe('walk');
   });
+
+  it('hammers while it repairs a building, and stands and waits when the wood has run out', () => {
+    const repairer = worker();
+    repairer.task = { kind: 'repair', buildingId: 7, place: { x: 3, y: 2 }, waiting: false };
+    expect(activityOf(repairer)).toBe('hammer');
+    repairer.task.waiting = true;
+    expect(activityOf(repairer)).toBe('idle');
+    repairer.task.waiting = false;
+    repairer.path = [{ x: 4, y: 2 }];
+    repairer.prevX = repairer.x - 0.1;
+    expect(activityOf(repairer)).toBe('walk');
+  });
 });
 
 describe('progressFrame', () => {

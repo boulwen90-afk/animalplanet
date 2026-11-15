@@ -151,7 +151,7 @@ test.describe('placing a fishing hut', () => {
     await centreOn(page, inland.x + 1, inland.y + 1);
 
     const button = (await commandPanel(page)).buttons.find((b) => b.label === 'Bygg Fiskehytta')!;
-    expect([button.cost, button.info]).toEqual(['100 trä', 'Fiske vid vatten, 3 Samlare']);
+    expect([button.cost, button.info]).toEqual(['100 trä', 'Vid vatten, 3 Samlare']);
     await page.mouse.click(button.x, button.y);
     const at = await mouseFor(page, inland);
     await page.mouse.move(at.x, at.y);

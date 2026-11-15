@@ -142,6 +142,45 @@ describe('describeSelection during construction', () => {
   });
 });
 
+describe('describeSelection during a repair', () => {
+  function damaged() {
+    const state = openState(12, 12);
+    const store = createBuilding(state, 'visthus', 0, 5, 5);
+    store.hp = 100;
+    const worker = createUnit(state, 'samlare', 0, 4, 5);
+    applyCommand(state, { type: 'repair', player: 0, unitIds: [worker.id], buildingId: store.id });
+    return { state, store, worker };
+  }
+
+  it('shows what a repairer is repairing', () => {
+    const { state, worker } = damaged();
+    state.players[0]!.resources.wood = 100;
+    advance(state, 20);
+    expect(describeSelection(state.entities, new Set([worker.id]), 0)?.detail).toBe(
+      'Liv 40/40 · Lagar Visthus',
+    );
+  });
+
+  it('says that the repair waits for wood when there is none', () => {
+    const { state, worker } = damaged();
+    state.players[0]!.resources.wood = 0;
+    advance(state, 20);
+    expect(describeSelection(state.entities, new Set([worker.id]), 0)?.detail).toBe(
+      'Liv 40/40 · Lagar Visthus – väntar på trä',
+    );
+  });
+
+  it('shows the life of the building as it grows, in whole numbers', () => {
+    const { state, store } = damaged();
+    state.players[0]!.resources.wood = 100;
+    advance(state, 21);
+    expect(store.hp).toBeGreaterThan(100);
+    expect(describeSelection(state.entities, new Set([store.id]), 0)?.detail).toMatch(
+      /^Liv \d+\/400$/,
+    );
+  });
+});
+
 describe('describeSelection in combat', () => {
   it('shows that a unit is attacking', () => {
     const state = openState(10, 10);

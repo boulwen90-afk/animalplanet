@@ -12,6 +12,7 @@ import { orderAttack } from './systems/combat';
 import { assistConstruction, placeBuilding, type PlacementProblem } from './systems/construction';
 import { startGathering, startWorking } from './systems/gathering';
 import { cancelQueuedUnit, queueUnit } from './systems/production';
+import { orderRepair } from './systems/repair';
 
 /** Orders the given units to walk to a tile. */
 export interface MoveCommand {
@@ -81,6 +82,14 @@ export interface ConstructCommand {
   buildingId: number;
 }
 
+/** Sends the given units to repair one of the player's own finished buildings that has lost life. */
+export interface RepairCommand {
+  type: 'repair';
+  player: PlayerId;
+  unitIds: number[];
+  buildingId: number;
+}
+
 /** Orders the given units to attack an enemy unit or building until it is defeated. */
 export interface AttackCommand {
   type: 'attack';
@@ -102,6 +111,7 @@ export type Command =
   | CancelTrainCommand
   | BuildCommand
   | ConstructCommand
+  | RepairCommand
   | AttackCommand;
 
 /** Whether a command was carried out, and if not, why. */
@@ -146,6 +156,8 @@ export function applyCommand(state: GameState, command: Command): CommandResult 
       );
     case 'construct':
       return assistConstruction(state, command.player, command.unitIds, command.buildingId);
+    case 'repair':
+      return orderRepair(state, command.player, command.unitIds, command.buildingId);
     case 'attack':
       return orderAttack(
         state,

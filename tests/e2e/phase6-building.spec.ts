@@ -123,7 +123,9 @@ test.describe('phase 6: building', () => {
       ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
       ['Bygg Ide', '30 trä', '+5 befolkning'],
       ['Bygg Odling', '60 trä', 'Oändlig mat, 1 Samlare'],
-      ['Bygg Fiskehytta', '100 trä', 'Fiske vid vatten, 3 Samlare'],
+      ['Bygg Fiskehytta', '100 trä', 'Vid vatten, 3 Samlare'],
+      // Last, the button to repair: nothing is damaged when the game starts.
+      ['Laga', '', 'Inget är skadat'],
     ]);
     expect(panel.queue).toEqual([]);
     expect(await placement(page)).toBeNull();

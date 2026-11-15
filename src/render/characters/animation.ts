@@ -53,7 +53,7 @@ export const SITE_ACTIVITY: Partial<Record<BuildingType, Activity>> = {
   fiskehytta: 'fish',
 };
 
-/** How a unit raises a building. */
+/** How a unit raises a building, and how it mends one. */
 export const BUILD_ACTIVITY: Activity = 'hammer';
 
 /**
@@ -84,6 +84,8 @@ export function activityOf(unit: Unit, site?: BuildingType): Activity {
     return (site && SITE_ACTIVITY[site]) ?? GATHER_ACTIVITY[task.resource];
   }
   if (task.kind === 'build' && unit.path.length === 0) return BUILD_ACTIVITY;
+  // A repairer hammers as a builder does. With no wood to pay for the work it stands and waits.
+  if (task.kind === 'repair' && unit.path.length === 0 && !task.waiting) return BUILD_ACTIVITY;
   if (unit.x !== unit.prevX || unit.y !== unit.prevY) return 'walk';
   // A unit that stands still with a target strikes it as soon as it may, so a
   // running cooldown means it is in the middle of a fight.

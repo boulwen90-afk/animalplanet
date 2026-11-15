@@ -74,8 +74,8 @@
   },
   "stump": {
    "frame": {
-    "x": 2,
-    "y": 198,
+    "x": 211,
+    "y": 203,
     "w": 27,
     "h": 17
    },
@@ -266,8 +266,8 @@
   },
   "fishing_place": {
    "frame": {
-    "x": 206,
-    "y": 171,
+    "x": 130,
+    "y": 203,
     "w": 27,
     "h": 23
    },
@@ -278,6 +278,198 @@
     "y": 121,
     "w": 27,
     "h": 23
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7083
+   }
+  },
+  "smoke_1": {
+   "frame": {
+    "x": 62,
+    "y": 171,
+    "w": 24,
+    "h": 28
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 84,
+    "y": 110,
+    "w": 24,
+    "h": 28
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7083
+   }
+  },
+  "smoke_2": {
+   "frame": {
+    "x": 28,
+    "y": 171,
+    "w": 32,
+    "h": 28
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 80,
+    "y": 109,
+    "w": 32,
+    "h": 28
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7083
+   }
+  },
+  "smoke_3": {
+   "frame": {
+    "x": 88,
+    "y": 171,
+    "w": 24,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 84,
+    "y": 110,
+    "w": 24,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7083
+   }
+  },
+  "fire_1": {
+   "frame": {
+    "x": 104,
+    "y": 203,
+    "w": 24,
+    "h": 24
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 84,
+    "y": 116,
+    "w": 24,
+    "h": 24
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7083
+   }
+  },
+  "fire_2": {
+   "frame": {
+    "x": 185,
+    "y": 203,
+    "w": 24,
+    "h": 22
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 84,
+    "y": 118,
+    "w": 24,
+    "h": 22
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7083
+   }
+  },
+  "fire_3": {
+   "frame": {
+    "x": 114,
+    "y": 171,
+    "w": 24,
+    "h": 26
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 84,
+    "y": 114,
+    "w": 24,
+    "h": 26
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7083
+   }
+  },
+  "fire_4": {
+   "frame": {
+    "x": 159,
+    "y": 203,
+    "w": 24,
+    "h": 23
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 84,
+    "y": 117,
+    "w": 24,
+    "h": 23
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.7083
+   }
+  },
+  "icon_repair": {
+   "frame": {
+    "x": 2,
+    "y": 171,
+    "w": 24,
+    "h": 30
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 93,
+    "y": 109,
+    "w": 24,
+    "h": 30
    },
    "sourceSize": {
     "w": 192,
@@ -362,7 +554,7 @@
   },
   "shore_x+": {
    "frame": {
-    "x": 2,
+    "x": 140,
     "y": 171,
     "w": 49,
     "h": 25
@@ -386,7 +578,7 @@
   },
   "shore_x-": {
    "frame": {
-    "x": 53,
+    "x": 191,
     "y": 171,
     "w": 49,
     "h": 25
@@ -410,8 +602,8 @@
   },
   "shore_y+": {
    "frame": {
-    "x": 104,
-    "y": 171,
+    "x": 2,
+    "y": 203,
     "w": 49,
     "h": 25
    },
@@ -434,8 +626,8 @@
   },
   "shore_y-": {
    "frame": {
-    "x": 155,
-    "y": 171,
+    "x": 53,
+    "y": 203,
     "w": 49,
     "h": 25
    },
@@ -458,8 +650,8 @@
   },
   "shore_out_x+y+": {
    "frame": {
-    "x": 131,
-    "y": 198,
+    "x": 86,
+    "y": 230,
     "w": 16,
     "h": 6
    },
@@ -482,8 +674,8 @@
   },
   "shore_in_x+y+": {
    "frame": {
-    "x": 91,
-    "y": 198,
+    "x": 46,
+    "y": 230,
     "w": 18,
     "h": 7
    },
@@ -506,8 +698,8 @@
   },
   "shore_out_x+y-": {
    "frame": {
-    "x": 63,
-    "y": 198,
+    "x": 18,
+    "y": 230,
     "w": 12,
     "h": 8
    },
@@ -530,8 +722,8 @@
   },
   "shore_in_x+y-": {
    "frame": {
-    "x": 31,
-    "y": 198,
+    "x": 240,
+    "y": 203,
     "w": 14,
     "h": 10
    },
@@ -554,8 +746,8 @@
   },
   "shore_out_x-y+": {
    "frame": {
-    "x": 77,
-    "y": 198,
+    "x": 32,
+    "y": 230,
     "w": 12,
     "h": 8
    },
@@ -578,8 +770,8 @@
   },
   "shore_in_x-y+": {
    "frame": {
-    "x": 47,
-    "y": 198,
+    "x": 2,
+    "y": 230,
     "w": 14,
     "h": 10
    },
@@ -602,8 +794,8 @@
   },
   "shore_out_x-y-": {
    "frame": {
-    "x": 149,
-    "y": 198,
+    "x": 104,
+    "y": 230,
     "w": 16,
     "h": 6
    },
@@ -626,8 +818,8 @@
   },
   "shore_in_x-y-": {
    "frame": {
-    "x": 111,
-    "y": 198,
+    "x": 66,
+    "y": 230,
     "w": 18,
     "h": 7
    },
@@ -656,7 +848,7 @@
   "format": "RGBA8888",
   "size": {
    "w": 256,
-   "h": 217
+   "h": 242
   },
   "scale": 1,
   "pixelsPerUnit": 24.0,
@@ -711,6 +903,38 @@
     "fishing_place": {
      "kind": "remains",
      "height": 11.2
+    },
+    "smoke_1": {
+     "kind": "effect",
+     "height": 22.0
+    },
+    "smoke_2": {
+     "kind": "effect",
+     "height": 24.2
+    },
+    "smoke_3": {
+     "kind": "effect",
+     "height": 22.9
+    },
+    "fire_1": {
+     "kind": "effect",
+     "height": 19.6
+    },
+    "fire_2": {
+     "kind": "effect",
+     "height": 17.2
+    },
+    "fire_3": {
+     "kind": "effect",
+     "height": 21.2
+    },
+    "fire_4": {
+     "kind": "effect",
+     "height": 18.0
+    },
+    "icon_repair": {
+     "kind": "icon",
+     "height": 24.3
     }
    },
    "allowed": {
@@ -733,6 +957,14 @@
     "remains": [
      0.0,
      19.2
+    ],
+    "effect": [
+     12.8,
+     35.2
+    ],
+    "icon": [
+     19.2,
+     32.0
     ]
    }
   }

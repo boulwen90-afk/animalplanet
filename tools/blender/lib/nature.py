@@ -2,7 +2,9 @@
 What stands on the ground between the buildings: trees, stumps, berry bushes,
 rocks, caves and the marks of a fishing place. Each is put together from the
 same simple shapes as the buildings, in tiles, standing on the middle of its
-tile at z = 0.
+tile at z = 0. Here are also the smoke and the flames of a damaged building,
+and the hammer that marks a repair: small pictures the game puts where it
+needs them.
 """
 
 import math
@@ -142,7 +144,52 @@ def fishing_place(b: Builder, pal: Palette, p: dict, name: str) -> None:
         b.limb(f"{name}.fork_{i}", fork, fork + Vector((sign * 0.05, sign * 0.05, 0.08)), 0.013, 0.01, pal["bark"], 4)
 
 
+def smoke(b: Builder, pal: Palette, p: dict, name: str) -> None:
+    """A puff of smoke: a few rounded grey clumps, each (x, y, z, radius) as the config lists them."""
+    foot = _at(p)
+    for i, (x, y, z, r) in enumerate(p["clumps"]):
+        material = pal[("smoke", "smoke_light", "smoke_dark")[i % 3]]
+        rotation = Matrix.Rotation(0.9 * i + p.get("turn", 0.0), 4, "Z")
+        b.ellipsoid(f"{name}.clump_{i}", foot + Vector((x, y, z)), (r, r, r * 0.9), material, detail=2, rotation=rotation)
+
+
+def flame(b: Builder, pal: Palette, p: dict, name: str) -> None:
+    """
+    Flames: pointed tongues that rise from the ground, each (across, height,
+    radius, lean) as the config lists them, with a paler core in each.
+    `across` runs to the right on the screen.
+    """
+    foot = _at(p)
+    right = Vector((1.0, 1.0, 0.0)).normalized()
+    front = Vector((1.0, -1.0, 0.0)).normalized()
+    for i, (across, height, radius, lean) in enumerate(p["tongues"]):
+        base = foot + right * across
+        tip = base + UP * height + right * lean
+        b.limb(f"{name}.tongue_{i}", base, tip, radius, 0.0, pal["flame" if i % 2 == 0 else "flame_dark"], 6)
+        # The core stands a little towards the viewer, so that it shows in front of the tongue.
+        core = base + front * radius * 0.55
+        b.limb(f"{name}.core_{i}", core, core + UP * height * 0.55 + right * lean * 0.5, radius * 0.5, 0.0, pal["flame_core"], 5)
+
+
+def hammer(b: Builder, pal: Palette, p: dict, name: str) -> None:
+    """A hammer standing on its handle, head up and leaning to the right: the sign of a repair."""
+    foot = _at(p)
+    right = Vector((1.0, 1.0, 0.0)).normalized()
+    length, lean = p.get("length", 0.5), p.get("lean", 0.22)
+    top = foot + UP * length + right * lean
+    b.limb(f"{name}.handle", foot, top, 0.035, 0.03, pal["wood_cut"], 6)
+    along = (top - foot).normalized()
+    across = right - along * right.dot(along)
+    across.normalize()
+    half = p.get("head", 0.15)
+    b.limb(f"{name}.head", top - across * half, top + across * half, 0.07, 0.07, pal["iron"], 6)
+    b.limb(f"{name}.face", top + across * half, top + across * (half + 0.03), 0.08, 0.08, pal["iron_light"], 6)
+
+
 PARTS = {
+    "smoke": smoke,
+    "flame": flame,
+    "hammer": hammer,
     "conifer": conifer,
     "broadleaf": broadleaf,
     "stump": stump,

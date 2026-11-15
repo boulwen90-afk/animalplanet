@@ -9,7 +9,7 @@ import type { RngState } from './rng';
 export type PlayerId = 0 | 1;
 
 /** What a unit is doing besides walking. */
-export type UnitTask = IdleTask | GatherTask | BuildTask | AttackTask | FleeTask;
+export type UnitTask = IdleTask | GatherTask | BuildTask | RepairTask | AttackTask | FleeTask;
 
 export interface IdleTask {
   kind: 'idle';
@@ -49,6 +49,19 @@ export interface BuildTask {
   buildingId: number;
 }
 
+/** Walking to a damaged building of the unit's own side and mending it until it is whole. */
+export interface RepairTask {
+  kind: 'repair';
+  buildingId: number;
+  /**
+   * The place by the building that the unit has taken: the tile it stands on
+   * while it works. No other repairer takes it meanwhile.
+   */
+  place: Point;
+  /** True while the work stands still because the side has no wood to pay for it. */
+  waiting: boolean;
+}
+
 /** Fighting a unit or building: walking up to it and striking until it is defeated. */
 export interface AttackTask {
   kind: 'attack';
@@ -76,7 +89,9 @@ export type SimEvent =
   | { type: 'enterCave'; unitId: number; caveId: number }
   | { type: 'vanish'; unitId: number }
   | { type: 'buildingCollapsed'; buildingId: number; owner: PlayerId; x: number; y: number }
-  | { type: 'buildingAttacked'; buildingId: number; owner: PlayerId };
+  | { type: 'buildingAttacked'; buildingId: number; owner: PlayerId }
+  /** The repair of a building has stopped because its side ran out of wood. */
+  | { type: 'repairPaused'; buildingId: number; owner: PlayerId };
 
 /** How much a side knows about a tile. See GDD section 9. */
 export const UNEXPLORED = 0;
@@ -150,6 +165,12 @@ export interface Building {
   queue: UnitType[];
   /** Simulation steps spent training the first unit in the queue. */
   trainTicks: number;
+  /**
+   * Life that has been paid for but not yet given back by a repair. Wood is
+   * paid one unit at a time, and one unit buys more life than a step of
+   * work gives; what is over waits here.
+   */
+  repairCredit: number;
 }
 
 export type Entity = Unit | Building;

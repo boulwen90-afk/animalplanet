@@ -5,18 +5,32 @@ import { STRINGS } from '../../data/strings';
 import { UNIT_DEFS, type UnitType } from '../../data/units';
 import type { Entity, PlayerId } from '../../sim/state';
 import { trainTicksFor } from '../../sim/systems/production';
+import { costToMend, nearestDamaged } from '../../sim/systems/repair';
 import { rectContains, selectionPanelRect, type ScreenRect } from './layout';
 
 /** What pressing a button in the command panel does. */
 export type CommandAction =
-  { kind: 'train'; unit: UnitType } | { kind: 'build'; building: BuildingType };
+  | { kind: 'train'; unit: UnitType }
+  | { kind: 'build'; building: BuildingType }
+  /** Send the selected workers to mend the building; with none damaged the button does nothing. */
+  | { kind: 'repair'; buildingId?: number };
+
+/** A button of the command panel: what it does, its price and a few words about it. */
+export interface CommandButton {
+  action: CommandAction;
+  label: string;
+  cost: string;
+  info: string;
+  /** True for a button that can do nothing right now; it is drawn dimmed. */
+  disabled?: true;
+}
 
 /** What the command panel shows for the current selection. */
 export interface CommandPanelInfo {
   /** The building whose production queue is shown, when a building is selected. */
   buildingId?: number;
-  /** One button per thing the selection can train or build: what it does, its price and a few words about it. */
-  buttons: { action: CommandAction; label: string; cost: string; info: string }[];
+  /** One button per thing the selection can train, build or otherwise do. */
+  buttons: CommandButton[];
   /**
    * The production queue; the first unit is the one in training. Undefined
    * for panels without a queue, such as the build menu.
@@ -37,7 +51,9 @@ export function formatCost(cost: Cost): string {
  * The command panel for the current selection, or undefined if it should not
  * show. One finished building of the player's that can train units gives
  * train buttons and its queue. A selection of the player's own units gives a
- * build menu with everything any of them can build.
+ * build menu with everything any of them can build, and last a button to
+ * repair if any of them can: it names the damaged building nearest the
+ * first of them and what mending it will cost.
  */
 export function describeCommandPanel(
   entities: readonly Entity[],
@@ -66,22 +82,48 @@ export function describeCommandPanel(
   }
 
   const buildable: BuildingType[] = [];
+  let repairer: Entity | undefined;
   for (const entity of chosen) {
     // Buildings mixed in, or a unit that has surrendered: nothing to order.
     if (entity.kind !== 'unit' || entity.task.kind === 'flee') return undefined;
     for (const type of UNIT_DEFS[entity.type].builds) {
       if (!buildable.includes(type)) buildable.push(type);
     }
+    if (UNIT_DEFS[entity.type].repairs) repairer ??= entity;
   }
-  if (buildable.length === 0) return undefined;
+  const buttons: CommandButton[] = buildable.map((building) => ({
+    action: { kind: 'build', building },
+    label: STRINGS.hud.build(STRINGS.buildings[building]),
+    cost: formatCost(BUILDING_DEFS[building].cost),
+    info: STRINGS.buildingInfo[building],
+  }));
+  if (repairer?.kind === 'unit') buttons.push(repairButton(entities, player, repairer));
+  if (buttons.length === 0) return undefined;
+  return { buttons, progress: 0 };
+}
+
+/** The repair button for a selection whose first repairer stands at `from`. */
+function repairButton(
+  entities: readonly Entity[],
+  player: PlayerId,
+  from: { x: number; y: number },
+): CommandButton {
+  const target = nearestDamaged(entities, player, from);
+  if (!target) {
+    return {
+      action: { kind: 'repair' },
+      label: STRINGS.hud.repair,
+      cost: '',
+      info: STRINGS.hud.nothingToRepair,
+      disabled: true,
+    };
+  }
+  const life = Math.floor((target.hp / BUILDING_DEFS[target.type].hp) * 100);
   return {
-    buttons: buildable.map((building) => ({
-      action: { kind: 'build', building },
-      label: STRINGS.hud.build(STRINGS.buildings[building]),
-      cost: formatCost(BUILDING_DEFS[building].cost),
-      info: STRINGS.buildingInfo[building],
-    })),
-    progress: 0,
+    action: { kind: 'repair', buildingId: target.id },
+    label: STRINGS.hud.repair,
+    cost: STRINGS.hud.repairCost(costToMend(target), STRINGS.resources.wood),
+    info: STRINGS.hud.repairTarget(STRINGS.buildings[target.type], life),
   };
 }
 

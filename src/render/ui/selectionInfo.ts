@@ -78,6 +78,13 @@ function describeActivity(entity: Entity, entities: readonly Entity[]): string |
     const site = entities.find((other) => other.id === task.buildingId);
     if (site?.kind === 'building') return STRINGS.hud.building(STRINGS.buildings[site.type]);
   }
+  if (task.kind === 'repair') {
+    const site = entities.find((other) => other.id === task.buildingId);
+    if (site?.kind === 'building') {
+      const name = STRINGS.buildings[site.type];
+      return task.waiting ? STRINGS.hud.repairWaiting(name) : STRINGS.hud.repairing(name);
+    }
+  }
   if (entity.carryAmount > 0 && entity.carryType) {
     return STRINGS.hud.carrying(STRINGS.resources[entity.carryType], entity.carryAmount);
   }
