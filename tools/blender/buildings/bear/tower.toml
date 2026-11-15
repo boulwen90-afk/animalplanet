@@ -1,0 +1,134 @@
+# The bears' watchtower, the Vakttorn: a tall, narrow log tower on a stone
+# footing, with a railed platform under a pointed slate roof from which its
+# watch shoots. It stands on a single tile.
+# Lengths are in tiles; see lib/structures.py for the frame.
+name = "tower"
+game_building = "vakttorn"
+size_class = "tower"
+footprint = 1
+
+[[part]]
+type = "base"
+box = [-0.44, -0.44, 0.44, 0.44]
+height = 0.12
+corner = 0.1
+from = "construction_1"
+
+# The bare frame of the shaft, and what it is to be built of.
+[[part]]
+type = "frame"
+box = [-0.28, -0.28, 0.28, 0.28]
+z = [0.12, 1.0]
+spacing = 0.56
+thickness = 0.07
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "planks"
+at = [0.0, -0.4]
+z = 0.12
+along = "x"
+length = 0.34
+from = "construction_1"
+until = "construction_1"
+
+# The shaft, up to the platform.
+[[part]]
+type = "walls"
+box = [-0.28, -0.28, 0.28, 0.28]
+z = [0.12, 1.55]
+log = 0.11
+ends = 0.04
+from = "construction_2"
+
+[[part]]
+type = "scaffold"
+box = [-0.28, -0.28, 0.28, 0.28]
+height = 1.5
+out = 0.1
+from = "construction_2"
+until = "construction_2"
+
+# The posts of the platform stand bare until the roof is on.
+[[part]]
+type = "frame"
+box = [-0.4, -0.4, 0.4, 0.4]
+z = [1.62, 2.2]
+spacing = 0.8
+thickness = 0.06
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "door"
+face = "-y"
+wall = -0.28
+at = 0.0
+z = 0.12
+width = 0.26
+height = 0.44
+from = "construction_2"
+
+# The platform juts out over the shaft on all sides.
+[[part]]
+type = "slab"
+box = [-0.46, -0.46, 0.46, 0.46]
+z = [1.55, 1.63]
+material = "timber_dark"
+from = "construction_2"
+
+# A railing of logs round the platform, low enough to shoot over.
+[[part]]
+type = "walls"
+box = [-0.42, -0.42, 0.42, 0.42]
+z = [1.63, 1.9]
+log = 0.09
+ends = 0.03
+
+# Four posts carry the roof.
+[[part]]
+type = "beam"
+start = [-0.4, -0.4, 1.9]
+end = [-0.4, -0.4, 2.3]
+radius = 0.04
+
+[[part]]
+type = "beam"
+start = [0.4, -0.4, 1.9]
+end = [0.4, -0.4, 2.3]
+radius = 0.04
+
+[[part]]
+type = "beam"
+start = [0.4, 0.4, 1.9]
+end = [0.4, 0.4, 2.3]
+radius = 0.04
+
+[[part]]
+type = "beam"
+start = [-0.4, 0.4, 1.9]
+end = [-0.4, 0.4, 2.3]
+radius = 0.04
+
+[[part]]
+type = "spire"
+at = [0.0, 0.0]
+half = 0.36
+z = [2.3, 3.05]
+
+[[part]]
+type = "pennant"
+at = [0.0, 0.0]
+z = 2.98
+height = 0.42
+face = "+x"
+
+# Whose tower it is: the race's sigil on the wall towards the viewer.
+[[part]]
+type = "shield"
+face = "-y"
+wall = -0.28
+at = 0.0
+z = 1.1
+radius = 0.17

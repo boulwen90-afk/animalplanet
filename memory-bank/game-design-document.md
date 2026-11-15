@@ -188,15 +188,15 @@ Stridsregler:
 
 ## 8. Byggnader (MVP)
 
-| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) | Fiskehytta |
-|---|---|---|---|---|---|---|
-| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare | Fiske vid vatten, upp till 3 Samlare; avlämningsplats för fisk |
-| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä | 100 trä |
-| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s | 25 s |
-| Liv | 1500 | 400 | 700 | 300 | 200 | 350 |
-| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor | 2×2 rutor |
-| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor | 5 rutor |
-| Befolkningsplats | 5 | 0 | 0 | 5 | 0 | 0 |
+| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) | Fiskehytta | Vakttorn |
+|---|---|---|---|---|---|---|---|
+| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare | Fiske vid vatten, upp till 3 Samlare; avlämningsplats för fisk | Skjuter på fiender, ser långt |
+| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä | 100 trä | 120 trä |
+| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s | 25 s | 30 s |
+| Liv | 1500 | 400 | 700 | 300 | 200 | 350 | 500 |
+| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor | 2×2 rutor | 1×1 ruta |
+| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor | 5 rutor | 8 rutor |
+| Befolkningsplats | 5 | 0 | 0 | 5 | 0 | 0 | 0 |
 
 Bostaden heter olika för varje ras; björnarnas är Idet. Det byggs av
 Samlare. Det är en låg timmerstuga under ett djupt halmtak, med ljus i
@@ -241,6 +241,31 @@ hus:
 - Rivs hyttan söker fiskarna upp en annan hytta, och blir annars
   sysslolösa eller går till närmaste bärsnår.
 - Inga båtar, och ingen vägsökning på vatten.
+
+**Vakttornet** (infört 2026-11-15 på användarens begäran; värdena är
+förslag som väntar på godkännande och ligger i `BUILDING_DEFS.vakttorn`)
+byggs av Samlare:
+- Ett högt, smalt timmertorn på stenfot, med en plattform under ett
+  spetsigt skiffertak och vimpel i lagfärg. Det står på **en ruta**.
+- **Det skjuter av sig självt** på den närmaste fiendeenhet som dess sida
+  ser inom **6 rutor** från tornets mitt. Det skjuter inte på byggnader,
+  inte på enheter som har kapitulerat och inte medan det byggs.
+- **Ett skott var 1,5:e sekund, 9 i skada** minus målets rustning (8 mot
+  en Ramkrigare, 9 mot en Samlare), alltså 5–6 liv per sekund. En
+  Ramkrigare gör 8,3 per sekund mot tornet, som har 500 liv: fyra
+  Ramkrigare river det på 15 sekunder.
+- **Pilen** flyger 12 rutor per sekund och följer sitt mål, så den träffar
+  alltid om målet finns kvar. Kapitulerar målet eller lämnar det spelet
+  innan pilen är framme försvinner pilen utan att skada någon.
+- **Barnvänligt som resten:** ett djur som tappar allt sitt liv
+  kapitulerar och går till sin grotta. Tornet skjuter inte på det sedan.
+- **Synfält 8 rutor**, mer än räckvidden, så det skjuter aldrig på något
+  det inte ser. Det lyser upp dimman som andra byggnader.
+- **Det kan lagas** som andra byggnader (30 trä för halva livet) och ryker
+  och brinner när det är skadat. Det skjuter också när det är skadat.
+- **Räckvidden visas** som en gul ring på marken när tornet placeras och
+  när ett eget färdigt torn är markerat. Markeringspanelen visar "Skada 9
+  · Räckvidd 6".
 
 Byggregler:
 - Spelaren väljer byggnad i kommandopanelen och placerar en "spökbild" på
@@ -347,10 +372,17 @@ som spelaren (inget fusk med resurser):
    hel. Den börjar inte med mindre än 20 trä. Kommer en fiende nära, eller
    tar träet slut, går Samlarna tillbaka till att samla. Värdena ligger i
    `AI_CONFIG.repair`.
+   **Bygger ett Vakttorn** när den har en Krigshall och minst 150 trä i
+   lager: 6 rutor från Storidets mitt, på sidan mot fienden. Högst ett
+   torn per match; ett torn som faller ersätts inte. Värdena ligger i
+   `AI_CONFIG.towers`.
 5. Tränar Ramkrigare kontinuerligt.
 6. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
    ligger i en datafil (t.ex. våg 1: 4 krigare tidigast vid 4 min, därefter
    större vågor).
+   Krigare i en våg **river först ett torn som når dem**: står en krigare
+   inom ett fientligt torns räckvidd anfaller den tornet innan den går
+   vidare mot Storidet. Fientliga krigare i närheten går fortfarande före.
 7. Hemmavarande krigare försvarar basen om den anfalls.
 
 Förenkling: AI:n känner till spelarens startposition och påverkas inte av
@@ -383,6 +415,9 @@ krigsdimman. En svårighetsgrad.
 | Lagning | Samlarna slår med hammaren (samma slag som vid bygge); livstapeln växer; ring vid byggnaden när ordern ges |
 | Lagning möjlig | Muspekaren blir en hammare över byggnaden; knappen "Laga" är tänd och visar kostnaden |
 | Slut på trä under lagning | "Slut på trä – lagningen väntar" i 2,5 s, träsiffran röd lika länge, Samlarna står still |
+| Torn skjuter | En pil med fjädrar i lagfärg lämnar tornets plattform (72 px över marken), flyger i en båge som är 4 px högre per ruta den ska flyga, pekar åt det håll den flyger, och landar i brösthöjd (14 px) på målet |
+| Pil träffar | Målet blinkar vitt i 80 ms; en splitterstjärna visas på målet i 220 ms medan den växer från 70 % till 160 % och tonas bort |
+| Torn markerat eller placeras | Gul ring på marken med tornets räckvidd (6 rutor) |
 | Byggnad förstörs | Skärmen skakar 150 ms med 4 px amplitud om byggnaden är i bild |
 | Egen bas anfalls | Texten "Din bas anfalls!" i överkant i 3 s, högst en gång per 10 s |
 | Ogiltig byggplats | Spökbilden är röd; klick gör ingenting |

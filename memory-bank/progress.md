@@ -8,10 +8,11 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 - **Pågår: björnrasen görs komplett** i fem steg (lagning, vakttorn,
   smedja, skyttebana med distansenhet, palissad och port), se sist i
   `implementation-plan.md`. Användaren ser skärmdumpar efter varje steg
-- **Senaste ändring (2026-11-15):** steg 1, lagning. Värdena är förslag
-  som väntar på användarens godkännande. Se "Efter MVP:n". Om ändringen
-  är mergad står i GitHub; den här raden säger det inte, eftersom den
-  skrivs innan det är avgjort
+- **Senaste ändring (2026-11-15):** steg 2, vakttorn. Steg 1, lagning,
+  är mergat (pull request 18). Värdena i båda stegen är förslag som
+  väntar på användarens godkännande. Se "Efter MVP:n". Om den senaste
+  ändringen är mergad står i GitHub; den här raden säger det inte,
+  eftersom den skrivs innan det är avgjort
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
@@ -829,6 +830,144 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Björnrasen komplett, steg 2: Vakttorn (2026-11-15)
+
+Användaren godkände att gå vidare efter steg 1 ("Ja"). Steg 1 är pull
+request 18, mergad 2026-11-15 efter grönt CI.
+
+**Skärmdumpar:** `docs/screenshots/vakttorn-stadier.png` (tornets tre
+byggstadier i spelet; det färdiga är markerat och visar sin
+räckviddsring), `vakttorn-skjuter.png` (två torn skjuter på samma
+Ramkrigare; pilarna har fjädrar i lagfärg), `vakttorn-traff.png` (en
+träffad Ramkrigare blinkar vitt med splitterstjärnan på sig, och nästa
+pil är på väg), `vakttorn-placering.png` (tornet placeras: bild, grönt
+fotavtryck och räckviddsring; menyn med sju knappar),
+`vakttorn-markerat.png` (markeringspanelen: "Skada 9 · Räckvidd 6"),
+`vakttorn-telefon.png` (menyn på en 390 px bred skärm) och
+`vakttorn-pipeline.png` (pipelinens bild av de tre stadierna).
+
+**Värden (förslag, väntar på godkännande)** i `BUILDING_DEFS.vakttorn`,
+`AI_CONFIG.towers` och `UI_CONFIG`
+
+| Värde | Förslag | Varför |
+|---|---|---|
+| Kostnad | 120 trä | Mellan Fiskehytta (100) och Krigshall (150) |
+| Byggtid | 30 s | Längre än ett Visthus, kortare än en Krigshall |
+| Liv | 500 | Fyra Ramkrigare river det på 15 s |
+| Storlek | 1×1 ruta | Ett torn, inte ett hus |
+| Synfält | 8 rutor | Mer än räckvidden, näst mest efter Storidet (9) |
+| Räckvidd | 6 rutor | Samma som en Ramkrigares upptäcktsradie |
+| Skada | 9 per skott | 8 mot en Ramkrigare (rustning 1), 9 mot en Samlare |
+| Tid mellan skott | 1,5 s | 5–6 liv per sekund; en Ramkrigare gör 8,3 |
+| Pilens fart | 12 rutor/s | Framme på en halv sekund vid full räckvidd |
+| Datorspelaren | 1 torn, vid 150 trä i lager, 6 rutor från Storidet mot fienden | Se avvikelserna |
+
+Ett torn fäller en Ramkrigare (100 liv) på 13 skott, cirka 19 sekunder,
+och en Samlare på 5 skott.
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| Skjuter automatiskt på närmaste fiende inom räckvidd | Klar | Enheter, inte byggnader |
+| Ger sikt i dimman | Klar | 8 rutor |
+| Projektil som syns | Klar | En pil i lagfärg som flyger i en båge från plattformen |
+| Träffeffekt | Klar | Vit blink på målet och en splitterstjärna i 220 ms |
+| Kan lagas | Klar | Som övriga byggnader; ryker och brinner när det är skadat |
+| Datorspelaren bygger torn vid sin bas | Avviker | Ett torn, inte flera; se nedan |
+| Byggmenyn visar kostnad och beskrivning | Klar | "Bygg Vakttorn / 120 trä / Skjuter på fiender" |
+| Grafik via pipelinen enligt skalstandarden | Klar | Ny klass `tower`: minst 96 px, tornet är 120 px |
+
+**Vad som gjordes**
+
+- **Simulering:** `BuildingDef.attack`, `Building.attackCooldown`,
+  `state.projectiles` och systemet `systems/shooting.ts`
+  (`shootFromBuildings`, `flyProjectiles`), med händelserna `shot` och
+  `projectileHit`.
+- **Datorspelaren:** bygger ett torn, och dess anfallare river ett torn
+  som når dem innan de går vidare.
+- **Grafik:** `tools/blender/buildings/bear/tower.toml` (tre stadier,
+  inga nya delar), och i miljöns atlas pilen (`arrow`) och
+  splitterstjärnan (`hit`).
+- **Spelet:** `ProjectileView`, räckviddsring vid markering och
+  placering, "Skada 9 · Räckvidd 6" i markeringspanelen.
+
+**Saknas eller avviker**
+
+- **Värdena är förslag.** Inget av dem är godkänt. Det gäller fortfarande
+  även värdena för lagningen i steg 1.
+- **Datorspelaren bygger bara ett torn, och ersätter det inte.** Med två
+  torn var, eller med torn som byggs upp igen, blev matcher mellan två
+  datorspelare längre än målet 10–20 minuter: 16,7, 21,3, 21,8, över 22,
+  13,3 och 16,7 minuter på frö 1–6. Med ett torn som byggs en gång blir
+  det 16,7, 19,1, 19,1, 16,5, 13,3 och 16,4.
+- **Matcherna mellan två datorspelare har blivit längre** och två av sex
+  ligger nära gränsen: före tornen 13,7, 15,2 och 15,7 minuter på frö
+  1–3, nu 16,7, 19,1 och 19,1. Balanstestet (under 20 minuter på frö 1–3)
+  går igenom med liten marginal. Vill man ha marginalen tillbaka får
+  vågorna bli större, tornet svagare eller målet längre; det är ett
+  balansbeslut som inte är taget.
+- **Datorspelarens anfallare river torn som når dem.** Det stod inte i
+  uppdraget. Utan det gick vågorna förbi tornen mot Storidet och blev
+  beskjutna hela vägen. Fiendekrigare i närheten går fortfarande före.
+- **Spelarens egna enheter svarar inte själva på ett torn.** En
+  Ramkrigare anfaller av sig själv bara fiendeenheter inom 6 rutor, inte
+  byggnader. Står den inom ett fientligt torns räckvidd blir den
+  beskjuten tills spelaren ger den en order.
+- **Tornet väljer alltid den närmaste**, vare sig det är en Samlare eller
+  en Ramkrigare, och skjuter inte på byggnader.
+- **Pilen träffar alltid** om målet finns kvar: den följer sitt mål. Inga
+  missar, och ingen annan kan träffas.
+- **Ingen skytt syns på tornet.** Tornet skjuter av sig självt och
+  behöver ingen besättning.
+- **Räckviddsringen visas bara för egna torn** (markerade eller under
+  placering). Ett fientligt torns räckvidd visas inte.
+- **Byggmenyn har vuxit.** Sju knappar ryms inte på en rad: två rader på
+  en skärm som är 1280 px bred, och fyra rader på en telefon på högkant,
+  där menyn då tar 296 av 844 px och skymmer den markerade Samlaren (se
+  `vakttorn-telefon.png`). Steg 3–5 lägger till fler byggnader. Menyn
+  behöver delas upp (flikar eller sidor) innan dess; det är inte gjort
+  och inte beslutat.
+- **Miljöns atlas är snart full.** Pil och splitterstjärna ligger där, och
+  den är nu 256×249 px mot testets gräns 512×256 (60 kB + 10 kB mask).
+  Nästa tillägg gör den bredare.
+- **Inte mätt:** bilder per sekund med många pilar i luften.
+- **Inte prövat:** en riktig telefon.
+- **Inget ljud**, som i resten av spelet.
+
+**Testresultat**
+
+- Vitest: 724 av 724 (40 nya: tornets skjutande, projektilens bana,
+  datorspelarens torn, texterna och byggmenyn)
+- Playwright: körningarna var inte klara när detta skrevs; resultatet förs in
+  i nästa commit. De sju nya testerna i `tower.spec.ts` går igenom
+- Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
+  testerna eller när skärmdumparna togs.
+
+**Äldre tester som ändrades, och varför**
+
+- **Byggmenyns tester** (`commandPanel.test.ts`,
+  `phase6-building.spec.ts`) väntar sig nu knappen "Bygg Vakttorn".
+- **`phase9-ai.spec.ts`** jämför datorspelarens minne exakt; det har fått
+  fältet `towersPlaced`.
+- Inget test är avstängt, och ingen tidsgräns är höjd.
+
+**Beslut och lärdomar**
+
+- **Projektiler i speltillståndet, inte i ritningen.** Skadan kommer när
+  pilen landar, och pilen följer målet. Därför ligger den i
+  `state.projectiles` med allt annat, och en match är fortfarande helt
+  bestämd av sitt frö.
+- **En skärmdump av något som varar en halv sekund kräver stillastående
+  tid.** Pilen hann landa mellan frågan "finns en pil?" och bilden.
+  Skärmdumpsskriptet pausar nu sidans klocka (Playwrights `page.clock`)
+  och släpper fram en bildruta i taget. Första försöket installerade
+  klockan utan att pausa den, och gav bilder utan pilar som såg ut som
+  ett fel i spelet.
+- **En beskuren bilds mitt är inte bildrutans mitt.** Splitterstjärnan
+  hamnade 30 px snett tills dess mittpunkt räknades på det som är kvar
+  efter beskärningen.
 
 ### Björnrasen komplett, steg 1: Lagning (2026-11-15)
 

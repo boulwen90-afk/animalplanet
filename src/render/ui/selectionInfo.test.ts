@@ -181,6 +181,36 @@ describe('describeSelection during a repair', () => {
   });
 });
 
+describe('describeSelection for a building that shoots', () => {
+  it('shows what a finished watchtower does to those it shoots at', () => {
+    const state = openState(12, 12);
+    const tower = createBuilding(state, 'vakttorn', 0, 5, 5);
+    expect(describeSelection(state.entities, new Set([tower.id]), 0)).toEqual({
+      title: 'Vakttorn',
+      detail: 'Liv 500/500 · Skada 9 · Räckvidd 6',
+    });
+  });
+
+  it('shows only how far the building has come while it is being built', () => {
+    const state = openState(12, 12);
+    const tower = createBuilding(state, 'vakttorn', 0, 5, 5);
+    tower.complete = false;
+    tower.hp = 50;
+    expect(describeSelection(state.entities, new Set([tower.id]), 0)?.detail).toBe(
+      'Liv 50/500 · Byggs 0 %',
+    );
+  });
+
+  it('does not tell what an enemy tower can do', () => {
+    const state = openState(12, 12);
+    const tower = createBuilding(state, 'vakttorn', 1, 5, 5);
+    expect(describeSelection(state.entities, new Set([tower.id]), 0)).toEqual({
+      title: 'Vakttorn (Fiende)',
+      detail: 'Liv 500/500',
+    });
+  });
+});
+
 describe('describeSelection in combat', () => {
   it('shows that a unit is attacking', () => {
     const state = openState(10, 10);

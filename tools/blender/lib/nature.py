@@ -186,7 +186,45 @@ def hammer(b: Builder, pal: Palette, p: dict, name: str) -> None:
     b.limb(f"{name}.face", top + across * half, top + across * (half + 0.03), 0.08, 0.08, pal["iron_light"], 6)
 
 
+def arrow(b: Builder, pal: Palette, p: dict, name: str) -> None:
+    """
+    An arrow lying flat, pointing to the right on the screen, with the middle
+    of its shaft on the middle of the tile: the game turns the picture the
+    way the arrow flies.
+    """
+    foot = _at(p) + UP * 0.03
+    right = Vector((1.0, 1.0, 0.0)).normalized()
+    half = p.get("length", 0.5) / 2
+    r = p.get("radius", 0.02)
+    tail, tip = foot - right * half, foot + right * half
+    b.limb(f"{name}.shaft", tail, tip - right * 0.1, r, r, pal["wood_cut"], 5)
+    b.limb(f"{name}.head", tip - right * 0.12, tip, r * 2.6, 0.0, pal["iron_light"], 4)
+    # Feathers in the team colour, so that it shows whose arrow it is.
+    for i, turn in enumerate((0.0, math.pi / 2)):
+        up = Matrix.Rotation(turn, 3, right) @ UP
+        b.sheet(
+            f"{name}.feather_{i}",
+            [
+                [tuple(tail + up * r * 3.4), tuple(tail + right * 0.12 + up * r * 3.4)],
+                [tuple(tail - up * r * 3.4), tuple(tail + right * 0.14 - up * r * 3.4)],
+            ],
+            pal["team"],
+        )
+
+
+def burst(b: Builder, pal: Palette, p: dict, name: str) -> None:
+    """Where something lands: pale splinters flying out from a point, each (across, up, length)."""
+    centre = _at(p) + UP * p.get("height", 0.2)
+    right = Vector((1.0, 1.0, 0.0)).normalized()
+    for i, (across, up, length) in enumerate(p["shards"]):
+        direction = (right * across + UP * up).normalized()
+        start = centre + direction * length * 0.35
+        b.limb(f"{name}.shard_{i}", start, start + direction * length, 0.028, 0.0, pal["wood_cut" if i % 2 else "spark"], 4)
+
+
 PARTS = {
+    "arrow": arrow,
+    "burst": burst,
     "smoke": smoke,
     "flame": flame,
     "hammer": hammer,

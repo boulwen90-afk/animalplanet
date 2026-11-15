@@ -51,7 +51,7 @@ function decide(state: GameState, player: PlayerId, memory: AiState): void {
   const soldiers = units.filter((unit) => UNIT_DEFS[unit.type].aggroRadius > 0);
 
   trainWorkers(state, player, base, workers.length);
-  build(state, player, base, buildings, workers);
+  build(state, player, memory, base, buildings, workers);
   repair(state, player, base, buildings, workers);
   assignIdleWorkers(state, player, base, workers);
   trainSoldiers(state, player, buildings, soldiers.length);
@@ -128,6 +128,7 @@ function trainSoldiers(
 function build(
   state: GameState,
   player: PlayerId,
+  memory: AiState,
   base: Building,
   buildings: readonly Building[],
   workers: readonly Unit[],
@@ -183,12 +184,27 @@ function build(
     else if (field) wanted.push({ type: field, near: centre });
   }
 
+  // Towers last of all: with wood to spare, on the side that faces the enemy.
+  const tower = buildableTower();
+  const towers = memory.towersPlaced;
+  const hasBarracks = buildings.some(
+    (b) => b.complete && BUILDING_DEFS[b.type].trains.some((t) => UNIT_DEFS[t].aggroRadius > 0),
+  );
+  if (
+    tower &&
+    hasBarracks &&
+    towers < AI_CONFIG.towers.max &&
+    (state.players[player]?.resources.wood ?? 0) >= AI_CONFIG.towers.whenWood
+  ) {
+    wanted.push({ type: tower, near: towerSpot(state, player, centre, towers) });
+  }
+
   for (const { type, near, within } of wanted) {
     if (!canAfford(state, player, BUILDING_DEFS[type].cost)) continue;
     const site = findBuildSite(state, player, type, near, within);
     const builder = site && nearestWorker(workers, site, isFreeToBuild);
     if (!site || !builder) continue;
-    applyCommand(state, {
+    const placed = applyCommand(state, {
       type: 'build',
       player,
       unitIds: [builder.id],
@@ -196,8 +212,35 @@ function build(
       x: site.x,
       y: site.y,
     });
+    if (placed.ok && type === tower) memory.towersPlaced++;
     return;
   }
+}
+
+/** The building type that shoots at enemies by itself. */
+function buildableTower(): BuildingType | undefined {
+  return (Object.keys(BUILDING_DEFS) as BuildingType[]).find(
+    (type) => BUILDING_DEFS[type].buildTime > 0 && BUILDING_DEFS[type].attack !== undefined,
+  );
+}
+
+/**
+ * Where a side wants its tower number `index` (from 0): a set distance from
+ * the middle of its main building towards the enemy's, the towers fanned
+ * out to either side of that line.
+ */
+function towerSpot(state: GameState, player: PlayerId, centre: Point, index: number): Point {
+  const { max, distance, spread } = AI_CONFIG.towers;
+  const enemy = enemyMainBuilding(state, player);
+  const towards = enemy
+    ? buildingCentre(enemy)
+    : { x: state.map.width / 2, y: state.map.height / 2 };
+  const facing = Math.atan2(towards.y - centre.y, towards.x - centre.x);
+  const angle = facing + ((index - (max - 1) / 2) * spread * Math.PI) / 180;
+  return {
+    x: Math.round(centre.x + Math.cos(angle) * distance),
+    y: Math.round(centre.y + Math.sin(angle) * distance),
+  };
 }
 
 /** True for a worker that is neither building nor repairing, and so can be sent to do either. */
@@ -674,7 +717,8 @@ function sendWave(
 
 /**
  * Keeps the soldiers of a wave at it: they fight enemy soldiers that come
- * within their reach, and otherwise go for the enemy's main building.
+ * within their reach, then tear down a tower that can shoot them where they
+ * stand, and otherwise go for the enemy's main building.
  */
 function driveAttackers(
   state: GameState,
@@ -691,6 +735,14 @@ function driveAttackers(
         unit.owner !== player && !hasSurrendered(unit) && UNIT_DEFS[unit.type].aggroRadius > 0,
     );
 
+  const enemyTowers = state.entities.filter(
+    (entity): entity is Building =>
+      isBuilding(entity) &&
+      entity.owner !== player &&
+      entity.complete &&
+      BUILDING_DEFS[entity.type].attack !== undefined,
+  );
+
   for (const soldier of soldiers) {
     if (!memory.attackers.includes(soldier.id)) continue;
     const reach = UNIT_DEFS[soldier.type].aggroRadius;
@@ -698,8 +750,20 @@ function driveAttackers(
       enemyFighters.filter((e) => tileDistance(e.x, e.y, soldier.x, soldier.y) <= reach),
       soldier,
     );
+    // A tower that has the soldier within its range: the nearest such one.
+    let tower: Building | undefined;
+    let towerDistance = Infinity;
+    for (const candidate of enemyTowers) {
+      const centre = buildingCentre(candidate);
+      const distance = tileDistance(centre.x, centre.y, soldier.x, soldier.y);
+      const range = BUILDING_DEFS[candidate.type].attack?.range ?? 0;
+      if (distance <= range && distance < towerDistance) {
+        tower = candidate;
+        towerDistance = distance;
+      }
+    }
     const current = soldier.task.kind === 'attack' ? soldier.task.targetId : undefined;
-    const wanted = threat?.id ?? target.id;
+    const wanted = threat?.id ?? tower?.id ?? target.id;
     if (current === wanted) continue;
     // It finishes a fight it is in before turning back to the building.
     if (!threat && current !== undefined && enemyFighters.some((e) => e.id === current)) continue;

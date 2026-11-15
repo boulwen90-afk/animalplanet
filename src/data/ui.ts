@@ -65,6 +65,18 @@ export const UI_CONFIG = {
     /** How far above its fire a column of smoke starts, in pixels. */
     smokeAboveFire: 12,
   },
+  /** What a building shoots, as it is drawn. */
+  projectile: {
+    /** How high above the straight line it flies at the top of its arc, in pixels for each tile it has to go. */
+    arcPxPerTile: 4,
+    /** How far above the ground it lands on its target, in pixels: about the chest of a unit. */
+    targetHeightPx: 14,
+    /** How long the burst where it lands shows, in milliseconds, and how it grows meanwhile; 1 is the size of its picture. */
+    hitMs: 220,
+    hitScale: { start: 0.7, end: 1.6 },
+  },
+  /** The ring that shows how far a selected or about-to-be-placed building shoots: its colour and how solid it is. */
+  rangeRing: { color: 0xffd166, alpha: 0.7, width: 2 },
   /** Touch: how far, in pixels, a finger may move and still count as a tap. */
   touchSlopPx: 10,
   /** Touch: how long a finger must rest before dragging it draws a selection box instead of moving the camera, in milliseconds. */

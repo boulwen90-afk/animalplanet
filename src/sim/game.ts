@@ -44,7 +44,7 @@ export function createGame(
   const state = emptyState(seed, rng, map, options.fog ?? true);
   for (const player of options.ai ?? DEFAULT_AI_PLAYERS) {
     const side = state.players[player];
-    if (side) side.ai = { attackers: [], waveTicks: [] };
+    if (side) side.ai = { attackers: [], waveTicks: [], towersPlaced: 0 };
   }
   placeStartingEntities(state);
   if (options.extraUnits) placeExtraUnits(state, options.extraUnits);
@@ -86,6 +86,7 @@ export function emptyState(seed: number, rng: RngState, map: GameMap, fog = true
     players: map.startPositions.map(() => newPlayer(map)),
     entities: [],
     nextEntityId: 1,
+    projectiles: [],
     fogEnabled: fog,
     winner: null,
     events: [],

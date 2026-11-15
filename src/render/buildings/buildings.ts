@@ -17,6 +17,9 @@ import bearMainMaskUrl from '../../../assets/buildings/bear_main/bear_main_mask.
 import bearStorageAtlasUrl from '../../../assets/buildings/bear_storage/bear_storage.json?url';
 import bearStorageBaseUrl from '../../../assets/buildings/bear_storage/bear_storage.png';
 import bearStorageMaskUrl from '../../../assets/buildings/bear_storage/bear_storage_mask.png';
+import bearTowerAtlasUrl from '../../../assets/buildings/bear_tower/bear_tower.json?url';
+import bearTowerBaseUrl from '../../../assets/buildings/bear_tower/bear_tower.png';
+import bearTowerMaskUrl from '../../../assets/buildings/bear_tower/bear_tower_mask.png';
 
 /** The files of one building, as built by tools/blender (npm run build:characters). */
 export interface BuildingSource {
@@ -67,5 +70,11 @@ export const BUILDING_ART: Partial<Record<BuildingType, BuildingSource>> = {
     atlasUrl: bearFieldAtlasUrl,
     baseUrl: bearFieldBaseUrl,
     maskUrl: bearFieldMaskUrl,
+  },
+  vakttorn: {
+    name: 'bear_tower',
+    atlasUrl: bearTowerAtlasUrl,
+    baseUrl: bearTowerBaseUrl,
+    maskUrl: bearTowerMaskUrl,
   },
 };

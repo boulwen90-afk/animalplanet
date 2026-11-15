@@ -15,6 +15,7 @@ export const STRINGS = {
     ide: 'Ide',
     odling: 'Odling',
     fiskehytta: 'Fiskehytta',
+    vakttorn: 'Vakttorn',
   } satisfies Record<BuildingType, string>,
   /** One short line about each building, shown in the build menu. */
   buildingInfo: {
@@ -24,6 +25,7 @@ export const STRINGS = {
     ide: '+5 befolkning',
     odling: 'Oändlig mat, 1 Samlare',
     fiskehytta: 'Vid vatten, 3 Samlare',
+    vakttorn: 'Skjuter på fiender',
   } satisfies Record<BuildingType, string>,
   /** One short line about each unit, shown on its train button. */
   unitInfo: {
@@ -71,6 +73,8 @@ export const STRINGS = {
     carrying: (resource: string, carried: number) => `Bär ${carried} ${resource.toLowerCase()}`,
     hp: (current: number, max: number) => `Liv ${current}/${max}`,
     attacking: 'Anfaller',
+    /** What a building that shoots can do: the life a shot takes and how far it reaches, in tiles. */
+    shoots: (damage: number, range: number) => `Skada ${damage} · Räckvidd ${range}`,
     surrendered: 'Har kapitulerat',
     caveCount: (inside: number, capacity: number) => `${inside}/${capacity}`,
     baseUnderAttack: 'Din bas anfalls!',

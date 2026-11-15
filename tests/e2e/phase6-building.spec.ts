@@ -124,6 +124,7 @@ test.describe('phase 6: building', () => {
       ['Bygg Ide', '30 trä', '+5 befolkning'],
       ['Bygg Odling', '60 trä', 'Oändlig mat, 1 Samlare'],
       ['Bygg Fiskehytta', '100 trä', 'Vid vatten, 3 Samlare'],
+      ['Bygg Vakttorn', '120 trä', 'Skjuter på fiender'],
       // Last, the button to repair: nothing is damaged when the game starts.
       ['Laga', '', 'Inget är skadat'],
     ]);

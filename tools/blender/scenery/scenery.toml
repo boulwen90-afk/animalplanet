@@ -34,6 +34,7 @@ flame_dark = "#d9541a"
 flame_core = "#ffd95a"
 iron = "#7d848c"
 iron_light = "#b9c0c8"
+spark = "#fff3c4"
 
 # The ground: water, and the shore between water and land. Drawn, not rendered.
 [ground]
@@ -232,3 +233,23 @@ kind = "icon"
 shadow = false
 [[item.part]]
 type = "hammer"
+
+# --- What a watchtower shoots, and the burst where it lands. The arrow's
+# feathers are in its side's colour.
+[[item]]
+name = "arrow"
+kind = "projectile"
+shadow = false
+[[item.part]]
+type = "arrow"
+length = 0.5
+
+[[item]]
+name = "hit"
+kind = "spark"
+shadow = false
+outline = false
+[[item.part]]
+type = "burst"
+height = 0.2
+shards = [[1.0, 0.2, 0.2], [-1.0, 0.3, 0.18], [0.5, 1.0, 0.22], [-0.5, 0.9, 0.16], [0.9, -0.5, 0.14], [-0.8, -0.6, 0.15], [0.05, -1.0, 0.12]]
