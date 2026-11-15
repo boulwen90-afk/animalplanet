@@ -6,6 +6,7 @@ import type { Building, GameState, Unit } from '../../src/sim/state';
 import {
   getSelection,
   getState,
+  openBuildTab,
   openGame,
   recordFlashes,
   tileToScreen,
@@ -117,19 +118,51 @@ test.describe('phase 6: building', () => {
     await openGame(page);
     await selectWorker(page);
 
+    // The menu opens on the first of its two tabs.
     const panel = await commandPanel(page);
+    expect(panel.tabs.map((tab) => [tab.label, tab.active])).toEqual([
+      ['Ekonomi', true],
+      ['Försvar', false],
+    ]);
     expect(panel.buttons.map((b) => [b.label, b.cost, b.info])).toEqual([
       ['Bygg Visthus', '80 trä', 'Lämna mat och trä'],
-      ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
       ['Bygg Ide', '30 trä', '+5 befolkning'],
       ['Bygg Odling', '60 trä', 'Oändlig mat, 1 Samlare'],
       ['Bygg Fiskehytta', '100 trä', 'Vid vatten, 3 Samlare'],
-      ['Bygg Vakttorn', '120 trä', 'Skjuter på fiender'],
       // Last, the button to repair: nothing is damaged when the game starts.
       ['Laga', '', 'Inget är skadat'],
     ]);
     expect(panel.queue).toEqual([]);
     expect(await placement(page)).toBeNull();
+  });
+
+  test('a click on the tab "Försvar" shows the buildings for defence, and the tab stays when the selection changes', async ({
+    page,
+  }) => {
+    await openGame(page);
+    const worker = await selectWorker(page);
+    await openBuildTab(page, 'Försvar');
+    const panel = await commandPanel(page);
+    expect(panel.tabs.map((tab) => [tab.label, tab.active])).toEqual([
+      ['Ekonomi', false],
+      ['Försvar', true],
+    ]);
+    expect(panel.buttons.map((b) => [b.label, b.cost, b.info])).toEqual([
+      ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
+      ['Bygg Vakttorn', '120 trä', 'Skjuter på fiender'],
+      ['Laga', '', 'Inget är skadat'],
+    ]);
+    // The click on the tab was not a click on the map: the Samlare is still selected.
+    expect(await getSelection(page)).toEqual([worker.id]);
+
+    // Deselect and select again: the menu comes back on the same tab.
+    await page.keyboard.press('Escape');
+    await expect.poll(async () => (await commandPanel(page)).visible).toBe(false);
+    await selectWorker(page);
+    expect((await commandPanel(page)).tabs.find((tab) => tab.active)?.label).toBe('Försvar');
+
+    await openBuildTab(page, 'Ekonomi');
+    expect((await commandPanel(page)).buttons[0]!.label).toBe('Bygg Visthus');
   });
 
   test('building a Visthus: menu, outline, click, and it stands finished', async ({ page }) => {
@@ -225,6 +258,7 @@ test.describe('phase 6: building', () => {
     expect(START_WOOD).toBeLessThan(BUILDING_DEFS.krigshall.cost.wood!);
 
     const flashed = await recordFlashes(page);
+    await openBuildTab(page, 'Försvar');
     await clickBuildButton(page, 'Bygg Krigshall');
 
     await expect.poll(flashed).toEqual(['wood']);

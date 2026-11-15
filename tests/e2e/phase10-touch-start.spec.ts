@@ -430,10 +430,21 @@ test.describe('phase 10: on a phone', () => {
     const at = await unitScreen(page, unit!);
     await touch.tap(at.x, at.y);
     expect(await getSelection(page)).toEqual([unit!.id]);
-    // One button for each building it can build, and one to repair.
+    // Under the first tab: one button for each building of that group, and one to repair.
+    const economy = UNIT_DEFS.samlare.builds.filter(
+      (type) => BUILDING_DEFS[type].menu === 'economy',
+    );
     await expect
       .poll(async () => (await commandPanel(page)).buttons.length)
-      .toBe(UNIT_DEFS.samlare.builds.length + 1);
+      .toBe(economy.length + 1);
+    for (const button of (await commandPanel(page)).buttons) onScreen(button);
+    // The tabs fit too, and a tap on the second shows its buttons.
+    const tabs = (await commandPanel(page)).tabs;
+    expect(tabs.map((tab) => tab.label)).toEqual(['Ekonomi', 'Försvar']);
+    for (const tab of tabs) onScreen(tab, 54, 20);
+    await touch.tap(tabs[1]!.x, tabs[1]!.y);
+    await expect.poll(async () => (await commandPanel(page)).tabs[1]!.active).toBe(true);
+    expect(await getSelection(page)).toEqual([unit!.id]);
     for (const button of (await commandPanel(page)).buttons) onScreen(button);
     for (const button of await hudButtons(page)) {
       onScreen(button, button.width / 2, button.height / 2);

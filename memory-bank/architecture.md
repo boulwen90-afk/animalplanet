@@ -793,6 +793,18 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
     `HudSource.getHudButtons`; tryck går via `pressHudButton`.
   - Varningstexten ("Din bas anfalls!") visas mitt under resursraden. På
     skärmar smalare än 700 px flyttas den ned under knapparna (`alertTop`).
+  - **Byggmenyns flikar.** Varje byggnad har en `menu` i `BUILDING_DEFS`
+    (`economy` eller `defence`, ordningen står i `BUILD_MENUS`).
+    `describeCommandPanel(entities, selected, player, menu)` ger
+    knapparna för den flik som efterfrågas och `tabs` (flikarna med den
+    aktiva utpekad). Flikar visas bara när det markeringen kan bygga
+    ligger under mer än en; knappen "Laga" läggs sist under varje flik.
+    Vilken flik som visas är gränssnittets sak och ligger i
+    `GameScene.buildMenu`, inte i speltillståndet; den ändras med
+    `selectCommandTab` och ligger kvar när markeringen byts.
+    `commandPanelLayout(..., tabCount)` lägger flikarna i en rad överst i
+    panelen (108×40 px var) och knapparna under, och `commandPanelHit`
+    skiljer ett tryck på en flik (`tab`) från ett på en knapp.
   - Kommandopanelens knappar har tre rader: vad knappen gör, kostnaden
     och en kort beskrivning (`STRINGS.buildingInfo`, `STRINGS.unitInfo`).
     En knapp är 160 × 64 px. Panelen är så bred som en rad med alla
@@ -1686,7 +1698,7 @@ bara kontrollerat på samma maskin och samma Blender-version.
 | `terrain.ts` | Terrängtyper, gångbarhet och vilken resurs de ger |
 | `types.ts` | Vilka enhets- och byggnadstyper som finns |
 | `units.ts` | Enheters kostnad, träningstid, HP, fart, bärförmåga, insamlingstakt, vad de kan bygga och om de kan laga |
-| `buildings.ts` | Vilka enheter en byggnad tränar, dess HP, storlek, kostnad, byggtid och om den är avlämningsplats; `repairPrice` för en byggnad utan pris; `attack` (skada, räckvidd, tid mellan skott, projektilens fart) för en som skjuter. Start-HP för byggen och extra arbetares takt |
+| `buildings.ts` | Vilken flik i byggmenyn en byggnad ligger under (`menu`), vilka enheter den tränar, dess HP, storlek, kostnad, byggtid och om den är avlämningsplats; `repairPrice` för en byggnad utan pris; `attack` (skada, räckvidd, tid mellan skott, projektilens fart) för en som skjuter. Start-HP för byggen och extra arbetares takt |
 | `repair.ts` | Lagning: andel av priset för en full lagning, liv per sekund, och hur mycket varje ytterligare arbetare ger |
 | `resources.ts` | Mängd per källa, vilken last källan ger (`load`), sökradie när en källa tar slut |
 | `setup.ts` | Startbyggnad, startenheter, startresurser och befolkningstak |
@@ -1756,7 +1768,7 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getHud()` | Vad markeringspanelen visar: `visible`, `title`, `detail` |
 | `getResourceBar()` | Texterna i resursraden: `food`, `wood`, `population` |
 | `getFlashing()` | Vilka av resursradens texter som blinkar rött just nu |
-| `getCommandPanel()` | Kommandopanelen: `visible`, `buttons` (`label`, `cost`, `info`, mittpunkt `x`/`y`), `queue` (`label`, mittpunkt `x`/`y`), `progress` |
+| `getCommandPanel()` | Kommandopanelen: `visible`, `buttons` (`label`, `cost`, `info`, mittpunkt `x`/`y`, och `disabled` för en knapp som inget kan göra just nu), `tabs` (byggmenyns flikar: `label`, `active`, mittpunkt `x`/`y`; tom för paneler utan flikar), `queue` (`label`, mittpunkt `x`/`y`), `progress` |
 | `getPlacement()` | Byggnaden som placeras: `building`, `x`, `y`, `valid`, och när de finns `problem` (varför platsen inte går), `note` (texten under fotavtrycket) och `places` (arbetsplatserna runt byggnaden); `null` när ingen placering pågår |
 | `getPlacementPreview()` | Bilden av byggnaden som placeras: `texture` och `red` (sant när den visas röd); `null` utan placering eller utan bild |
 | `getOrderMarkerCount()` | Antal synliga orderringar |

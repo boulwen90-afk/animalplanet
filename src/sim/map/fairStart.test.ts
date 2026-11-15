@@ -19,6 +19,31 @@ const SEEDS = Array.from({ length: 40 }, (_, i) => i + 1);
 const FISHERS = BUILDING_DEFS.fiskehytta.work!.workers;
 const WATER = MAP_GEN_CONFIG.startWater;
 
+/**
+ * The game of each seed and each side's places for a fishing hut, worked
+ * out once and shared by the tests: making forty maps and searching each
+ * for hut sites takes seconds, and nothing here changes a game.
+ */
+const games = new Map<number, GameState>();
+const sites = new Map<string, number[]>();
+function gameOf(seed: number): GameState {
+  let state = games.get(seed);
+  if (!state) {
+    state = createGame(seed, undefined, undefined, { ai: [], fog: false });
+    games.set(seed, state);
+  }
+  return state;
+}
+function sitesOf(seed: number, player: PlayerId): number[] {
+  const key = `${seed}:${player}`;
+  let found = sites.get(key);
+  if (!found) {
+    found = fishingSites(gameOf(seed), player);
+    sites.set(key, found);
+  }
+  return found;
+}
+
 const mainBuilding = (state: GameState, player: PlayerId) =>
   state.entities.find((e): e is Building => e.kind === 'building' && e.owner === player)!;
 const worker = (state: GameState, player: PlayerId) =>
@@ -69,9 +94,8 @@ function fishingSites(state: GameState, player: PlayerId): number[] {
 describe('a fair start, on every map', () => {
   it('each side has a place for a fishing hut with all its fishing places near its start', () => {
     for (const seed of SEEDS) {
-      const state = createGame(seed, undefined, undefined, { ai: [], fog: false });
       for (const player of [0, 1] as const) {
-        const [nearest] = fishingSites(state, player);
+        const [nearest] = sitesOf(seed, player);
         expect(nearest, `seed ${seed}, player ${player}`).toBeDefined();
         expect(nearest, `seed ${seed}, player ${player}`).toBeLessThanOrEqual(WATER.siteDistance);
       }
@@ -81,7 +105,7 @@ describe('a fair start, on every map', () => {
   it('each side has the guaranteed trees and berries near its start', () => {
     const radius = MAP_GEN_CONFIG.startResourceRadius;
     for (const seed of SEEDS) {
-      const state = createGame(seed, undefined, undefined, { ai: [], fog: false });
+      const state = gameOf(seed);
       for (const player of [0, 1] as const) {
         expect(resourceNear(state, player, 'wood', radius), `seed ${seed}`).toBeGreaterThanOrEqual(
           MAP_GEN_CONFIG.startTrees * RESOURCE_DEFS.wood.amountPerNode,
@@ -95,10 +119,10 @@ describe('a fair start, on every map', () => {
 
   it('the two sides have exactly the same: water, wood and berries at every distance', () => {
     for (const seed of SEEDS) {
-      const state = createGame(seed, undefined, undefined, { ai: [], fog: false });
+      const state = gameOf(seed);
       // The same number of places to fish from, at the same distances.
       const round = (list: number[]) => list.map((d) => d.toFixed(3));
-      expect(round(fishingSites(state, 0)), `seed ${seed}`).toEqual(round(fishingSites(state, 1)));
+      expect(round(sitesOf(seed, 0)), `seed ${seed}`).toEqual(round(sitesOf(seed, 1)));
       for (const radius of [8, 12, 16, 24]) {
         for (const resource of ['wood', 'food'] as const) {
           expect(

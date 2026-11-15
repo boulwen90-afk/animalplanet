@@ -54,6 +54,8 @@ export interface HudSource {
   activateButton(index: number): CommandResult;
   /** Cancels the unit at a position in the selected building's queue. */
   cancelQueuedUnit(index: number): CommandResult;
+  /** Shows another tab of the build menu: the one with this number among those the panel has. */
+  selectCommandTab(index: number): void;
   /** A warning to show at the top of the screen, or undefined. */
   getAlert(): string | undefined;
   /** How the game ended for the player, or undefined while it is still going. */
@@ -139,6 +141,8 @@ const BAR_KEYS: readonly BarKey[] = ['food', 'wood', 'population'];
 export interface CommandPanelDisplay {
   visible: boolean;
   buttons: { label: string; cost: string; info: string; x: number; y: number; disabled?: true }[];
+  /** The tabs of a build menu, with the one whose buttons show marked; empty for panels without tabs. */
+  tabs: { label: string; active: boolean; x: number; y: number }[];
   queue: { label: string; x: number; y: number }[];
   progress: number;
 }
@@ -175,6 +179,8 @@ function hideButtonTexts(texts: ButtonTexts): void {
   texts.info.setVisible(false);
 }
 const SLOT_COLOR = 0x1a202c;
+/** The tab of the build menu whose buttons are showing. */
+const TAB_ACTIVE_COLOR = 0x3b7de0;
 const SLOT_FILLED_COLOR = 0x3b7de0;
 const PROGRESS_COLOR = 0x35e06a;
 const TEXT_COLOR = '#ffffff';
@@ -217,6 +223,7 @@ export class UiScene extends Scene {
   private command!: GameObjects.Graphics;
   private readonly buttonTexts: ButtonTexts[] = [];
   private slotTexts: GameObjects.Text[] = [];
+  private readonly tabTexts: GameObjects.Text[] = [];
   private commandInfo: CommandPanelInfo | undefined;
   private commandLayout: CommandPanelLayout | undefined;
 
@@ -464,7 +471,7 @@ export class UiScene extends Scene {
   getCommandPanelDisplay(): CommandPanelDisplay {
     const info = this.commandInfo;
     const layout = this.commandLayout;
-    if (!info || !layout) return { visible: false, buttons: [], queue: [], progress: 0 };
+    if (!info || !layout) return { visible: false, buttons: [], tabs: [], queue: [], progress: 0 };
     const centre = (rect: { x: number; y: number; width: number; height: number }) => ({
       x: rect.x + rect.width / 2,
       y: rect.y + rect.height / 2,
@@ -477,6 +484,11 @@ export class UiScene extends Scene {
         info: button.info,
         ...centre(layout.buttons[i]!),
         ...(button.disabled ? { disabled: true as const } : {}),
+      })),
+      tabs: (info.tabs ?? []).map((tab, i) => ({
+        label: tab.label,
+        active: tab.active,
+        ...centre(layout.tabs[i]!),
       })),
       queue: (info.queue ?? []).map((entry, i) => ({
         label: entry.label,
@@ -714,7 +726,9 @@ export class UiScene extends Scene {
     if (!hit) return;
     this.claimPress();
 
-    if (hit.kind === 'button') {
+    if (hit.kind === 'tab') {
+      this.source.selectCommandTab(hit.index);
+    } else if (hit.kind === 'button') {
       if (hit.index < info.buttons.length) {
         this.showRefusal(this.source.activateButton(hit.index));
       }
@@ -804,6 +818,7 @@ export class UiScene extends Scene {
     if (!info) {
       this.commandLayout = undefined;
       for (const text of this.slotTexts) text.setVisible(false);
+      for (const text of this.tabTexts) text.setVisible(false);
       for (const texts of this.buttonTexts) hideButtonTexts(texts);
       return;
     }
@@ -813,6 +828,7 @@ export class UiScene extends Scene {
       this.scale.height,
       info.buttons.length,
       info.queue !== undefined,
+      info.tabs?.length ?? 0,
     );
     this.commandLayout = layout;
     const g = this.command;
@@ -821,6 +837,21 @@ export class UiScene extends Scene {
     g.fillRoundedRect(panel.x, panel.y, panel.width, panel.height, 6);
     g.lineStyle(1, PANEL_EDGE, 1);
     g.strokeRoundedRect(panel.x, panel.y, panel.width, panel.height, 6);
+
+    // The tabs: the one whose buttons show is lit, the others are dark.
+    (info.tabs ?? []).forEach((tab, i) => {
+      const rect = layout.tabs[i]!;
+      g.fillStyle(tab.active ? TAB_ACTIVE_COLOR : SLOT_COLOR, 1);
+      g.fillRoundedRect(rect.x, rect.y, rect.width, rect.height, 4);
+      g.lineStyle(1, PANEL_EDGE, 1);
+      g.strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 4);
+      this.tabTextAt(i)
+        .setVisible(true)
+        .setAlpha(tab.active ? 1 : 0.7)
+        .setText(tab.label)
+        .setPosition(rect.x + rect.width / 2, rect.y + rect.height / 2);
+    });
+    this.tabTexts.slice(info.tabs?.length ?? 0).forEach((text) => text.setVisible(false));
 
     info.buttons.forEach((button, i) => {
       const rect = layout.buttons[i]!;
@@ -870,6 +901,23 @@ export class UiScene extends Scene {
       g.fillStyle(PROGRESS_COLOR, 1);
       g.fillRect(bar.x, bar.y, bar.width * info.progress, bar.height);
     }
+  }
+
+  /** The text of the tab at an index, created on first use. */
+  private tabTextAt(index: number): GameObjects.Text {
+    let text = this.tabTexts[index];
+    if (!text) {
+      text = this.add
+        .text(0, 0, '', {
+          fontFamily: 'sans-serif',
+          fontSize: '15px',
+          fontStyle: 'bold',
+          color: TEXT_COLOR,
+        })
+        .setOrigin(0.5);
+      this.tabTexts[index] = text;
+    }
+    return text;
   }
 
   /** The texts of the command panel button at an index, created on first use. */

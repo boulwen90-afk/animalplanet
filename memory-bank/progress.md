@@ -8,11 +8,14 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 - **Pågår: björnrasen görs komplett** i fem steg (lagning, vakttorn,
   smedja, skyttebana med distansenhet, palissad och port), se sist i
   `implementation-plan.md`. Användaren ser skärmdumpar efter varje steg
-- **Senaste ändring (2026-11-15):** steg 2, vakttorn. Steg 1, lagning,
-  är mergat (pull request 18). Värdena i båda stegen är förslag som
-  väntar på användarens godkännande. Se "Efter MVP:n". Om den senaste
-  ändringen är mergad står i GitHub; den här raden säger det inte,
-  eftersom den skrivs innan det är avgjort
+- **Senaste ändring (2026-11-15):** byggmenyn har fått två flikar, inför
+  steg 3. Steg 1, lagning (pull request 18), och steg 2, vakttorn (pull
+  request 19), är mergade. Se "Efter MVP:n". Om den senaste ändringen är
+  mergad står i GitHub; den här raden säger det inte, eftersom den
+  skrivs innan det är avgjort
+- **Uppskjutet till efter steg 5:** balansen mot datorspelaren. Matcher
+  mellan två datorspelare blev längre med tornen (upp till 19,1 minuter
+  mot målet under 20)
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
@@ -830,6 +833,83 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Byggmenyn får flikar (2026-11-15)
+
+Efter steg 2 hade byggmenyn sju knappar: två rader på en vanlig skärm och
+fyra på en telefon, där den skymde den markerade Samlaren. Förslaget att
+dela den i två flikar före steg 3 godkändes av användaren ("Ja på allt.
+Kör efter din rekommendation").
+
+**Användarens beslut samma dag**
+
+- Pull request 19 (Vakttornet) mergas när CI är grönt. Gjort.
+- Byggmenyn delas i flikar som en egen liten ändring före steg 3. Den här.
+- Balansen mot datorspelaren (matchlängden efter tornen) tas samlat efter
+  steg 5, inte nu.
+- Min tolkning: "Ja på allt" godkände också de föreslagna värdena för
+  lagningen (steg 1) och Vakttornet (steg 2), som stod under rubriken
+  "Värden att godkänna" i samma meddelande. Användaren sa det inte
+  uttryckligen om värdena.
+
+**Skärmdumpar:** `docs/screenshots/meny-flikar.png` (båda flikarna på en
+1280 px bred skärm) och `meny-flikar-telefon.png` (båda på en 390 px bred
+skärm).
+
+**Vad som gjordes**
+
+- `BuildingDef.menu` och `BUILD_MENUS` i `src/data/buildings.ts`:
+  Ekonomi (Visthus, Ide, Odling, Fiskehytta) och Försvar (Krigshall,
+  Vakttorn). Flikarnas namn står i `STRINGS.menus`.
+- `describeCommandPanel` tar fliken som argument och ger `tabs`;
+  `commandPanelLayout` och `commandPanelHit` har fått flikraden.
+- `UiScene` ritar flikarna (den aktiva blå) och `GameScene` håller reda
+  på vald flik.
+
+**Saknas eller avviker**
+
+- **På telefon är Ekonomi fortfarande tre rader plus flikraden** (270 px
+  mot 296 förut) och skymmer fortfarande Samlaren delvis. Vinsten är att
+  menyn inte växer mer där: nya byggnader hamnar under Försvar.
+- **Försvar växer.** Efter steg 3–5 (Smedja, Skyttebana, Palissad, Port)
+  har den sex byggnader och "Laga": två rader på en vanlig skärm och fyra
+  på en telefon. Då behövs en tredje flik, eller mindre knappar. Inte
+  beslutat.
+- **Panelen byter höjd mellan flikarna**, eftersom de har olika många
+  knappar.
+- **Ingen tangent byter flik.** Bara klick och tryck.
+- **Vald flik minns bara tills sidan laddas om.**
+
+**Testresultat**
+
+- Vitest: 730 av 730 (6 nya, för flikarna)
+- Playwright: 146 av 146 i normal fart (1 nytt) och 146 av 146 med
+  webbläsaren nedbromsad 8 gånger
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+
+**Äldre tester som ändrades, och varför**
+
+- **Byggmenyns tester** (`commandPanel.test.ts`, `phase6-building.spec.ts`)
+  väntar sig nu Ekonomi-flikens knappar och de två flikarna.
+- **`phase6-building.spec.ts`** och **`tower.spec.ts`** byter till fliken
+  Försvar innan de trycker på "Bygg Krigshall" och "Bygg Vakttorn".
+- **`phase10-touch-start.spec.ts`** räknar Ekonomi-flikens knappar och
+  prövar att flikarna ryms och går att trycka på.
+- **Två kartester gör mindre dubbelarbete.** `mapgen.test.ts` ("vatten
+  vid varje startplats") räknade upp hyttplatserna två gånger per
+  startplats för 40 frön, och `fairStart.test.ts` gjorde om samma 40
+  kartor i vart och ett av sina tre tester. De tog 3,3 respektive 2–3 s
+  mot gränsen 5 s och föll när enhetstesterna kördes samtidigt som en
+  nedbromsad webbläsarkörning. Kartorna och hyttplatserna räknas nu en
+  gång och delas; det som kontrolleras är detsamma.
+- Inget test är avstängt, och ingen tidsgräns är höjd.
+
+**Lärdom**
+
+- **Mät inte två saker på samma maskin samtidigt.** Enhetstester som
+  körs under en nedbromsad webbläsarkörning faller på tid utan att något
+  är fel: till slut föll även balanstestet, som har två minuter på sig.
+  Sviterna körs nu efter varandra.
 
 ### Björnrasen komplett, steg 2: Vakttorn (2026-11-15)
 

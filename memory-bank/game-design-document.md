@@ -75,6 +75,13 @@ En match ska ta ungefär 10–20 minuter.
   "Befolkningstaket 200 är nått" när det hårda taket är nått.
 - **Nederkant:** markeringspanel (namn, liv, vad enheten gör) och
   kommandopanel (bygg-/träningsknappar med kostnad, produktionskö).
+- **Byggmenyn har två flikar** (beslutat av användaren 2026-11-15, när
+  menyn hade vuxit till sju knappar): **Ekonomi** (Visthus, Ide, Odling,
+  Fiskehytta) och **Försvar** (Krigshall, Vakttorn). Menyn öppnas på
+  Ekonomi. Den flik man valde ligger kvar när man markerar om. Knappen
+  "Laga" finns sist under båda flikarna. Vilken flik en byggnad hör till
+  står i `BUILDING_DEFS` (`menu`). En flik är 108×40 px, stor nog att
+  trycka på med ett finger.
 - Ingen minikarta i MVP:n.
 
 ## 5. Raser

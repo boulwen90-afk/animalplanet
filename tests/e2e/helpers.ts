@@ -250,3 +250,17 @@ export async function recordNotices(page: Page): Promise<() => Promise<string[]>
   return () =>
     page.evaluate(() => [...(window as unknown as { __notices: Set<string> }).__notices].sort());
 }
+
+/**
+ * Shows a tab of the build menu, by its label, with a click on it, and
+ * waits until its buttons are the ones that show. The menu must be open.
+ */
+export async function openBuildTab(page: Page, label: string): Promise<void> {
+  const panel = () => page.evaluate(() => window.__TEST__!.getCommandPanel());
+  const tab = (await panel()).tabs.find((candidate) => candidate.label === label);
+  expect(tab, `tab "${label}"`).toBeDefined();
+  if (!tab!.active) await page.mouse.click(tab!.x, tab!.y);
+  await expect
+    .poll(async () => (await panel()).tabs.find((candidate) => candidate.label === label)?.active)
+    .toBe(true);
+}

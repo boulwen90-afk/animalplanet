@@ -3,7 +3,14 @@ import { BUILDING_DEFS } from '../../src/data/buildings';
 import { SIM_CONFIG } from '../../src/data/sim';
 import { UNIT_DEFS } from '../../src/data/units';
 import type { Building, GameState, Unit } from '../../src/sim/state';
-import { getSelection, getState, openGame, tileToScreen, trackConsoleErrors } from './helpers';
+import {
+  getSelection,
+  getState,
+  openBuildTab,
+  openGame,
+  tileToScreen,
+  trackConsoleErrors,
+} from './helpers';
 
 const TOWER = BUILDING_DEFS.vakttorn;
 const ATTACK = TOWER.attack!;
@@ -91,6 +98,7 @@ test.describe('the watchtower', () => {
     await expect
       .poll(async () => (await page.evaluate(() => window.__TEST__!.getCommandPanel())).visible)
       .toBe(true);
+    await openBuildTab(page, 'Försvar');
     const panel = await page.evaluate(() => window.__TEST__!.getCommandPanel());
     const button = panel.buttons.find((b) => b.label === 'Bygg Vakttorn');
     expect([button?.cost, button?.info]).toEqual(['120 trä', 'Skjuter på fiender']);
