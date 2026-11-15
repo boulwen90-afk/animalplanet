@@ -138,7 +138,7 @@ const BAR_KEYS: readonly BarKey[] = ['food', 'wood', 'population'];
 /** What the command panel currently shows, with the screen position of each part's centre. */
 export interface CommandPanelDisplay {
   visible: boolean;
-  buttons: { label: string; cost: string; info: string; x: number; y: number }[];
+  buttons: { label: string; cost: string; info: string; x: number; y: number; disabled?: true }[];
   queue: { label: string; x: number; y: number }[];
   progress: number;
 }
@@ -157,6 +157,8 @@ function housingName(): string {
 const PANEL_COLOR = 0x10141a;
 const PANEL_EDGE = 0x4a5568;
 const BUTTON_COLOR = 0x2d3748;
+/** How solid a command panel button that can do nothing right now is drawn. */
+const DISABLED_ALPHA = 0.45;
 /** How far from a command panel button's left edge its texts start, in pixels. */
 const BUTTON_TEXT_INSET = 8;
 
@@ -222,6 +224,8 @@ export class UiScene extends Scene {
   /** A short message that explains a refused order, and when it goes away. */
   private notice!: GameObjects.Text;
   private noticeUntil = 0;
+  /** True for a message asked for since the last frame: its time starts with the frame that first shows it, as for the flashes. */
+  private noticePending = false;
   private alertShown = '';
 
   private outcome!: GameObjects.Graphics;
@@ -410,6 +414,10 @@ export class UiScene extends Scene {
       this.flashUntil[key] = time + lasts;
       delete this.flashPending[key];
     }
+    if (this.noticePending) {
+      this.noticeUntil = time + UI_CONFIG.noticeMs;
+      this.noticePending = false;
+    }
     this.updateLoading();
     this.updateDebug(time);
     this.updateResourceBar();
@@ -468,6 +476,7 @@ export class UiScene extends Scene {
         cost: button.cost,
         info: button.info,
         ...centre(layout.buttons[i]!),
+        ...(button.disabled ? { disabled: true as const } : {}),
       })),
       queue: (info.queue ?? []).map((entry, i) => ({
         label: entry.label,
@@ -741,9 +750,15 @@ export class UiScene extends Scene {
     }
   }
 
+  /** Tells the player that a repair stands still for lack of wood: the wood number turns red under a message. */
+  showRepairPaused(): void {
+    this.flashPending.wood = UI_CONFIG.noticeMs;
+    this.showNotice(STRINGS.hud.repairPaused);
+  }
+
   /** Shows a short message under the resource bar for a few seconds. */
   private showNotice(text: string): void {
-    this.noticeUntil = this.now + UI_CONFIG.noticeMs;
+    this.noticePending = true;
     this.notice.setText(text).setVisible(true);
   }
 
@@ -753,7 +768,9 @@ export class UiScene extends Scene {
   }
 
   private updateResourceBar(): void {
-    if (this.notice.visible && this.now >= this.noticeUntil) this.notice.setVisible(false);
+    if (this.notice.visible && !this.noticePending && this.now >= this.noticeUntil) {
+      this.notice.setVisible(false);
+    }
 
     // Changing a text's colour redraws it, so only do it when the flash starts or ends.
     for (const key of BAR_KEYS) {
@@ -807,21 +824,26 @@ export class UiScene extends Scene {
 
     info.buttons.forEach((button, i) => {
       const rect = layout.buttons[i]!;
-      g.fillStyle(BUTTON_COLOR, 1);
+      // A button that can do nothing right now is dimmed.
+      const alpha = button.disabled ? DISABLED_ALPHA : 1;
+      g.fillStyle(BUTTON_COLOR, alpha);
       g.fillRoundedRect(rect.x, rect.y, rect.width, rect.height, 4);
-      g.lineStyle(1, PANEL_EDGE, 1);
+      g.lineStyle(1, PANEL_EDGE, alpha);
       g.strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 4);
       const texts = this.buttonTextsAt(i);
       texts.label
         .setVisible(true)
+        .setAlpha(alpha)
         .setText(button.label)
         .setPosition(rect.x + BUTTON_TEXT_INSET, rect.y + 6);
       texts.cost
         .setVisible(true)
+        .setAlpha(alpha)
         .setText(button.cost)
         .setPosition(rect.x + BUTTON_TEXT_INSET, rect.y + 26);
       texts.info
         .setVisible(true)
+        .setAlpha(alpha)
         .setText(button.info)
         .setPosition(rect.x + BUTTON_TEXT_INSET, rect.y + 44);
     });

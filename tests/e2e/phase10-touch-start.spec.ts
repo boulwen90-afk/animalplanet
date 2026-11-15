@@ -430,9 +430,10 @@ test.describe('phase 10: on a phone', () => {
     const at = await unitScreen(page, unit!);
     await touch.tap(at.x, at.y);
     expect(await getSelection(page)).toEqual([unit!.id]);
+    // One button for each building it can build, and one to repair.
     await expect
       .poll(async () => (await commandPanel(page)).buttons.length)
-      .toBe(UNIT_DEFS.samlare.builds.length);
+      .toBe(UNIT_DEFS.samlare.builds.length + 1);
     for (const button of (await commandPanel(page)).buttons) onScreen(button);
     for (const button of await hudButtons(page)) {
       onScreen(button, button.width / 2, button.height / 2);

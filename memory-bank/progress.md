@@ -5,17 +5,20 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 ## Nuläge
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
-- **Senaste ändring (2026-11-14):** miljön ritas med bilder från
-  figurpipelinen (träd, bärsnår, klippor, grottor, vatten och strand),
-  korgen visar rätt last, och varje startplats har en egen damm. Se
-  "Efter MVP:n". Om ändringen är mergad står i GitHub; den här raden
-  säger det inte, eftersom den skrivs innan det är avgjort
+- **Pågår: björnrasen görs komplett** i fem steg (lagning, vakttorn,
+  smedja, skyttebana med distansenhet, palissad och port), se sist i
+  `implementation-plan.md`. Användaren ser skärmdumpar efter varje steg
+- **Senaste ändring (2026-11-15):** steg 1, lagning. Värdena är förslag
+  som väntar på användarens godkännande. Se "Efter MVP:n". Om ändringen
+  är mergad står i GitHub; den här raden säger det inte, eftersom den
+  skrivs innan det är avgjort
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
-  request 14), Fiskehyttan (pull request 15) och Idets hus (pull request
-  16). Båda ekonomibyggnadernas värden är godkända av användaren
-  (2026-11-14)
+  request 14), Fiskehyttan (pull request 15), Idets hus (pull request
+  16), miljöns bilder med rätt last i korgen och rättvis start, och
+  befolkningstaket 200 (pull request 17). Båda ekonomibyggnadernas värden
+  är godkända av användaren (2026-11-14)
 - **Inte gjort:** Tigrarna finns inte som ras i spelet. Gräset är
   fortfarande en enfärgad romb med rutnät; allt annat på kartan ritas
   med bilder
@@ -826,6 +829,181 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Björnrasen komplett, steg 1: Lagning (2026-11-15)
+
+Användaren: "Vi gör björnrasen komplett innan nästa ras. Ett steg i
+taget, STANNA efter varje steg och visa skärmdumpar. Alla värden i
+datafilerna. Grafik via figurpipelinen enligt skalstandarden." Fem steg:
+lagning, vakttorn, smedja, skyttebana med distansenhet, palissad och
+port. Det här är steg 1. Steg 2–5 är inte påbörjade.
+
+**Skärmdumpar:** `docs/screenshots/lagning-skadenivaer.png` (Storidet
+ryker vid 42 % liv, Visthuset brinner vid 18 %), `lagning-arbete.png`
+(tre Samlare lagar Visthuset; knappen "Laga" visar "ca 27 trä, Visthus,
+32 % liv"), `lagning-narbild.png` (närbild av samma), `lagning-slut-pa-
+tra.png` (meddelandet och röd träsiffra), `lagning-telefon.png` (menyn
+med sex knappar på en 390 px bred skärm) och
+`lagning-rok-eld-hammare.png` (pipelinens bilder av rök, eld och
+hammare).
+
+**Värden (förslag, väntar på godkännande)** i `src/data/repair.ts`,
+`src/data/buildings.ts`, `src/data/ai.ts` och `src/data/ui.ts`
+
+| Värde | Förslag | Varför |
+|---|---|---|
+| Full lagning kostar | 50 % av träet i priset | Uppdraget: "ca halva byggkostnaden" |
+| Storidet räknas som | 300 trä (full lagning 150) | Det har inget pris; 150 trä för 1500 liv är samma 10 liv per trä som Visthuset |
+| Takt, en Samlare | 6 liv per sekund | Nybygge ger 9–18 liv per sekund och Samlare |
+| Varje ytterligare Samlare | 60 % av den förra | 2 gör 1,6, 3 gör 1,96, aldrig 2,5 |
+| Rök / eld | under 50 % / under 25 % liv | Uppdraget |
+| Datorspelaren lagar under | 90 % liv, med 2 Samlare, minst 20 trä | Småskador kostar mer i gångtid än de ger |
+
+Vad en full lagning kostar och tar för en ensam Samlare:
+
+| Byggnad | Liv | Trä | Tid | Nybygge |
+|---|---|---|---|---|
+| Storide | 1500 | 150 | 250 s | – |
+| Krigshall | 700 | 75 | 117 s | 150 trä, 35 s |
+| Visthus | 400 | 40 | 67 s | 80 trä, 20 s |
+| Fiskehytta | 350 | 50 | 58 s | 100 trä, 25 s |
+| Ide | 300 | 15 | 50 s | 30 trä, 15 s |
+| Odling | 200 | 30 | 33 s | 60 trä, 20 s |
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| Samlare lagar skadade egna byggnader med högerklick/order | Klar | Kommandot `repair`; högerklick, tryck och knapp |
+| Kostar trä i proportion till lagat liv, ca halva byggkostnaden | Klar | Träet dras ett i taget under arbetet |
+| Slut på trä pausar med ett meddelande | Klar | "Slut på trä – lagningen väntar", röd träsiffra, 2,5 s |
+| Långsammare än nybygge | Klar | 6 liv/s mot 9–18; ett test kräver det för varje byggnad |
+| Flera Samlare lagar snabbare, avtagande | Klar | 1 / 1,6 / 1,96 |
+| Använder hammarslaget | Klar | Samma animation som bygget, vänd mot byggnaden |
+| Ställer sig på lediga platser runt byggnaden | Klar | En egen ruta var intill fotavtrycket |
+| Rök under 50 %, eld under 25 % | Klar | Bilder från pipelinen |
+| Markören/knappen visar när lagning är möjlig | Avviker | Markören finns bara med mus; se nedan |
+| Datorspelaren lagar när basen inte är under attack | Klar | |
+| Enhetstester för kostnad, hastighet och avbruten lagning | Klar | `repair.test.ts`, 24 tester |
+| Byggmenyn visar kostnad och beskrivning | Klar | Knappen "Laga" visar kostnad och vilken byggnad |
+
+**Vad som gjordes**
+
+- **Simulering:** `src/sim/systems/repair.ts` med uppgiften `RepairTask`,
+  kommandot `repair`, händelsen `repairPaused` och fältet
+  `Building.repairCredit`. Se arkitekturdokumentet.
+- **Datorspelaren:** punkten `repair` mellan byggen och sysslolösa
+  arbetare.
+- **Gränssnitt:** order med högerklick och tryck, knappen "Laga" sist i
+  Samlarens meny, hammarmarkör, meddelande, text i markeringspanelen
+  ("Lagar Visthus", "Lagar Visthus – väntar på trä").
+- **Grafik:** tre rökpuffar, fyra eldbilder och en hammare i pipelinen
+  (`lib/nature.py`, `scenery/scenery.toml`), i miljöns atlas. `DamageView`
+  ritar dem; reglerna är rena funktioner i `effects/damage.ts`.
+
+**Saknas eller avviker**
+
+- **Värdena är förslag.** Inget av dem är godkänt.
+- **Markören syns inte på pekskärm**, där det inte finns någon pekare.
+  Där är det knappen "Laga" som visar att lagning är möjlig. Ett tryck
+  på en skadad byggnad med Samlare markerade lagar den.
+- **Markören går inte att visa i en skärmdump.** En headless-webbläsare
+  tar inte med muspekaren. Testet kontrollerar att spelytans CSS-markör
+  är hammarbilden över en skadad byggnad och standardpekaren annars.
+  Bilden finns i `lagning-rok-eld-hammare.png`.
+- **Knappen "Laga" väljer närmaste skadade byggnad**, räknat från den
+  först markerade Samlaren. Vill man laga en annan klickar man på den.
+- **Bara trä.** Alla byggnader kostar bara trä i dag. Får en byggnad ett
+  pris i mat räknas bara dess trädel.
+- **En lagande Samlare går inte och hämtar trä** när det tar slut. Den
+  står kvar och väntar. Datorspelarens Samlare tas av arbetet och samlar.
+- **Efter lagningen blir Samlaren sysslolös.** Den går inte tillbaka till
+  det den gjorde före. Undantag: efter en Odling eller Fiskehytta börjar
+  den arbeta där.
+- **En skadad Odling eller Fiskehytta lagas först.** Högerklick med
+  Samlare markerade ger lagning, inte arbete, så länge byggnaden är
+  skadad. Är träet slut väntar Samlaren i stället för att arbeta.
+- **Tre Samlare lagar fortare än en Ramkrigare skadar.** En Ramkrigare
+  gör 8,3 skada per sekund mot en byggnad; tre Samlare lagar 11,8 liv
+  per sekund (en lagar 6). En ensam angripare river alltså inte ett hus
+  som tre Samlare lagar, så länge träet räcker. Det är ett balansval som
+  följer av förslaget 6 liv per sekund.
+- **Rök och eld sitter inte efter husets form.** Platserna räknas ur
+  fotavtrycket och takhöjden, inte ur varje hus egen modell, så en eld
+  kan sitta några pixlar utanför takytan. På en Odling, som ligger
+  platt, stiger röken ur åkern.
+- **Rök, eld och hammare ligger i miljöns atlas**, inte i en egen. Den
+  växte från 256×217 till 256×242 px (27 till 35 bilder, 55 till 68 kB).
+  Testets gräns är 512×256.
+- **Rökens och eldens rörelse räknas ur klockan** (tre puffar per
+  rökpelare som stiger och tunnas ut), inte ur renderade animationer.
+  Bilderna är från pipelinen; rörelsen är spelets.
+- **Datorspelaren lagar en byggnad i taget** och slutar när en fiende är
+  inom 12 rutor från Storidet, också om den skadade byggnaden står långt
+  från striden.
+- **Texten på Fiskehyttans knapp är kortad** från "Fiske vid vatten, 3
+  Samlare" till "Vid vatten, 3 Samlare". Den gamla var bredare än
+  knappens textyta och stack ut redan förut; med sex knappar i rad blev
+  knappen 151 px bred i stället för 160, och texten gick in i nästa
+  knapp (syntes i skärmdumpen).
+- **Ny testkrok `setLife`**, som sätter livet på en byggnad direkt. Den
+  går förbi kommandona, som `spawnUnit` redan gör, och finns bara i
+  testläge.
+- **Inte mätt:** bilder per sekund med många skadade byggnader. Varje
+  skadad byggnad i bild ritar 6–9 rökpuffar och 2–3 eldar.
+- **Inte prövat:** en riktig telefon.
+- **Inget ljud**, som i resten av spelet.
+
+**Testresultat**
+
+- Vitest: 684 av 684 (49 nya: lagningens kostnad, takt, platser och avbrott,
+  datorspelarens lagning, skadans regler, knappen, texterna och
+  hammarslaget)
+- Playwright: 138 av 138 i normal fart (9 nya i `repair.spec.ts`), på det
+  slutliga bygget. Med webbläsaren nedbromsad 8 gånger: 137 av 138 i hela
+  körningen. Det som föll var det nya testet av "slut på trä", som
+  frågade efter meddelandet för sent (se nedan); efter rättning går
+  `repair.spec.ts` igenom nedbromsat, 9 av 9. Hela den nedbromsade
+  körningen är inte gjord om efter rättningen
+- Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
+  testerna eller när skärmdumparna togs.
+- Matcher mellan två datorspelare: 13,7, 15,2 och 15,7 minuter på frö
+  1–3, samma som före lagningen. Datorspelarna lagar aldrig i de
+  matcherna: ingen byggnad skadas mer än 10 % före slutanfallet, och då
+  är basen under attack tills den faller. Datorspelarens lagning prövas
+  därför i egna tester, där en byggnad skadas i fred
+
+**Äldre tester som ändrades, och varför**
+
+- **Byggmenyns tester** (`commandPanel.test.ts`, `phase6-building.spec.ts`,
+  `phase10-touch-start.spec.ts`) väntar sig nu knappen "Laga" efter
+  byggknapparna.
+- **Fiskehyttans knapptext** i tre tester, se ovan.
+- Inget test är avstängt, och ingen tidsgräns är höjd.
+
+**Fel som hittades av den nedbromsade körningen**
+
+- **Ett meddelande kunde vara slut innan det hade visats.** Meddelandet
+  under resursraden (2,5 s) räknade sin tid från bildrutan *före* den
+  som först visade det. Kom meddelandet efter ett långt uppehåll mellan
+  två bildrutor var tiden redan ute. Blinkningarna hade samma fel och
+  rättades i Fiskehyttans steg; nu börjar också meddelandets tid med
+  bildrutan som först visar det (`UiScene.noticePending`). Felet gällde
+  även de äldre meddelandena om befolkning.
+- **Testet frågade för sent.** Mellan händelsen och frågan låg ett
+  långsamt anrop, och nedbromsat tog det mer än 2,5 s. Testet låter nu
+  sidan anteckna vilka meddelanden som visas, bildruta för bildruta
+  (`recordNotices`), som `recordFlashes` redan gör för blinkningarna.
+
+**Beslut och lärdomar**
+
+- **Trä i heltal, liv i bråkdelar.** 6 liv per sekund är 0,3 per steg,
+  och ett trä köper 7–20 liv. Betalningen går därför ett trä i taget, och
+  det som är betalt men inte lagat väntar på byggnaden. Det första
+  försöket jämförde flyttal rakt av och betalade ett trä för tidigt efter
+  200 steg; jämförelserna har nu en marginal.
+- **Rök som ser ut som rök** kräver rundare klumpar än resten av miljön:
+  med samma kantiga form som klipporna såg puffarna ut som stenar.
 
 ### Befolkningstaket höjt till 200 (2026-11-14)
 

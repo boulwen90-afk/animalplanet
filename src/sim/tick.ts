@@ -5,6 +5,7 @@ import { constructBuildings } from './systems/construction';
 import { gatherResources } from './systems/gathering';
 import { moveUnits } from './systems/movement';
 import { produceUnits } from './systems/production';
+import { repairBuildings } from './systems/repair';
 import { separateUnits, settleUnits } from './systems/separation';
 import { resolveSurrenders } from './systems/surrender';
 import { updateVisibility } from './systems/visibility';
@@ -19,6 +20,7 @@ export function tick(state: GameState): void {
   runAi(state);
   produceUnits(state);
   constructBuildings(state);
+  repairBuildings(state);
   gatherResources(state);
   resolveCombat(state);
   resolveSurrenders(state);

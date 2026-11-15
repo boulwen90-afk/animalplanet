@@ -55,6 +55,10 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/economy.ts` | Kostnader: vad som saknas, betala, återbetala | 5 |
 | `src/sim/systems/production.ts` | `produceUnits` (träning), `queueUnit`, `cancelQueuedUnit` | 5 |
 | `src/sim/systems/construction.ts` | `constructBuildings` (byggande), `canPlaceBuilding`, `placeBuilding`, `assistConstruction` | 6, 7 |
+| `src/sim/systems/repair.ts` | Lagning: `orderRepair`, `repairBuildings`, kostnad och takt, lediga platser runt en byggnad | Efter MVP |
+| `src/data/repair.ts` | `REPAIR_CONFIG`: kostnadsandel, liv per sekund och avtagande effekt | Efter MVP |
+| `src/render/effects/damage.ts` | Skadans utseende som rena funktioner: skadenivå, var det ryker och brinner, hur en puff och en eld ser ut vid en tidpunkt | Efter MVP |
+| `src/render/views/DamageView.ts` | Ritar rök och eld på skadade byggnader | Efter MVP |
 | `src/sim/systems/combat.ts` | `resolveCombat` (upptäcka, förfölja, slå), `orderAttack`, skadeformeln, raserade byggnader och vinnare | 7 |
 | `src/sim/systems/surrender.ts` | `surrender` (kapitulation och val av grotta) och `resolveSurrenders` (gå in i grottan) | 7 |
 | `src/sim/systems/separation.ts` | `separateUnits` (knuffar isär enheter som är för nära) och `settleUnits` (flyttar sysslolösa enheter från upptagna rutor) | Efter MVP |
@@ -223,6 +227,7 @@ som fattas), `populationCap`, `queueFull`, `invalidPlacement` (med
 | `cancelTrain` | `player`, `buildingId`, `index` (plats i kön) | Tar bort enheten ur kön och återbetalar hela kostnaden |
 | `build` | `player`, `unitIds`, `building`, `x`, `y` (fotavtryckets lägsta hörn) | Placerar ett bygge, drar kostnaden och skickar enheterna att bygga |
 | `construct` | `player`, `unitIds`, `buildingId` | Skickar enheterna att hjälpa till med ett pågående bygge |
+| `repair` | `player`, `unitIds`, `buildingId` | Skickar enheterna att laga en egen färdig byggnad som har förlorat liv. `invalid` om byggnaden inte är egen, inte färdig eller hel, eller om ingen av enheterna kan laga. En enhet som inte får plats intill byggnaden behåller sin uppgift |
 | `attack` | `player`, `unitIds`, `targetId` | Enheterna anfaller en fientlig enhet eller byggnad tills den är besegrad |
 
 Enheter som har kapitulerat lyder inga kommandon.
@@ -418,6 +423,15 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
      fotavtrycket ska vara nåbar från en av sidans arbetare. Annars kunde
      ett bygge bli stående ofärdigt, och eftersom ett ofärdigt bygge går
      före allt annat byggande skulle sidan sluta bygga.
+     **Lagning** kommer direkt efter byggena (`repair`). Finns en
+     fiendeenhet inom `defendRadius` (12) rutor från huvudbyggnaden tas
+     alla lagare av arbetet. Annars: lagare som väntar på trä tas av
+     arbetet; sedan väljs den byggnad som redan lagas, eller annars den
+     värst skadade med under `AI_CONFIG.repair.below` (0,9) av sitt liv,
+     och får upp till `workers` (2) av de närmaste arbetarna som varken
+     bygger eller lagar, om sidan har minst `minWood` (20) trä. En lagare
+     tas av arbetet med ett `move` till rutan den står på; den blir då
+     sysslolös och får nytt arbete i nästa punkt.
   3. **Sysslolösa arbetare** skickas att samla vid källan närmast basen.
      Tre av åtta hålls på trä och resten på mat (`woodShare` 0,375). En
      som ska samla mat tar i första hand bär inom `berryRadius`, sedan en
@@ -466,8 +480,9 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
 ### Händelser
 
 `state.events` talar om för renderingen vad som hände i det senaste steget:
-`hit`, `surrender`, `enterCave`, `vanish`, `buildingCollapsed` och
-`buildingAttacked`. `GameScene` kör därför ett steg i taget och läser
+`hit`, `surrender`, `enterCave`, `vanish`, `buildingCollapsed`,
+`buildingAttacked` och `repairPaused` (en lagning har stannat för att
+träet tog slut). `GameScene` kör därför ett steg i taget och läser
 händelserna efter varje steg. Simuleringen själv använder dem inte.
 
 ### Byggande
@@ -492,6 +507,47 @@ händelserna efter varje steg. Simuleringen själv använder dem inte.
 - Utan arbetare står ett bygge kvar ofärdigt. Det går inte att riva eller
   avbryta.
 - Bara färdiga byggnader tar emot resurser och tränar enheter.
+
+### Lagning (`systems/repair.ts`)
+
+- Uppgiften är `RepairTask`: `buildingId`, `place` (rutan intill byggnaden
+  där enheten står och arbetar) och `waiting` (sant medan arbetet står
+  still för att träet är slut). Bara enhetstyper med `repairs: true` i
+  `UNIT_DEFS` tar ordern.
+- **Platser.** `orderRepair` ger varje enhet en egen ruta ur
+  `freeRepairPlaces`: de öppna rutorna runt fotavtrycket, hörnen
+  inräknade, som ingen annan lagare har och ingen annan enhet står på
+  eller är på väg till. Enheten tar den närmaste den kan gå till
+  (`reachableTiles`). Platsen står i uppgiften och släpps när uppgiften
+  tar slut.
+- **`repairBuildings`** körs varje steg efter byggandet. De lagare som
+  står intill sin byggnad utan väg kvar räknas som dess lag. Laget ger
+  `repairPerStep(n)` liv per steg: `REPAIR_CONFIG.hpPerSecond` (6) gånger
+  `repairRate(n)`, där den första räknas fullt och varje nästa för
+  `workerFalloff` (0,6) av den förra.
+- **Betalning.** Träet dras ett i taget medan arbetet pågår. Ett trä
+  köper `lifePerWood(type)` liv: byggnadens liv delat med
+  `fullRepairCost(type)`, som är `costShare` (0,5) av träet i priset
+  (`repairPrice` för en byggnad utan pris, som Storidet). Det som ett trä
+  köper utöver stegets arbete väntar i `Building.repairCredit` och används
+  först nästa steg, så samma liv betalas aldrig två gånger och lagret
+  förblir ett heltal. Krediten ligger kvar på byggnaden om lagningen
+  avbryts.
+- **Slut på trä.** Kan steget inte betalas ges inget liv, lagarnas
+  `waiting` sätts, och händelsen `repairPaused` läggs en gång, när laget
+  går från att arbeta till att vänta. När trä finns igen fortsätter
+  arbetet av sig självt.
+- **Slut.** När byggnaden är hel blir lagarna sysslolösa; har byggnaden
+  `work` börjar de arbeta där (`startWorking`). Försvinner byggnaden, blir
+  den hel av någon annan eller kan enheten inte ta sig intill den blir
+  enheten sysslolös. En ny order (t.ex. `move`) avbryter; inget betalas
+  tillbaka.
+- Liv räknas i bråkdelar under lagningen, som under ett bygge.
+  Jämförelser görs med en marginal på 1e-9, eftersom 0,3 liv per steg
+  inte går jämnt upp i flyttal.
+- `costToMend(building)` är vad det kostar att göra byggnaden hel härifrån,
+  och `nearestDamaged(entities, player, to)` den skadade egna byggnad som
+  ligger närmast en punkt. Knappen "Laga" använder båda.
 
 ### Resurser och insamling
 
@@ -751,6 +807,44 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
   ovanför, t.ex. `3/12`. Grottan ritas
   när spelaren har utforskat dess ruta. Antalet visas alltid för egna
   grottor, och för andras bara medan de är i sikte.
+- **`DamageView`** ritar skadan på färdiga byggnader i sikte, med bilder
+  ur miljöns atlas. `EntityView` anropar den för varje sådan byggnad och
+  varje bildruta (`begin`, `show`, `end`); det som inte visades en
+  bildruta tas bort. Allt som avgör utseendet är rena funktioner i
+  `effects/damage.ts` med mått ur `UI_CONFIG.damage`:
+  - `damageLevel(hp, maxHp, complete)`: `smoke` under 50 % liv, `fire`
+    under 25 %. Ett bygge under uppförande visar ingenting, fast det har
+    lite liv.
+  - `damageSources(id, side, roofHeight, tile)`: en plats per ruta av
+    byggnadens sida, utspridda över taket (inom 60 % av fotavtrycket och
+    30–55 % av vägen upp till taknocken). Platserna beror på byggnadens
+    id, så två hus ryker inte likadant, men samma hus alltid likadant.
+  - `puffAt(now, source, index)`: tre puffar per plats följer varandra
+    med jämna mellanrum. En puff stiger 44 px på 2,2 s, driver 8 px åt
+    höger, växer från 0,7 till 1,5 gånger sin bild och tunnas ut.
+    Rörelsen räknas ur klockan, utan tweens eller partikelsystem: 6–9
+    bilder per skadad byggnad.
+  - `flameFrameAt(now, source)`: eldens fyra bilder växlar var 110:e ms.
+  Rök och eld ritas på byggnadens djup plus en halv pixel, alltså framför
+  huset men bakom enheter som står framför det.
+- **Lagning i gränssnittet.**
+  - Högerklick eller tryck på en egen skadad färdig byggnad med lagare
+    markerade ger kommandot `repair` (`SelectionController.giveOrder`,
+    före "arbeta här": en skadad Odling lagas först).
+  - `SelectionController.repairTarget` är byggnaden under musen som ett
+    högerklick skulle laga. `GameScene.updatePointer` byter då spelytans
+    markör till hammaren: `SceneryLibrary.pointer` gör en CSS-markör av
+    atlasens bild `icon_repair` med spetsen vid hammarhuvudet.
+  - Knappen "Laga" läggs sist i menyn för en markering med lagare
+    (`describeCommandPanel`). Den pekar ut närmaste skadade byggnad
+    (`nearestDamaged`, räknat från den första lagaren) och visar
+    `costToMend`. Utan skadad byggnad har den `disabled` och ritas med
+    45 % täckning.
+  - Händelsen `repairPaused` för spelarens sida ger meddelandet under
+    resursraden och röd träsiffra i `UI_CONFIG.noticeMs` (2,5 s)
+    (`UiScene.showRepairPaused`).
+  - En lagare som arbetar spelar `hammer` vänd mot byggnadens mitt; en
+    som väntar på trä står still (`activityOf`).
 - **`FogView`** ritar dimman som en mörk romb per ruta, på djup över allt på
   kartan men under livstaplar och andra markeringar: heltäckande över
   outforskade rutor, 50 % genomskinlig över utforskade, ingenting över
@@ -1468,14 +1562,21 @@ bara kontrollerat på samma maskin och samma Blender-version.
 ### Miljön (`--scenery`)
 
 `build.py --scenery --sprites` skriver `assets/scenery/scenery.json`,
-`scenery.png` och `scenery_mask.png`: 27 bilder på 256×217 px (47 kB +
-8 kB mask). Utan `--sprites` görs bara förhandsbilderna
+`scenery.png` och `scenery_mask.png`: 35 bilder på 256×242 px (59 kB +
+9 kB mask). Utan `--sprites` görs bara förhandsbilderna
 `assets/previews/scenery/items.png` (alla föremål på en rad) och
 `map.png` (ett stycke karta med sjö, skog, klippor och grotta).
 
 - **Föremålen** (`[[item]]` i `scenery.toml`): `tree_1` och `tree_2`
   (granar av olika höjd), `tree_3` (lövträd), `stump`, `bush_full`,
   `bush_few`, `bush_bare`, `rock_1`–`rock_3`, `cave` och `fishing_place`.
+  Därtill det som visar skada och lagning: `smoke_1`–`smoke_3` (rökpuffar),
+  `fire_1`–`fire_4` (samma eld i fyra lägen) och `icon_repair` (en
+  hammare, som blir muspekare). Rök och eld har varken skugga eller
+  kontur (`shadow = false`, `outline = false` på föremålet); hammaren har
+  kontur men ingen skugga. Skalstandarden ger dem egna spann: `effect`
+  0,2–0,55 rutbredder (13–35 px) och `icon` 0,3–0,5 (högst 32 px, som en
+  muspekare får vara).
   De byggs av delarna i `lib/nature.py` och renderas med samma kamera,
   ljus, kontur och skala som byggnaderna, så de hör hemma bredvid dem.
   Allt är låg-poly med platta ytor, som husen.
@@ -1513,12 +1614,13 @@ bara kontrollerat på samma maskin och samma Blender-version.
 | `sim.ts` | Simuleringssteg per sekund, flest steg per bildruta |
 | `terrain.ts` | Terrängtyper, gångbarhet och vilken resurs de ger |
 | `types.ts` | Vilka enhets- och byggnadstyper som finns |
-| `units.ts` | Enheters kostnad, träningstid, HP, fart, bärförmåga, insamlingstakt och vad de kan bygga |
-| `buildings.ts` | Vilka enheter en byggnad tränar, dess HP, storlek, kostnad, byggtid och om den är avlämningsplats. Start-HP för byggen och extra arbetares takt |
+| `units.ts` | Enheters kostnad, träningstid, HP, fart, bärförmåga, insamlingstakt, vad de kan bygga och om de kan laga |
+| `buildings.ts` | Vilka enheter en byggnad tränar, dess HP, storlek, kostnad, byggtid och om den är avlämningsplats; `repairPrice` för en byggnad utan pris. Start-HP för byggen och extra arbetares takt |
+| `repair.ts` | Lagning: andel av priset för en full lagning, liv per sekund, och hur mycket varje ytterligare arbetare ger |
 | `resources.ts` | Mängd per källa, vilken last källan ger (`load`), sökradie när en källa tar slut |
 | `setup.ts` | Startbyggnad, startenheter, startresurser och befolkningstak |
-| `ui.ts` | Dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order, träffblink, utfall, skakning, varningstid, samt för pekskärm: hur långt ett finger får röra sig och ändå räknas som ett tryck (10 px), hålltid för dragruta (300 ms) och ringens radie |
-| `ai.ts` | Datormotståndarens beslutstakt, antal arbetare, andel arbetare på trä, flest soldater, försvarsradie och anfallsvågor |
+| `ui.ts` | Dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order, träffblink, utfall, skakning, varningstid, samt för pekskärm: hur långt ett finger får röra sig och ändå räknas som ett tryck (10 px), hålltid för dragruta (300 ms) och ringens radie. `damage`: under vilken andel liv en byggnad ryker och brinner, och rökens och eldens mått och takt |
+| `ai.ts` | Datormotståndarens beslutstakt, antal arbetare, andel arbetare på trä, flest soldater, försvarsradie, anfallsvågor och lagning (`repair`) |
 | `production.ts` | Längsta produktionskö |
 | `strings.ts` | All speltext (svenska) |
 
@@ -1571,6 +1673,9 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getDebug()` | Vad räknaren från `?debug=1` visar: `visible`, `text` och `fps` |
 | `getNotice()` | Meddelandet som förklarar en nekad order, eller en tom sträng |
 | `getBuildingSprite(id)` | Hur en byggnad som ritas från bilder ser ut just nu: `frame` (`construction_1`, `construction_2` eller `complete`) och `texture`. `null` för platshållarblock |
+| `getBuildingDamage(id)` | Skadan som ritas på en byggnad: `level` (`none`, `smoke` eller `fire`) och antalet rökpuffar (`puffs`) och eldar (`flames`) |
+| `getPointer()` | Muspekaren: `shown` (`repair` medan den är hammaren över en skadad byggnad som de markerade skulle laga, annars `default`), `css` (spelytans CSS-markör) och `repairTarget` (byggnadens id eller `null`) |
+| `setLife(id, life)` | Sätter livet på en enhet eller byggnad till ett tal över 0, som efter en träff eller en lagning. För tester som behöver en skadad byggnad utan att spela en strid först |
 | `getScenery(tileX, tileY)` | Vad miljön ritar på en ruta: `object` (bilden av det som står där och syns, t.ex. `tree_2` eller `bush_few`, annars `null`), `lying` (bilderna som ligger på marken: `stump`, `bush_bare`, `fishing_place`) och `water` (vattenrutans bilder i ritordning: vattnet och dess strandbitar) |
 | `getObjectCount()` | Antal stående föremål i miljön som ritas just nu, efter att de utanför bilden har dolts |
 | `command(cmd)` | Skickar ett kommando till simuleringen och ger tillbaka dess `CommandResult` |

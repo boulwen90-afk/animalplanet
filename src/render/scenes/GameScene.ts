@@ -9,6 +9,7 @@ import { consumeSteps, createStepClock } from '../../sim/clock';
 import { BUILDING_DEFS } from '../../data/buildings';
 import { applyCommand, type CommandResult } from '../../sim/commands';
 import {
+  buildingCentre,
   createUnit,
   isBuilding,
   isUnit,
@@ -35,7 +36,7 @@ import { BuildingLibrary } from '../buildings/BuildingLibrary';
 import { CharacterLibrary } from '../characters/CharacterLibrary';
 import { CameraController } from '../input/CameraController';
 import { PlacementController } from '../input/PlacementController';
-import { builderUnitIds } from '../input/selection';
+import { builderUnitIds, repairerUnitIds } from '../input/selection';
 import { SelectionController } from '../input/SelectionController';
 import { TouchController } from '../input/TouchController';
 import {
@@ -46,6 +47,7 @@ import {
 import { hudButtonRects, rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout';
 import { describeSelection, type SelectionInfo } from '../ui/selectionInfo';
 import { CaveView } from '../views/CaveView';
+import { DamageView } from '../views/DamageView';
 import { EntityView } from '../views/EntityView';
 import { FogView } from '../views/FogView';
 import { SceneryLibrary } from '../scenery/SceneryLibrary';
@@ -77,6 +79,8 @@ export interface GameSceneOptions {
 /** The side the person at the screen plays. */
 /** The fishing places on the shore are worked out again every this many frames. */
 const FISHING_PLACES_EVERY = 20;
+/** The picture the mouse pointer turns into over a building that can be repaired, and the point of it that points: the hammer's head. */
+const REPAIR_POINTER = { frame: 'icon_repair', hotspot: { x: 0.8, y: 0.2 } } as const;
 
 const LOCAL_PLAYER: PlayerId = 0;
 /** The side the computer plays. */
@@ -108,6 +112,9 @@ export class GameScene extends Scene implements HudSource {
   /** Game time until which the "base under attack" warning shows, and when it was last raised. */
   private alertUntil = 0;
   private lastAlertAt = -Infinity;
+  /** What the mouse pointer looks like, and the pointer shown over a building that can be repaired. */
+  private pointerShown: 'default' | 'repair' = 'default';
+  private repairPointer = 'pointer';
   /** How many times the screen has shaken because a building collapsed. */
   private shakeCount = 0;
   /** How many frames have been drawn. */
@@ -151,6 +158,13 @@ export class GameScene extends Scene implements HudSource {
       MAP_CONFIG,
       new CharacterLibrary(this, PLAYER_COLORS),
       buildingArt,
+      new DamageView(this, MAP_CONFIG, scenery.textureKey()),
+    );
+    this.repairPointer = scenery.pointer(
+      this,
+      REPAIR_POINTER.frame,
+      REPAIR_POINTER.hotspot,
+      'pointer',
     );
     this.selectionView = new SelectionView(this);
 
@@ -229,6 +243,7 @@ export class GameScene extends Scene implements HudSource {
     }
     this.selectionController.update();
     this.placementController.update();
+    this.updatePointer();
 
     // Draw units part-way into the next step, so movement looks smooth.
     const alpha = Math.min(this.stepClock.accumulatorMs / TICK_MS, 1);
@@ -261,6 +276,17 @@ export class GameScene extends Scene implements HudSource {
     if (this.testApi) this.testApi.ready = true;
   }
 
+  /**
+   * The mouse pointer turns into a hammer over a damaged building that the
+   * selected units would repair on a right click.
+   */
+  private updatePointer(): void {
+    const next = this.selectionController.repairTarget !== undefined ? 'repair' : 'default';
+    if (next === this.pointerShown) return;
+    this.pointerShown = next;
+    this.input.setDefaultCursor(next === 'repair' ? this.repairPointer : 'default');
+  }
+
   /** Runs simulation steps one at a time, reacting to what happens in each. */
   private runSteps(state: GameState, steps: number): void {
     for (let i = 0; i < steps && state.winner === null; i++) {
@@ -282,6 +308,11 @@ export class GameScene extends Scene implements HudSource {
         ) {
           this.lastAlertAt = this.elapsedTotal;
           this.alertUntil = this.elapsedTotal + UI_CONFIG.alertMs;
+        }
+        break;
+      case 'repairPaused':
+        if (event.owner === LOCAL_PLAYER) {
+          (this.scene.get('Ui') as UiScene).showRepairPaused();
         }
         break;
       case 'buildingCollapsed':
@@ -441,6 +472,29 @@ export class GameScene extends Scene implements HudSource {
       });
     }
 
+    if (action.kind === 'repair') {
+      const target = this.state.entities.find(
+        (entity): entity is Building => entity.id === action.buildingId && isBuilding(entity),
+      );
+      if (!target) return { ok: false, reason: 'invalid' };
+      const result = applyCommand(this.state, {
+        type: 'repair',
+        player: LOCAL_PLAYER,
+        unitIds: repairerUnitIds(
+          this.selectionController.selection,
+          this.state.entities,
+          LOCAL_PLAYER,
+        ),
+        buildingId: target.id,
+      });
+      if (result.ok) {
+        const centre = buildingCentre(target);
+        const world = tileToWorld(centre.x, centre.y, MAP_CONFIG);
+        this.selectionView.addOrderMarker(world.x, world.y);
+      }
+      return result;
+    }
+
     // Building: say so at once if it cannot be afforded, otherwise let the player pick a place.
     const missing = missingResources(stock, BUILDING_DEFS[action.building].cost);
     if (missing.length > 0) return { ok: false, reason: 'insufficientResources', missing };
@@ -528,6 +582,10 @@ export class GameScene extends Scene implements HudSource {
         updateVisibility(state);
         return unit.id;
       },
+      setLife: (id, life) => {
+        const entity = state.entities.find((candidate) => candidate.id === id);
+        if (entity && life > 0) entity.hp = life;
+      },
       getAlert: () => (this.scene.get('Ui') as UiScene).getAlertDisplay(),
       getNotice: () => (this.scene.get('Ui') as UiScene).getNoticeDisplay(),
       getOutcome: () => (this.scene.get('Ui') as UiScene).getOutcomeDisplay(),
@@ -539,6 +597,12 @@ export class GameScene extends Scene implements HudSource {
       getFrameCount: () => this.frameCount,
       getUnitSprite: (id) => this.entityView.describeUnit(id) ?? null,
       getBuildingSprite: (id) => this.entityView.describeBuilding(id) ?? null,
+      getBuildingDamage: (id) => this.entityView.describeDamage(id),
+      getPointer: () => ({
+        shown: this.pointerShown,
+        css: this.game.canvas.style.cursor,
+        repairTarget: this.selectionController.repairTarget ?? null,
+      }),
       getScenery: (tileX, tileY) => this.mapView.describe(tileX, tileY),
       getObjectCount: () => this.mapView.objectCount,
       command: (command) => applyCommand(state, command),

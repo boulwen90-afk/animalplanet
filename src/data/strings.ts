@@ -23,7 +23,7 @@ export const STRINGS = {
     krigshall: 'Tränar Ramkrigare',
     ide: '+5 befolkning',
     odling: 'Oändlig mat, 1 Samlare',
-    fiskehytta: 'Fiske vid vatten, 3 Samlare',
+    fiskehytta: 'Vid vatten, 3 Samlare',
   } satisfies Record<BuildingType, string>,
   /** One short line about each unit, shown on its train button. */
   unitInfo: {
@@ -39,6 +39,18 @@ export const STRINGS = {
     build: (name: string) => `Bygg ${name}`,
     underConstruction: (percent: number) => `Byggs ${percent} %`,
     building: (name: string) => `Bygger ${name}`,
+    /** The repair button in a worker's menu, and what a repairing worker is doing. */
+    repair: 'Laga',
+    repairing: (name: string) => `Lagar ${name}`,
+    repairWaiting: (name: string) => `Lagar ${name} – väntar på trä`,
+    /** On the repair button: what mending the nearest damaged building will cost. */
+    repairCost: (wood: number, resource: string) => `ca ${wood} ${resource.toLowerCase()}`,
+    /** On the repair button: the building it would mend, and how much life that has left. */
+    repairTarget: (name: string, percent: number) => `${name}, ${percent} % liv`,
+    /** On the repair button when nothing of the player's is damaged. */
+    nothingToRepair: 'Inget är skadat',
+    /** Shown when a repair stops for lack of wood. */
+    repairPaused: 'Slut på trä – lagningen väntar',
     costPart: (amount: number, resource: string) => `${amount} ${resource.toLowerCase()}`,
     population: 'Befolkning',
     populationCount: (current: number, room: number) => `${current}/${room}`,

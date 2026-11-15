@@ -44,6 +44,9 @@ class SceneryStudio:
         builder = Builder(scenery["name"], None)
         self.items: dict[str, list] = {}
         self.kinds: dict[str, str] = {}
+        # Whether each item gets its shadow on the ground and its dark outline.
+        self.shadows: dict[str, bool] = {}
+        self.outlines: dict[str, bool] = {}
         for item in scenery["item"]:
             before = len(builder.parts)
             for index, part in enumerate(item["part"]):
@@ -52,6 +55,8 @@ class SceneryStudio:
                 PARTS[part["type"]](builder, palette, part, f"{item['name']}_{index:02d}")
             self.items[item["name"]] = builder.parts[before:]
             self.kinds[item["name"]] = item["kind"]
+            self.shadows[item["name"]] = item.get("shadow", True)
+            self.outlines[item["name"]] = item.get("outline", True)
         self.parts = builder.parts
 
         # As for the buildings: the config is in tiles along the game's axes.
@@ -102,7 +107,11 @@ class SceneryStudio:
         edge = np.concatenate([figure[0, :, 3], figure[-1, :, 3], figure[:, 0, 3], figure[:, -1, 3]])
         if edge.max() > 0.05:
             self.clipped.append(name)
-        outlined = export.add_outline(figure, sprite["outline"], sprite["outline_strength"], sprite["outline_radius"] * scale)
+        outlined = figure
+        if self.outlines[name]:
+            outlined = export.add_outline(figure, sprite["outline"], sprite["outline_strength"], sprite["outline_radius"] * scale)
+        if not self.shadows[name]:
+            return outlined, mask
         return export.with_shadow(outlined, self._near(shade, scale), sprite["shadow"], sprite["shadow_strength"]), mask
 
     def _near(self, shade: np.ndarray, scale: int) -> np.ndarray:

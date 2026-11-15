@@ -56,6 +56,11 @@ export interface BuildingDef {
   work?: WorkDef;
   /** True for a building that must stand with a side of its footprint against water. */
   shore?: boolean;
+  /**
+   * What the building counts as costing when it is repaired, for one that
+   * has no price of its own. See REPAIR_CONFIG.
+   */
+  repairPrice?: Cost;
 }
 
 /** Building types. See GDD section 8. */
@@ -72,6 +77,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     armor: 0,
     housing: 5,
     walkable: false,
+    repairPrice: { wood: 300 },
   },
   /** Storehouse: a drop-off point to place near resources. */
   visthus: {

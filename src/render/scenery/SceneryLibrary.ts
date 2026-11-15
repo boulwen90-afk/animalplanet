@@ -76,6 +76,26 @@ export class SceneryLibrary {
     return key(`player-${owner}`);
   }
 
+  /**
+   * A picture as a mouse pointer for the game's canvas: the picture itself,
+   * with the point that points at `hotspot` of the way across and down it.
+   * Where the picture cannot be read it is the given standard pointer.
+   */
+  pointer(
+    scene: Scene,
+    frame: string,
+    hotspot: { x: number; y: number },
+    fallback: string,
+  ): string {
+    const picture = scene.textures.getFrame(this.textureKey(), frame);
+    if (!picture) return fallback;
+    const url = scene.textures.getBase64(this.textureKey(), frame);
+    if (!url) return fallback;
+    const x = Math.round(picture.cutWidth * hotspot.x);
+    const y = Math.round(picture.cutHeight * hotspot.y);
+    return `url(${url}) ${x} ${y}, ${fallback}`;
+  }
+
   /** How tall a standing item is on the screen, in game pixels; 0 for a picture that lies flat. */
   heightOf(frame: string): number {
     return this.heights[frame]?.height ?? 0;

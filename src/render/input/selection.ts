@@ -126,6 +126,30 @@ export function builderUnitIds(
     .map((entity) => entity.id);
 }
 
+/** Ids of the selected units that the player can order to repair a building. */
+export function repairerUnitIds(
+  current: ReadonlySet<number>,
+  entities: readonly Entity[],
+  player: PlayerId,
+): number[] {
+  return entities
+    .filter(
+      (entity) =>
+        current.has(entity.id) &&
+        isOwnUnit(entity, player) &&
+        entity.kind === 'unit' &&
+        UNIT_DEFS[entity.type].repairs,
+    )
+    .map((entity) => entity.id);
+}
+
+/** True for a finished building of the player's own that has lost life, and so can be repaired. */
+export function isRepairable(building: Building, player: PlayerId): boolean {
+  return (
+    building.owner === player && building.complete && building.hp < BUILDING_DEFS[building.type].hp
+  );
+}
+
 /** Ids of the selected units that the player can order to attack. */
 export function attackerUnitIds(
   current: ReadonlySet<number>,

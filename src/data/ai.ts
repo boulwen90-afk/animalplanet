@@ -29,6 +29,15 @@ export const AI_CONFIG = {
    * for each worker it takes.
    */
   fishing: { reach: 18, max: 1 },
+  /**
+   * Repairs. While no enemy is near its main building it mends its finished
+   * buildings that have less than `below` of their life, the worst hurt
+   * first and one at a time, with `workers` workers, and keeps at it until
+   * the building is whole. It does not start with less than `minWood` wood
+   * in stock. When an enemy comes near, or the wood runs out, the repairers
+   * go back to gathering.
+   */
+  repair: { below: 0.9, workers: 2, minWood: 20 },
   /** It stops training soldiers at this many. */
   maxSoldiers: 20,
   /** Soldiers at home go for enemy units that come this close to the main building, in tiles. */

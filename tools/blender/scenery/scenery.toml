@@ -26,6 +26,14 @@ cave_dark = "#15171a"
 sand = "#d9c58b"
 sand_dark = "#bda86f"
 fish = "#8fb6cf"
+smoke = "#5e5f63"
+smoke_light = "#74757a"
+smoke_dark = "#4b4c51"
+flame = "#f08a1c"
+flame_dark = "#d9541a"
+flame_core = "#ffd95a"
+iron = "#7d848c"
+iron_light = "#b9c0c8"
 
 # The ground: water, and the shore between water and land. Drawn, not rendered.
 [ground]
@@ -144,3 +152,83 @@ name = "fishing_place"
 kind = "remains"
 [[item.part]]
 type = "fishing_place"
+
+# --- Damage on a building: smoke and flames. The game puts them on the
+# building, lets the smoke rise and fade, and flips through the flames. They
+# cast no shadow of their own and have no outline: smoke is not a solid thing.
+# Each clump of smoke is (x, y, z, radius).
+[[item]]
+name = "smoke_1"
+kind = "effect"
+shadow = false
+outline = false
+[[item.part]]
+type = "smoke"
+clumps = [[0.0, 0.0, 0.24, 0.24], [-0.17, 0.08, 0.36, 0.17], [0.16, -0.06, 0.4, 0.18]]
+
+[[item]]
+name = "smoke_2"
+kind = "effect"
+shadow = false
+outline = false
+[[item.part]]
+type = "smoke"
+turn = 1.3
+clumps = [[0.0, 0.0, 0.26, 0.22], [0.18, 0.05, 0.24, 0.17], [-0.13, -0.08, 0.42, 0.19], [0.05, 0.12, 0.5, 0.13]]
+
+[[item]]
+name = "smoke_3"
+kind = "effect"
+shadow = false
+outline = false
+[[item.part]]
+type = "smoke"
+turn = 2.4
+clumps = [[0.0, 0.0, 0.28, 0.25], [0.19, -0.07, 0.44, 0.16], [-0.16, 0.06, 0.4, 0.14]]
+
+# Four pictures of the same fire, flipped through in turn. Each tongue is
+# (how far to the right, height, radius, lean to the right).
+[[item]]
+name = "fire_1"
+kind = "effect"
+shadow = false
+outline = false
+[[item.part]]
+type = "flame"
+tongues = [[0.0, 0.5, 0.13, 0.03], [-0.15, 0.32, 0.1, -0.04], [0.15, 0.36, 0.1, 0.06]]
+
+[[item]]
+name = "fire_2"
+kind = "effect"
+shadow = false
+outline = false
+[[item.part]]
+type = "flame"
+tongues = [[0.0, 0.44, 0.13, -0.05], [-0.15, 0.4, 0.1, 0.02], [0.15, 0.28, 0.1, 0.0]]
+
+[[item]]
+name = "fire_3"
+kind = "effect"
+shadow = false
+outline = false
+[[item.part]]
+type = "flame"
+tongues = [[0.0, 0.54, 0.12, 0.06], [-0.15, 0.3, 0.1, 0.05], [0.15, 0.4, 0.1, -0.04]]
+
+[[item]]
+name = "fire_4"
+kind = "effect"
+shadow = false
+outline = false
+[[item.part]]
+type = "flame"
+tongues = [[0.0, 0.46, 0.13, 0.0], [-0.15, 0.38, 0.1, -0.06], [0.15, 0.32, 0.1, 0.05]]
+
+# --- The sign of a repair: the pointer turns into it over a damaged building
+# that the selected workers can mend.
+[[item]]
+name = "icon_repair"
+kind = "icon"
+shadow = false
+[[item.part]]
+type = "hammer"

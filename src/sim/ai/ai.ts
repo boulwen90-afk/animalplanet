@@ -23,14 +23,15 @@ import { reachableTiles, type PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
 import { canPlaceBuilding } from '../systems/construction';
 import { plannedWorkTiles } from '../systems/gathering';
+import { needsRepair } from '../systems/repair';
 
 /**
  * The computer opponent. It plays by the same rules as a person: everything
  * it does goes through applyCommand and is paid for from its own stock. Its
  * one advantage is that the fog of war does not hide anything from it.
  *
- * Once a second it goes through a fixed list: train workers, put idle
- * workers to work, build, train soldiers, defend the base, send attack waves.
+ * Once a second it goes through a fixed list: train workers, build, repair,
+ * put idle workers to work, train soldiers, defend the base, send attack waves.
  */
 export function runAi(state: GameState): void {
   const interval = Math.max(1, Math.round(AI_CONFIG.decisionInterval * SIM_CONFIG.ticksPerSecond));
@@ -51,6 +52,7 @@ function decide(state: GameState, player: PlayerId, memory: AiState): void {
 
   trainWorkers(state, player, base, workers.length);
   build(state, player, base, buildings, workers);
+  repair(state, player, base, buildings, workers);
   assignIdleWorkers(state, player, base, workers);
   trainSoldiers(state, player, buildings, soldiers.length);
 
@@ -135,7 +137,7 @@ function build(
     if (site.complete) continue;
     const busy = workers.some((w) => w.task.kind === 'build' && w.task.buildingId === site.id);
     if (busy) continue;
-    const helper = nearestWorker(workers, buildingCentre(site), (w) => w.task.kind !== 'build');
+    const helper = nearestWorker(workers, buildingCentre(site), isFreeToBuild);
     if (helper) {
       applyCommand(state, {
         type: 'construct',
@@ -184,7 +186,7 @@ function build(
   for (const { type, near, within } of wanted) {
     if (!canAfford(state, player, BUILDING_DEFS[type].cost)) continue;
     const site = findBuildSite(state, player, type, near, within);
-    const builder = site && nearestWorker(workers, site, (w) => w.task.kind !== 'build');
+    const builder = site && nearestWorker(workers, site, isFreeToBuild);
     if (!site || !builder) continue;
     applyCommand(state, {
       type: 'build',
@@ -196,6 +198,69 @@ function build(
     });
     return;
   }
+}
+
+/** True for a worker that is neither building nor repairing, and so can be sent to do either. */
+function isFreeToBuild(worker: Unit): boolean {
+  return worker.task.kind !== 'build' && worker.task.kind !== 'repair';
+}
+
+/**
+ * Mends damaged buildings while the base is left in peace. See
+ * AI_CONFIG.repair. A repairer is taken off the work by a move order to
+ * where it stands, which leaves it idle for the next step to put to work.
+ */
+function repair(
+  state: GameState,
+  player: PlayerId,
+  base: Building,
+  buildings: readonly Building[],
+  workers: readonly Unit[],
+): void {
+  const { below, workers: crewSize, minWood } = AI_CONFIG.repair;
+  const stop = (worker: Unit) => {
+    const here = unitTile(worker);
+    applyCommand(state, { type: 'move', player, unitIds: [worker.id], x: here.x, y: here.y });
+  };
+  const repairers = workers.filter((worker) => worker.task.kind === 'repair');
+  if (intrudersNear(state, player, base).length > 0) {
+    repairers.forEach(stop);
+    return;
+  }
+  // Out of wood: the hands are better used gathering some.
+  repairers.filter((w) => w.task.kind === 'repair' && w.task.waiting).forEach(stop);
+
+  const crewOf = (building: Building) =>
+    workers.filter((w) => w.task.kind === 'repair' && w.task.buildingId === building.id);
+  const share = (building: Building) => building.hp / BUILDING_DEFS[building.type].hp;
+  // What is already being mended is finished first; then the worst hurt.
+  const damaged = buildings
+    .filter((building) => needsRepair(building))
+    .filter((building) => crewOf(building).length > 0 || share(building) < below)
+    .sort(
+      (a, b) =>
+        Math.sign(crewOf(b).length - crewOf(a).length) || share(a) - share(b) || a.id - b.id,
+    );
+  const [target] = damaged;
+  if (!target) return;
+  const missing = crewSize - crewOf(target).length;
+  if (missing <= 0 || (state.players[player]?.resources.wood ?? 0) < minWood) return;
+  const helpers: Unit[] = [];
+  for (let i = 0; i < missing; i++) {
+    const helper = nearestWorker(
+      workers,
+      buildingCentre(target),
+      (w) => isFreeToBuild(w) && !helpers.includes(w),
+    );
+    if (helper) helpers.push(helper);
+  }
+  if (helpers.length === 0) return;
+  applyCommand(state, {
+    type: 'repair',
+    player,
+    unitIds: helpers.map((helper) => helper.id),
+    buildingId: target.id,
+  });
 }
 
 /** The building type that only gives room for more units. */
@@ -523,15 +588,7 @@ function gatheredResource(unit: Unit): ResourceType | undefined {
 
 /** Sends the soldiers at home against enemy units that come near the main building. */
 function defend(state: GameState, player: PlayerId, base: Building, home: readonly Unit[]): void {
-  const centre = buildingCentre(base);
-  const intruders = state.entities
-    .filter(isUnit)
-    .filter(
-      (unit) =>
-        unit.owner !== player &&
-        !hasSurrendered(unit) &&
-        tileDistance(unit.x, unit.y, centre.x, centre.y) <= AI_CONFIG.defendRadius,
-    );
+  const intruders = intrudersNear(state, player, base);
   if (intruders.length === 0) return;
 
   for (const soldier of home) {
@@ -546,6 +603,19 @@ function defend(state: GameState, player: PlayerId, base: Building, home: readon
       });
     }
   }
+}
+
+/** The enemy units near a side's main building: while there are any, the base is under attack. */
+function intrudersNear(state: GameState, player: PlayerId, base: Building): Unit[] {
+  const centre = buildingCentre(base);
+  return state.entities
+    .filter(isUnit)
+    .filter(
+      (unit) =>
+        unit.owner !== player &&
+        !hasSurrendered(unit) &&
+        tileDistance(unit.x, unit.y, centre.x, centre.y) <= AI_CONFIG.defendRadius,
+    );
 }
 
 function nearestTo(units: readonly Unit[], to: Unit): Unit | undefined {

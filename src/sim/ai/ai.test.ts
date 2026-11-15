@@ -412,6 +412,103 @@ describe('defending the base', () => {
   });
 });
 
+describe('repairs', () => {
+  const repairersOf = (state: GameState, building: Building) =>
+    state.entities.filter(
+      (e): e is Unit =>
+        e.kind === 'unit' && e.task.kind === 'repair' && e.task.buildingId === building.id,
+    );
+  /** A game a minute old, with the computer's main building at half its life. */
+  const damagedBase = (seed: number) => {
+    const state = againstNobody(seed);
+    advance(state, MINUTE);
+    const base = buildingsOf(state, 1, 'storide')[0]!;
+    base.hp = BUILDING_DEFS.storide.hp / 2;
+    state.players[1]!.resources.wood = 300;
+    return { state, base };
+  };
+
+  it('mends a damaged building while its base is left in peace, until it is whole', () => {
+    for (const seed of SEEDS) {
+      const { state, base } = damagedBase(seed);
+      advance(state, 2 * SECOND);
+      expect(repairersOf(state, base), `seed ${seed}`).toHaveLength(AI_CONFIG.repair.workers);
+      const hp = base.hp;
+      advance(state, 20 * SECOND);
+      expect(base.hp, `seed ${seed}`).toBeGreaterThan(hp);
+      advance(state, 3 * MINUTE);
+      expect(base.hp, `seed ${seed}`).toBe(BUILDING_DEFS.storide.hp);
+      expect(repairersOf(state, base), `seed ${seed}`).toHaveLength(0);
+    }
+  });
+
+  it('leaves a building alone that has lost only a little', () => {
+    const state = againstNobody(1);
+    advance(state, MINUTE);
+    const base = buildingsOf(state, 1, 'storide')[0]!;
+    base.hp = BUILDING_DEFS.storide.hp * (AI_CONFIG.repair.below + 0.02);
+    state.players[1]!.resources.wood = 300;
+    advance(state, 10 * SECOND);
+    expect(repairersOf(state, base)).toHaveLength(0);
+    expect(base.hp).toBe(BUILDING_DEFS.storide.hp * (AI_CONFIG.repair.below + 0.02));
+  });
+
+  it('does not repair while an enemy is near its base, and takes it up when the enemy is gone', () => {
+    const { state, base } = damagedBase(1);
+    const start = state.map.startPositions[1]!;
+    // Inside the defended area, but too far off to notice anyone by itself.
+    const intruder = createUnit(state, 'samlare', 0, start.x - 3, start.y + 9);
+    const centre = buildingCentre(base);
+    expect(tileDistance(intruder.x, intruder.y, centre.x, centre.y)).toBeLessThan(
+      AI_CONFIG.defendRadius,
+    );
+    for (let i = 0; i < 20 * SECOND; i++) {
+      tick(state);
+      expect(repairersOf(state, base)).toHaveLength(0);
+    }
+    expect(base.hp).toBe(BUILDING_DEFS.storide.hp / 2);
+
+    state.entities.splice(state.entities.indexOf(intruder), 1);
+    advance(state, 2 * SECOND);
+    expect(repairersOf(state, base)).toHaveLength(AI_CONFIG.repair.workers);
+  });
+
+  it('breaks off a repair when an enemy comes near, and its workers go back to work', () => {
+    const { state, base } = damagedBase(1);
+    advance(state, 5 * SECOND);
+    const crew = repairersOf(state, base);
+    expect(crew).toHaveLength(AI_CONFIG.repair.workers);
+    const start = state.map.startPositions[1]!;
+    createUnit(state, 'samlare', 0, start.x - 3, start.y + 9);
+    advance(state, 2 * SECOND);
+    expect(repairersOf(state, base)).toHaveLength(0);
+    for (const worker of crew) expect(worker.task.kind).toBe('gather');
+  });
+
+  it('does not start without wood to pay with, and lets go when the wood runs out', () => {
+    const { state, base } = damagedBase(1);
+    const stock = state.players[1]!.resources;
+    // Its workers bring wood in meanwhile; the test takes it away again.
+    for (let i = 0; i < 5 * SECOND; i++) {
+      stock.wood = Math.min(stock.wood, AI_CONFIG.repair.minWood - 1);
+      tick(state);
+      expect(repairersOf(state, base)).toHaveLength(0);
+    }
+    stock.wood = 300;
+    advance(state, 2 * SECOND);
+    const crew = repairersOf(state, base);
+    expect(crew).toHaveLength(AI_CONFIG.repair.workers);
+
+    // The wood runs out in the middle of the work.
+    for (let i = 0; i < 5 * SECOND; i++) {
+      stock.wood = 0;
+      tick(state);
+    }
+    expect(repairersOf(state, base)).toHaveLength(0);
+    for (const worker of crew) expect(worker.task.kind).toBe('gather');
+  });
+});
+
 describe('computer against computer', () => {
   const play = (seed: number) => {
     const state = createGame(seed, undefined, undefined, { ai: [0, 1] });

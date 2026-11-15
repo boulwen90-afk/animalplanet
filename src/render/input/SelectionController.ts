@@ -20,8 +20,10 @@ import {
   builderUnitIds,
   commandableUnitIds,
   gathererUnitIds,
+  isRepairable,
   isWorkplace,
   pruneSelection,
+  repairerUnitIds,
   selectByBox,
   selectByClick,
 } from './selection';
@@ -61,6 +63,8 @@ interface Drag {
 export class SelectionController {
   private selected = new Set<number>();
   private drag: Drag | undefined;
+  /** The damaged building under the mouse that a right click would send the selected units to repair. */
+  private hoverRepair: number | undefined;
 
   constructor(
     private readonly scene: Scene,
@@ -91,15 +95,36 @@ export class SelectionController {
   update(): void {
     // An enemy that slips into the fog is deselected, like one that is gone.
     this.selected = pruneSelection(this.selected, this.deps.getVisibleEntities());
+    this.hoverRepair = this.repairUnderMouse();
+  }
+
+  /**
+   * The id of the building the mouse is over, if a right click there would
+   * send selected units to repair it; otherwise undefined. The pointer shows it.
+   */
+  get repairTarget(): number | undefined {
+    return this.hoverRepair;
+  }
+
+  private repairUnderMouse(): number | undefined {
+    const pointer = this.scene.input.activePointer;
+    if (pointer.wasTouch || this.deps.isPlacing() || this.drag?.active) return undefined;
+    if (this.deps.isOverHud(pointer.x, pointer.y)) return undefined;
+    const state = this.deps.getState();
+    const { player, tileSize } = this.deps;
+    if (repairerUnitIds(this.selected, state.entities, player).length === 0) return undefined;
+    const hit = pickEntity(this.deps.getVisibleEntities(), this.worldPoint(pointer), tileSize);
+    return hit?.kind === 'building' && isRepairable(hit, player) ? hit.id : undefined;
   }
 
   /**
    * A tap on the map. With units selected it gives them an order for what
    * was tapped, exactly as a right click does. A tap on one of the player's
    * own units or buildings selects it instead, except an unfinished building
-   * when someone who can build it is selected, and a field or other building
-   * that gives work when someone who can work there is. With no units selected a tap
-   * works as a left click.
+   * when someone who can build it is selected, a damaged building when
+   * someone who can repair is, and a field or other building that gives work
+   * when someone who can work there is. With no units selected a tap works
+   * as a left click.
    */
   tapAt(screenX: number, screenY: number): void {
     const state = this.deps.getState();
@@ -115,11 +140,15 @@ export class SelectionController {
         own &&
         !hit.complete &&
         builderUnitIds(this.selected, state.entities, player, hit.type).length > 0;
+      const toRepair =
+        hit?.kind === 'building' &&
+        isRepairable(hit, player) &&
+        repairerUnitIds(this.selected, state.entities, player).length > 0;
       const toWork =
         hit?.kind === 'building' &&
         isWorkplace(hit, player) &&
         gathererUnitIds(this.selected, state.entities, player).length > 0;
-      if (!own || toBuild || toWork) {
+      if (!own || toBuild || toRepair || toWork) {
         this.giveOrder(world);
         return;
       }
@@ -191,8 +220,9 @@ export class SelectionController {
 
   /**
    * Gives the selected units of the player an order for what is at a world
-   * position: attack an enemy, help build an unfinished building, gather from
-   * a resource source, or otherwise walk to the tile.
+   * position: attack an enemy, help build an unfinished building, repair a
+   * damaged one, work at one that gives work, gather from a resource source,
+   * or otherwise walk to the tile.
    */
   private giveOrder(world: Point): void {
     const state = this.deps.getState();
@@ -219,6 +249,19 @@ export class SelectionController {
       const builders = builderUnitIds(this.selected, state.entities, player, hit.type);
       if (builders.length > 0) {
         this.deps.issue({ type: 'construct', player, unitIds: builders, buildingId: hit.id });
+        const centre = buildingCentre(hit);
+        const world = tileToWorld(centre.x, centre.y, tileSize);
+        this.deps.view.addOrderMarker(world.x, world.y);
+        return;
+      }
+    }
+
+    // A finished building of the player's own that has lost life: repair it. This
+    // comes before working there: a damaged field is mended first, and then worked.
+    if (hit?.kind === 'building' && isRepairable(hit, player)) {
+      const repairers = repairerUnitIds(this.selected, state.entities, player);
+      if (repairers.length > 0) {
+        this.deps.issue({ type: 'repair', player, unitIds: repairers, buildingId: hit.id });
         const centre = buildingCentre(hit);
         const world = tileToWorld(centre.x, centre.y, tileSize);
         this.deps.view.addOrderMarker(world.x, world.y);
