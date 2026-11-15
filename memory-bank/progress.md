@@ -939,8 +939,12 @@ Vad de betyder i spelet:
 
 - Vitest: 768 av 768 (38 nya: uppgraderingarnas verkan, forskningskön,
   datorspelarens Smedja, Smedjans panel och enhetens värden)
-- Playwright: körningarna var inte klara när detta skrevs; resultatet förs in
-  i nästa commit. De sex nya testerna i `forge.spec.ts` går igenom
+- Playwright: 152 av 152 i normal fart (6 nya i `forge.spec.ts`) på det
+  slutliga bygget, och 152 av 152 med webbläsaren nedbromsad 8 gånger.
+  Den första normalkörningen gav 151 av 152: ett torntest från steg 2
+  föll (se nedan). Efter rättningen är den nedbromsade körningen inte
+  gjord om i sin helhet; det rättade testet går igenom nedbromsat tre
+  gånger av tre
 - Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
   testerna eller när skärmdumparna togs.
 
@@ -953,6 +957,14 @@ Vad de betyder i spelet:
   `unit`, och panelen säger vad kön håller (`queueOf`).
 - **Byggmenyns tester** (`commandPanel.test.ts`,
   `phase6-building.spec.ts`) väntar sig "Bygg Smedja" under Försvar.
+- **`tower.spec.ts`, "skjuter en pil":** testet jämförde den första och
+  den sista bilden av "pilen" under 14 steg. Spelet går vidare i realtid
+  mellan stegen, så på en snabb maskin hann tornet skjuta en andra pil,
+  och den sista bilden var då en annan pil nära tornet. Testet föll en
+  gång av två i normal fart, aldrig nedbromsat. Det följer nu en pil
+  (samma id) och håller sidans klocka stilla, med en bildruta per steg,
+  så att antalet bilder inte beror på maskinens fart. Felet låg i
+  testet, inte i tornet.
 - Inget test är avstängt, och ingen tidsgräns är höjd.
 
 **Beslut och lärdomar**

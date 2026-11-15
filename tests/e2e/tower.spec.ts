@@ -118,9 +118,17 @@ test.describe('the watchtower', () => {
     page,
   }) => {
     const errors = trackConsoleErrors(page);
+    // The page's clock is the test's to stop; until it does, time runs as usual.
+    await page.clock.install();
     await openGame(page, '&ai=0&fog=0');
     const tower = await buildTower(page);
     expect((await projectiles(page)).projectiles).toEqual([]);
+
+    // Time is held still from here on and let on one frame at a time, so
+    // that how many pictures of the arrow the test gets does not depend on
+    // how fast the machine is. The first frame takes up the jump in time.
+    await page.clock.pauseAt(new Date(Date.now() + 2000));
+    await page.clock.runFor(100);
 
     // A Samlare of the enemy's five tiles away: it does not fight back.
     const enemy = await page.evaluate(
@@ -128,18 +136,21 @@ test.describe('the watchtower', () => {
       [tower.x, tower.y] as const,
     );
     // Step by step, noting what is drawn on the way.
-    const seen = await page.evaluate(async () => {
-      const t = window.__TEST__!;
-      const drawn: { x: number; y: number; rotation: number; texture: string }[] = [];
-      for (let step = 0; step < 14; step++) {
-        t.advance(1);
-        await new Promise((resolve) => requestAnimationFrame(resolve));
-        const [arrow] = t.getProjectiles().projectiles;
-        if (arrow) drawn.push(arrow);
-      }
-      return { drawn, after: t.getProjectiles() };
-    });
-    expect(seen.drawn.length).toBeGreaterThanOrEqual(3);
+    const seen: { drawn: Awaited<ReturnType<typeof projectiles>>['projectiles'] } = { drawn: [] };
+    for (let step = 0; step < 14; step++) {
+      await advance(page, 1);
+      await page.clock.runFor(17);
+      // The first arrow only, all its way: the tower may get a second one off before the loop ends.
+      const first = seen.drawn[0]?.id;
+      const arrow = (await projectiles(page)).projectiles.find(
+        (candidate) => first === undefined || candidate.id === first,
+      );
+      if (arrow) seen.drawn.push(arrow);
+    }
+    const after = await projectiles(page);
+    await page.clock.resume();
+    expect(seen.drawn.length).toBeGreaterThanOrEqual(4);
+    expect(new Set(seen.drawn.map((arrow) => arrow.id)).size).toBe(1);
     // The arrow has the feathers of the side that shot it, and flies away from the tower.
     expect(seen.drawn[0]!.texture).toBe('scenery-player-0');
     const first = seen.drawn[0]!;
@@ -149,7 +160,7 @@ test.describe('the watchtower', () => {
     expect(last.y).toBeGreaterThan(first.y + 20);
     // It has landed: a burst where it hit, and the unit has lost life. The
     // game runs on between the steps, so a second arrow may have landed too.
-    expect(seen.after.burstsShown).toBeGreaterThanOrEqual(1);
+    expect(after.burstsShown).toBeGreaterThanOrEqual(1);
     const hit = unitOf(await getState(page), enemy)!;
     expect(hit.hp).toBeLessThanOrEqual(UNIT_DEFS.samlare.hp - ATTACK.damage);
     expect((UNIT_DEFS.samlare.hp - hit.hp) % ATTACK.damage).toBe(0);
