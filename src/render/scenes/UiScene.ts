@@ -224,6 +224,8 @@ export class UiScene extends Scene {
   /** A short message that explains a refused order, and when it goes away. */
   private notice!: GameObjects.Text;
   private noticeUntil = 0;
+  /** True for a message asked for since the last frame: its time starts with the frame that first shows it, as for the flashes. */
+  private noticePending = false;
   private alertShown = '';
 
   private outcome!: GameObjects.Graphics;
@@ -411,6 +413,10 @@ export class UiScene extends Scene {
       if (lasts === undefined) continue;
       this.flashUntil[key] = time + lasts;
       delete this.flashPending[key];
+    }
+    if (this.noticePending) {
+      this.noticeUntil = time + UI_CONFIG.noticeMs;
+      this.noticePending = false;
     }
     this.updateLoading();
     this.updateDebug(time);
@@ -752,7 +758,7 @@ export class UiScene extends Scene {
 
   /** Shows a short message under the resource bar for a few seconds. */
   private showNotice(text: string): void {
-    this.noticeUntil = this.now + UI_CONFIG.noticeMs;
+    this.noticePending = true;
     this.notice.setText(text).setVisible(true);
   }
 
@@ -762,7 +768,9 @@ export class UiScene extends Scene {
   }
 
   private updateResourceBar(): void {
-    if (this.notice.visible && this.now >= this.noticeUntil) this.notice.setVisible(false);
+    if (this.notice.visible && !this.noticePending && this.now >= this.noticeUntil) {
+      this.notice.setVisible(false);
+    }
 
     // Changing a text's colour redraws it, so only do it when the flash starts or ends.
     for (const key of BAR_KEYS) {

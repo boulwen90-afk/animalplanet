@@ -10,6 +10,7 @@ import {
   getState,
   openGame,
   recordFlashes,
+  recordNotices,
   tileToScreen,
   trackConsoleErrors,
 } from './helpers';
@@ -31,7 +32,6 @@ const damageOn = (page: Page, id: number) =>
   page.evaluate((buildingId) => window.__TEST__!.getBuildingDamage(buildingId), id);
 const pointer = (page: Page) => page.evaluate(() => window.__TEST__!.getPointer());
 const commandPanel = (page: Page) => page.evaluate(() => window.__TEST__!.getCommandPanel());
-const notice = (page: Page) => page.evaluate(() => window.__TEST__!.getNotice());
 const sprite = (page: Page, id: number) =>
   page.evaluate((unitId) => window.__TEST__!.getUnitSprite(unitId), id);
 const advance = (page: Page, steps: number) =>
@@ -280,6 +280,7 @@ test.describe('repairing with the mouse', () => {
     const at = await onBuilding(page, home);
     await page.mouse.click(at.x, at.y, { button: 'right' });
     const flashes = await recordFlashes(page);
+    const notices = await recordNotices(page);
 
     // Step on until the wood is gone and the work has stopped.
     await page.evaluate(() => {
@@ -295,7 +296,7 @@ test.describe('repairing with the mouse', () => {
     const stopped = await getState(page);
     expect(wood(stopped)).toBe(0);
     expect(storideOf(stopped).hp).toBeLessThan(STORIDE.hp);
-    await expect.poll(() => notice(page)).toBe(STRINGS.hud.repairPaused);
+    await expect.poll(notices).toEqual([STRINGS.hud.repairPaused]);
     await expect.poll(flashes).toContain('wood');
     // The Samlare stand by the building with their hammers still.
     for (const id of ids) {

@@ -229,3 +229,24 @@ export async function recordFlashes(page: Page): Promise<() => Promise<string[]>
   return () =>
     page.evaluate(() => [...(window as unknown as { __flashes: Set<string> }).__flashes].sort());
 }
+
+/**
+ * Starts noting, frame by frame inside the page, which messages are shown
+ * under the resource bar. A message stays for a few seconds, and on a slow
+ * machine a question from the test can arrive after it is gone, as with the
+ * flashes above. Returns a function that gives every message shown since.
+ */
+export async function recordNotices(page: Page): Promise<() => Promise<string[]>> {
+  await page.evaluate(() => {
+    const seen = new Set<string>();
+    (window as unknown as { __notices: Set<string> }).__notices = seen;
+    const note = () => {
+      const text = window.__TEST__!.getNotice();
+      if (text) seen.add(text);
+      requestAnimationFrame(note);
+    };
+    requestAnimationFrame(note);
+  });
+  return () =>
+    page.evaluate(() => [...(window as unknown as { __notices: Set<string> }).__notices].sort());
+}

@@ -959,10 +959,12 @@ Vad en full lagning kostar och tar för en ensam Samlare:
 - Vitest: 684 av 684 (49 nya: lagningens kostnad, takt, platser och avbrott,
   datorspelarens lagning, skadans regler, knappen, texterna och
   hammarslaget)
-- Playwright: 138 av 138 i normal fart (9 nya i `repair.spec.ts`). I hela
-  körningen föll två äldre tester som räknade byggmenyns knappar; de är
-  rättade och går igenom. Med webbläsaren nedbromsad 8 gånger: körningen
-  var inte klar när detta skrevs; resultatet förs in i nästa commit
+- Playwright: 138 av 138 i normal fart (9 nya i `repair.spec.ts`), på det
+  slutliga bygget. Med webbläsaren nedbromsad 8 gånger: 137 av 138 i hela
+  körningen. Det som föll var det nya testet av "slut på trä", som
+  frågade efter meddelandet för sent (se nedan); efter rättning går
+  `repair.spec.ts` igenom nedbromsat, 9 av 9. Hela den nedbromsade
+  körningen är inte gjord om efter rättningen
 - Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
   testerna eller när skärmdumparna togs.
 - Matcher mellan två datorspelare: 13,7, 15,2 och 15,7 minuter på frö
@@ -978,6 +980,20 @@ Vad en full lagning kostar och tar för en ensam Samlare:
   byggknapparna.
 - **Fiskehyttans knapptext** i tre tester, se ovan.
 - Inget test är avstängt, och ingen tidsgräns är höjd.
+
+**Fel som hittades av den nedbromsade körningen**
+
+- **Ett meddelande kunde vara slut innan det hade visats.** Meddelandet
+  under resursraden (2,5 s) räknade sin tid från bildrutan *före* den
+  som först visade det. Kom meddelandet efter ett långt uppehåll mellan
+  två bildrutor var tiden redan ute. Blinkningarna hade samma fel och
+  rättades i Fiskehyttans steg; nu börjar också meddelandets tid med
+  bildrutan som först visar det (`UiScene.noticePending`). Felet gällde
+  även de äldre meddelandena om befolkning.
+- **Testet frågade för sent.** Mellan händelsen och frågan låg ett
+  långsamt anrop, och nedbromsat tog det mer än 2,5 s. Testet låter nu
+  sidan anteckna vilka meddelanden som visas, bildruta för bildruta
+  (`recordNotices`), som `recordFlashes` redan gör för blinkningarna.
 
 **Beslut och lärdomar**
 
