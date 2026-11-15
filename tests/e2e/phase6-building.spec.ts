@@ -150,6 +150,7 @@ test.describe('phase 6: building', () => {
     expect(panel.buttons.map((b) => [b.label, b.cost, b.info])).toEqual([
       ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
       ['Bygg Vakttorn', '120 trä', 'Skjuter på fiender'],
+      ['Bygg Smedja', '150 trä', 'Uppgraderar enheter'],
       ['Laga', '', 'Inget är skadat'],
     ]);
     // The click on the tab was not a click on the map: the Samlare is still selected.

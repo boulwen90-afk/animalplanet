@@ -8,9 +8,10 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 - **Pågår: björnrasen görs komplett** i fem steg (lagning, vakttorn,
   smedja, skyttebana med distansenhet, palissad och port), se sist i
   `implementation-plan.md`. Användaren ser skärmdumpar efter varje steg
-- **Senaste ändring (2026-11-15):** byggmenyn har fått två flikar, inför
-  steg 3. Steg 1, lagning (pull request 18), och steg 2, vakttorn (pull
-  request 19), är mergade. Se "Efter MVP:n". Om den senaste ändringen är
+- **Senaste ändring (2026-11-15):** steg 3, smedja. Värdena är förslag
+  som väntar på användarens godkännande. Steg 1, lagning (pull request
+  18), steg 2, vakttorn (pull request 19), och byggmenyns flikar (pull
+  request 20) är mergade. Se "Efter MVP:n". Om den senaste ändringen är
   mergad står i GitHub; den här raden säger det inte, eftersom den
   skrivs innan det är avgjort
 - **Uppskjutet till efter steg 5:** balansen mot datorspelaren. Matcher
@@ -833,6 +834,136 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Björnrasen komplett, steg 3: Smedja (2026-11-15)
+
+Flikarna i byggmenyn (pull request 20) mergades först, efter grönt CI.
+
+**Skärmdumpar:** `docs/screenshots/smedja-stadier.png` (Smedjans tre
+byggstadier i spelet), `smedja-forskar.png` (tre uppgraderingar i kö:
+knapparna nedtonade med "Pågår", kön "Va, Ru, Ve" med stapel, och stapeln
+över byggnaden), `smedja-forlopp-narbild.png` (närbild av stapeln över
+Smedjan med två prickar för dem som väntar), `smedja-krigare.png` (en
+Ramkrigare efter två nivåer Vapen och en nivå Rustning: "Skada 14 (+4) ·
+Rustning 2 (+1)"), `smedja-paneler.png` (Smedjans panel med "Vapen II"
+som "Fullt utvecklad", och raderna för en Ramkrigare och en Samlare) och
+`smedja-pipeline.png` (pipelinens bild av de tre stadierna).
+
+**Värden (förslag, väntar på godkännande)** i `src/data/upgrades.ts`,
+`BUILDING_DEFS.smedja` och `AI_CONFIG.research`
+
+| Värde | Förslag |
+|---|---|
+| Smedja | 150 trä, 35 s, 600 liv, 2×2 rutor, synfält 5, fliken Försvar |
+| Vapen I / II | +2 skada var för Ramkrigare (10 → 12 → 14). 100 mat, 50 trä, 40 s / 175 mat, 100 trä, 60 s |
+| Rustning I / II | +1 rustning var för alla enheter. 75 mat, 75 trä, 40 s / 150 mat, 150 trä, 60 s |
+| Verktyg I / II | +20 % fart var i allt samlande, för Samlare. 100 mat, 50 trä, 40 s / 175 mat, 100 trä, 60 s |
+| Datorspelaren | Smedja vid 200 trä i lager; ordning Vapen, Rustning, Verktyg; sparar till nästa uppgradering när den har 6 Ramkrigare eller fler |
+
+Vad de betyder i spelet:
+
+- **Vapen II:** en Ramkrigare fäller en annan Ramkrigare, som inte har
+  uppgraderad rustning, på 8 slag i stället för 12 (13 mot 9 per slag).
+- **Rustning II:** ett torns pil tar 6 i stället för 8 av en Ramkrigare,
+  som då tål 17 pilar i stället för 13.
+- **Verktyg II:** en Samlare tar ett bär eller ett vedträ på 14 steg i
+  stället för 20, alltså 43 % fortare; en Odling ger en mat på 36 steg i
+  stället för 50.
+- Allt, båda nivåerna av alla tre: 775 mat och 525 trä, och 5 minuter
+  i en Smedja.
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| Uppgraderingar som köps en gång och gäller alla enheter | Klar | De hör till sidan: gäller även enheter som tränas senare |
+| Bättre vapen, bättre rustning, snabbare samlande | Klar | Vapen, Rustning, Verktyg |
+| Två nivåer av vardera | Klar | |
+| Kö och förlopp syns på byggnaden | Klar | Stapel över Smedjan med prickar för kön; kö och stapel i panelen |
+| Uppgraderade värden syns på enheten | Avviker | I markeringspanelen, inte på enhetens bild; se nedan |
+| Datorspelaren forskar när den har råd | Klar | Och sparar för det; se nedan |
+| Byggmenyn visar kostnad och beskrivning | Klar | "Bygg Smedja / 150 trä / Uppgraderar enheter" |
+| Grafik via pipelinen enligt skalstandarden | Klar | Klass `small`: krav 64 px, Smedjan är 74 px |
+
+**Vad som gjordes**
+
+- **Data:** `src/data/upgrades.ts` (`UPGRADE_DEFS`), `BuildingDef.researches`.
+- **Simulering:** `PlayerState.upgrades`, `src/sim/upgrades.ts`
+  (`unitDamage`, `unitArmor`, `gatherSpeed`), forskningskön i
+  `systems/research.ts`, kommandona `research` och `cancelResearch`,
+  händelsen `upgradeDone`.
+- **Datorspelaren:** bygger en Smedja och forskar.
+- **Grafik:** `tools/blender/buildings/bear/forge.toml` med två nya delar
+  i `lib/structures.py` (städ och härd).
+- **Spelet:** Smedjans panel, stapel över byggnaden, tredje rad i
+  markeringspanelen, meddelande när en uppgradering är klar.
+
+**Saknas eller avviker**
+
+- **Värdena är förslag.** Inget av dem är godkänt.
+- **"Syns på enheten" betyder här markeringspanelen.** En egen enhet
+  visar sina värden med tillägget inom parentes. Enhetens bild ändras
+  inte: en Ramkrigare med Vapen II ser ut som en utan.
+- **Fiendens uppgraderingar syns inte alls.** Raden visas bara för egna
+  enheter, och fiendens Smedja visar ingen stapel.
+- **Vapen gäller bara Ramkrigare.** Samlarens 3 i skada och Vakttornets
+  pilar påverkas inte. Rustning gäller alla enheter men inga byggnader.
+- **En nivå av en uppgradering åt gången.** Båda nivåerna av Vapen går
+  inte att ställa i kö samtidigt; knappen är nedtonad tills den första
+  är klar. Då är det alltid entydigt vilken nivå som ligger i kön och
+  vad den kostade.
+- **Stapeln över byggnaden finns bara för forskning.** Storidet och
+  Krigshallen visar ingen stapel när de tränar enheter.
+- **Markeringspanelen är 20 px högre** (84 i stället för 64), för alla
+  markeringar, också när tredje raden är tom.
+- **Köns rutor har två bokstäver** ("Va", "Ru", "Ve"), eftersom Vapen
+  och Verktyg börjar på samma.
+- **"Snabbare samlande" heter Verktyg** och gäller också Odling och
+  Fiskehytta, inte bara bär och trä.
+- **Datorspelaren sparar till uppgraderingar.** Utan det forskade den
+  aldrig: soldatträningen tog maten först varje gång (uppmätt: Smedjan
+  byggdes efter 7–12 minuter och stod sedan oanvänd). Nu tränar den inga
+  nya Ramkrigare medan den har 6 eller fler och väntar på att ha råd.
+- **Matcher mellan två datorspelare:** 18,6, 18,6, 17,2, 16,0, 13,0 och
+  13,6 minuter på frö 1–6, alla under 20. Första uppgraderingen blir
+  klar efter 8–13 minuter. Balansen i övrigt tas efter steg 5, som
+  användaren har bestämt.
+- **Fliken Försvar har nu tre byggnader och "Laga".**
+- **Övriga byggnaders atlaser är inte byggda om** efter tilläggen i den
+  gemensamma `lib/structures.py`. De två nya delarna används bara av
+  Smedjan.
+- **Inte mätt:** bilder per sekund. **Inte prövat:** en riktig telefon.
+- **Inget ljud**, som i resten av spelet.
+
+**Testresultat**
+
+- Vitest: 768 av 768 (38 nya: uppgraderingarnas verkan, forskningskön,
+  datorspelarens Smedja, Smedjans panel och enhetens värden)
+- Playwright: körningarna var inte klara när detta skrevs; resultatet förs in
+  i nästa commit. De sex nya testerna i `forge.spec.ts` går igenom
+- Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
+  testerna eller när skärmdumparna togs.
+
+**Äldre tester som ändrades, och varför**
+
+- **`combat.test.ts` och `shooting.test.ts`:** `strikeDamage` och
+  `shotDamage` tar nu speltillståndet, eftersom skada och rustning beror
+  på sidans uppgraderingar.
+- **`commandPanel.test.ts`:** en plats i kön har inte längre fältet
+  `unit`, och panelen säger vad kön håller (`queueOf`).
+- **Byggmenyns tester** (`commandPanel.test.ts`,
+  `phase6-building.spec.ts`) väntar sig "Bygg Smedja" under Försvar.
+- Inget test är avstängt, och ingen tidsgräns är höjd.
+
+**Beslut och lärdomar**
+
+- **Uppgraderingarna hör till sidan, och verkan räknas ut vid
+  användningen.** Inget skrivs in i enheterna. Därför gäller en
+  uppgradering genast för alla, också dem som tränas senare, och det
+  finns inget att hålla i synk.
+- **"När den har råd" kräver att något annat väntar.** En datorspelare
+  som alltid tränar soldater först har aldrig råd med något dyrare än
+  en soldat.
 
 ### Byggmenyn får flikar (2026-11-15)
 

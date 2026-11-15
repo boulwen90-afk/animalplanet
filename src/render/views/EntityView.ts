@@ -9,6 +9,7 @@ import { tileToWorld, type Point, type TileSize } from '../../sim/map/iso';
 import type { Building, Entity, GameState, Unit } from '../../sim/state';
 import { strikeTicks } from '../../sim/systems/combat';
 import { buildFraction } from '../../sim/systems/construction';
+import { researchFraction } from '../../sim/systems/research';
 import { ticksPerUnit, workFocus } from '../../sim/systems/gathering';
 import {
   DIRECTIONS,
@@ -37,6 +38,7 @@ import {
   CHARACTER_VISUALS,
   CONSTRUCTION_START_ALPHA,
   LIFE_BAR,
+  WORK_BAR,
   LIFE_BAR_COLORS,
   OUTLINE_COLOR,
   PLAYER_COLORS,
@@ -146,6 +148,10 @@ export class EntityView {
   private readonly overlay: GameObjects.Graphics;
   /** Frame time of the latest update, in milliseconds. */
   private now = 0;
+  /** The game as of the latest update. */
+  private current: GameState | undefined;
+  /** How far the work shown in a bar over each building has come this frame, by building id. */
+  private readonly progress = new Map<number, number>();
   /** The buildings whose range is shown with a ring this frame. */
   private ringed: number[] = [];
   /** What each building in sight covers on the screen this frame. */
@@ -164,6 +170,8 @@ export class EntityView {
     private readonly buildingArt?: BuildingLibrary,
     /** Draws the smoke and fire on damaged buildings; without it damage shows only on the life bar. */
     private readonly damage?: DamageView,
+    /** The side that looks on: it sees how far its own buildings have come with their work. */
+    private readonly viewer: number = 0,
   ) {
     this.marks = scene.add.graphics().setDepth(GROUND_MARK_DEPTH);
     this.overlay = scene.add.graphics().setDepth(OVERLAY_DEPTH);
@@ -211,6 +219,8 @@ export class EntityView {
     this.marks.lineStyle(2, SELECTION_COLOR, 1);
     this.overlay.clear();
     this.ringed = [];
+    this.progress.clear();
+    this.current = state;
     this.damage?.begin(now);
 
     const byId = new Map<number, Entity>();
@@ -304,6 +314,11 @@ export class EntityView {
       frame: sprite.image.frame.name,
       texture: sprite.image.texture.key,
     };
+  }
+
+  /** How far the progress bar drawn over a building has come, from 0 to 1, or undefined when it has none. */
+  describeProgress(id: number): number | undefined {
+    return this.progress.get(id);
   }
 
   /** Ids of the buildings that have a ring drawn round them this frame, showing how far they shoot. */
@@ -464,7 +479,7 @@ export class EntityView {
         face(
           (site && workFocus(state, unit, site)) ?? { x: task.node.x + 0.5, y: task.node.y + 0.5 },
         );
-        const ticks = ticksPerUnit(unit, site);
+        const ticks = ticksPerUnit(state, unit, site);
         const loops = workLoops(info, ticks / SIM_CONFIG.ticksPerSecond);
         frame = progressFrame(info, (task.workTicks + alpha) / ticks, loops);
       } else if (activity === BUILD_ACTIVITY && (task.kind === 'build' || task.kind === 'repair')) {
@@ -628,6 +643,35 @@ export class EntityView {
         building.hp,
         BUILDING_DEFS[building.type].hp,
       );
+      // Its owner sees how far the upgrade it is working out has come, and how many wait.
+      if (building.owner === this.viewer && building.research.length > 0) {
+        this.drawWorkBar(
+          building.id,
+          ground.x,
+          ground.y - sheet.roofHeight - 12 - WORK_BAR.above,
+          this.current ? researchFraction(this.current, building) : 0,
+          building.research.length - 1,
+        );
+      }
+    }
+  }
+
+  /**
+   * Draws a bar over a building that shows how far its work has come, with
+   * a dot after it for each piece of work that waits its turn.
+   */
+  private drawWorkBar(id: number, x: number, y: number, fraction: number, waiting: number): void {
+    const { width, height, color, dot } = WORK_BAR;
+    this.progress.set(id, fraction);
+    this.overlay.fillStyle(OUTLINE_COLOR, 1);
+    this.overlay.fillRect(x - width / 2 - 1, y - 1, width + 2, height + 2);
+    this.overlay.fillStyle(color, 1);
+    this.overlay.fillRect(x - width / 2, y, width * Math.min(1, Math.max(0, fraction)), height);
+    for (let i = 0; i < waiting; i++) {
+      this.overlay.fillStyle(OUTLINE_COLOR, 1);
+      this.overlay.fillRect(x + width / 2 + 3 + i * (dot + 2), y - 1, dot + 2, height + 2);
+      this.overlay.fillStyle(color, 1);
+      this.overlay.fillRect(x + width / 2 + 4 + i * (dot + 2), y, dot, height);
     }
   }
 

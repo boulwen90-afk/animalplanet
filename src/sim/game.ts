@@ -16,6 +16,7 @@ import {
   type PlayerState,
 } from './state';
 import { updateVisibility } from './systems/visibility';
+import { noUpgrades } from './upgrades';
 
 export interface GameOptions {
   /** Whether the fog of war is on. Default: on. */
@@ -98,6 +99,7 @@ export function newPlayer(map: GameMap): PlayerState {
   return {
     resources: { ...START_CONFIG.resources },
     visibility: new Array<number>(map.width * map.height).fill(UNEXPLORED),
+    upgrades: noUpgrades(),
     ai: null,
   };
 }

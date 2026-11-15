@@ -1,6 +1,7 @@
 import type { BuildMenu, BuildingType } from './buildings';
 import type { ResourceType } from './resources';
 import type { UnitType } from './units';
+import type { UpgradeType } from './upgrades';
 
 /** All text shown in the game, in one place so it can be translated later. */
 export const STRINGS = {
@@ -16,6 +17,7 @@ export const STRINGS = {
     odling: 'Odling',
     fiskehytta: 'Fiskehytta',
     vakttorn: 'Vakttorn',
+    smedja: 'Smedja',
   } satisfies Record<BuildingType, string>,
   /** The tabs of the build menu. */
   menus: {
@@ -31,7 +33,19 @@ export const STRINGS = {
     odling: 'Oändlig mat, 1 Samlare',
     fiskehytta: 'Vid vatten, 3 Samlare',
     vakttorn: 'Skjuter på fiender',
+    smedja: 'Uppgraderar enheter',
   } satisfies Record<BuildingType, string>,
+  /** The upgrades worked out at a Smedja: their names, and what a level of each gives. */
+  upgrades: {
+    weapons: 'Vapen',
+    armor: 'Rustning',
+    gathering: 'Verktyg',
+  } satisfies Record<UpgradeType, string>,
+  upgradeInfo: {
+    weapons: (bonus: number) => `+${bonus} skada, krigare`,
+    armor: (bonus: number) => `+${bonus} rustning, alla`,
+    gathering: (bonus: number) => `+${Math.round(bonus * 100)} % fart, Samlare`,
+  } satisfies Record<UpgradeType, (bonus: number) => string>,
   /** One short line about each unit, shown on its train button. */
   unitInfo: {
     samlare: 'Samlar och bygger',
@@ -78,6 +92,20 @@ export const STRINGS = {
     carrying: (resource: string, carried: number) => `Bär ${carried} ${resource.toLowerCase()}`,
     hp: (current: number, max: number) => `Liv ${current}/${max}`,
     attacking: 'Anfaller',
+    /** An upgrade with its level in Roman numerals, such as "Vapen II". */
+    upgradeLevel: (name: string, level: number) =>
+      `${name} ${['I', 'II', 'III'][level - 1] ?? level}`,
+    /** On an upgrade's button while that upgrade is being worked out, and when it has no more levels. */
+    upgradeInProgress: 'Pågår',
+    upgradeDone: 'Fullt utvecklad',
+    /** Shown when an upgrade has been worked out. */
+    upgradeReady: (name: string) => `${name} är klar`,
+    /** What a unit can do, with its side's upgrades: under its life in the selection panel. */
+    statDamage: (damage: number) => `Skada ${damage}`,
+    statArmor: (armor: number) => `Rustning ${armor}`,
+    statGather: (perSecond: string) => `Samlar ${perSecond}/s`,
+    /** After a value that an upgrade has raised: by how much. */
+    statBonus: (bonus: string) => ` (+${bonus})`,
     /** What a building that shoots can do: the life a shot takes and how far it reaches, in tiles. */
     shoots: (damage: number, range: number) => `Skada ${damage} · Räckvidd ${range}`,
     surrendered: 'Har kapitulerat',

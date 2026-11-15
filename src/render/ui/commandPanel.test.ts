@@ -42,6 +42,7 @@ describe('describeCommandPanel', () => {
         },
       ],
       queue: [],
+      queueOf: 'units',
       progress: 0,
     });
   });
@@ -53,10 +54,8 @@ describe('describeCommandPanel', () => {
     }
     advance(state, 60);
     const info = describeCommandPanel(state.entities, new Set([storide.id]), 0)!;
-    expect(info.queue).toEqual([
-      { unit: 'samlare', label: 'S' },
-      { unit: 'samlare', label: 'S' },
-    ]);
+    expect(info.queue).toEqual([{ label: 'S' }, { label: 'S' }]);
+    expect(info.queueOf).toBe('units');
     // 60 of 240 steps.
     expect(info.progress).toBeCloseTo(0.25);
   });
@@ -94,6 +93,7 @@ describe('describeCommandPanel', () => {
         },
       ],
       queue: [],
+      queueOf: 'units',
       progress: 0,
     });
   });
@@ -163,6 +163,7 @@ describe('describeCommandPanel', () => {
     expect(panel.buttons.map((button) => [button.label, button.cost, button.info])).toEqual([
       ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
       ['Bygg Vakttorn', '120 trä', 'Skjuter på fiender'],
+      ['Bygg Smedja', '150 trä', 'Uppgraderar enheter'],
       ['Laga', '', 'Inget är skadat'],
     ]);
     expect(panel.tabs).toEqual([
@@ -183,6 +184,89 @@ describe('describeCommandPanel', () => {
     for (const type of UNIT_DEFS.samlare.builds) {
       expect(['economy', 'defence'], type).toContain(BUILDING_DEFS[type].menu);
     }
+  });
+
+  it('shows a button for each upgrade for the selected Smedja: the next level, its price and what it gives', () => {
+    const state = openState(14, 14);
+    const forge = createBuilding(state, 'smedja', 0, 6, 6);
+    expect(describeCommandPanel(state.entities, new Set([forge.id]), 0)).toEqual({
+      buildingId: forge.id,
+      buttons: [
+        {
+          action: { kind: 'research', upgrade: 'weapons' },
+          label: 'Vapen I',
+          cost: '100 mat, 50 trä',
+          info: '+2 skada, krigare',
+        },
+        {
+          action: { kind: 'research', upgrade: 'armor' },
+          label: 'Rustning I',
+          cost: '75 mat, 75 trä',
+          info: '+1 rustning, alla',
+        },
+        {
+          action: { kind: 'research', upgrade: 'gathering' },
+          label: 'Verktyg I',
+          cost: '100 mat, 50 trä',
+          info: '+20 % fart, Samlare',
+        },
+      ],
+      queue: [],
+      queueOf: 'upgrades',
+      progress: 0,
+    });
+  });
+
+  it('shows the queue of upgrades and how far the first has come, and dims what is being worked out', () => {
+    const state = openState(14, 14);
+    const forge = createBuilding(state, 'smedja', 0, 6, 6);
+    state.players[0]!.resources = { food: 1000, wood: 1000 };
+    applyCommand(state, { type: 'research', player: 0, buildingId: forge.id, upgrade: 'armor' });
+    applyCommand(state, { type: 'research', player: 0, buildingId: forge.id, upgrade: 'weapons' });
+    advance(state, 200);
+    const info = describeCommandPanel(state.entities, new Set([forge.id]), 0)!;
+    expect(info.queue).toEqual([{ label: 'Ru' }, { label: 'Va' }]);
+    // 200 of 800 steps.
+    expect(info.progress).toBeCloseTo(0.25);
+    expect(info.buttons.map((b) => [b.label, b.cost, b.info, b.disabled])).toEqual([
+      ['Vapen I', '', 'Pågår', true],
+      ['Rustning I', '', 'Pågår', true],
+      ['Verktyg I', '100 mat, 50 trä', '+20 % fart, Samlare', undefined],
+    ]);
+  });
+
+  it('offers the second level once the first is worked out, and nothing after the last', () => {
+    const state = openState(14, 14);
+    const forge = createBuilding(state, 'smedja', 0, 6, 6);
+    const panel = (levels: { weapons: number; armor: number; gathering: number }) =>
+      describeCommandPanel(state.entities, new Set([forge.id]), 0, 'economy', levels)!.buttons.map(
+        (b) => [b.label, b.cost, b.info, b.disabled],
+      );
+    expect(panel({ weapons: 1, armor: 0, gathering: 2 })).toEqual([
+      ['Vapen II', '175 mat, 100 trä', '+2 skada, krigare', undefined],
+      ['Rustning I', '75 mat, 75 trä', '+1 rustning, alla', undefined],
+      ['Verktyg II', '', 'Fullt utvecklad', true],
+    ]);
+  });
+
+  it('dims an upgrade that is being worked out in another Smedja too', () => {
+    const state = openState(14, 14);
+    const forge = createBuilding(state, 'smedja', 0, 6, 6);
+    const other = createBuilding(state, 'smedja', 0, 10, 6);
+    state.players[0]!.resources = { food: 1000, wood: 1000 };
+    applyCommand(state, { type: 'research', player: 0, buildingId: other.id, upgrade: 'weapons' });
+    const info = describeCommandPanel(state.entities, new Set([forge.id]), 0)!;
+    expect(info.buttons[0]).toMatchObject({ label: 'Vapen I', info: 'Pågår', disabled: true });
+    expect(info.queue).toEqual([]);
+  });
+
+  it('shows no panel for a Smedja that is still being built, or for the enemy`s', () => {
+    const state = openState(14, 14);
+    const forge = createBuilding(state, 'smedja', 0, 6, 6);
+    forge.complete = false;
+    expect(describeCommandPanel(state.entities, new Set([forge.id]), 0)).toBeUndefined();
+    const theirs = createBuilding(state, 'smedja', 1, 10, 6);
+    expect(describeCommandPanel(state.entities, new Set([theirs.id]), 0)).toBeUndefined();
   });
 
   it('has no tabs for a building that trains units', () => {

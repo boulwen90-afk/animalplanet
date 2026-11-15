@@ -53,6 +53,8 @@ export function createBuilding(
     buildProgress: 0,
     queue: [],
     trainTicks: 0,
+    research: [],
+    researchTicks: 0,
     attackCooldown: 0,
     repairCredit: 0,
   };

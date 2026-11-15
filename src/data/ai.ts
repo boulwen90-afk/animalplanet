@@ -47,6 +47,19 @@ export const AI_CONFIG = {
    * `spread` degrees apart as seen from the main building.
    */
   towers: { max: 1, whenWood: 150, distance: 6, spread: 50 },
+  /**
+   * Upgrades. Once it has a barracks it builds a smithy when it has at
+   * least `whenWood` wood in stock. There it works out the upgrades in
+   * `order`, the first level of each before the second of any, one at a
+   * time, as soon as it can pay for the next. While it has `saveAbove`
+   * soldiers or more it trains no new ones until it has paid for that
+   * upgrade: otherwise the soldiers would eat the food first, every time.
+   */
+  research: {
+    whenWood: 200,
+    order: ['weapons', 'armor', 'gathering'],
+    saveAbove: 6,
+  },
   /** It stops training soldiers at this many. */
   maxSoldiers: 20,
   /** Soldiers at home go for enemy units that come this close to the main building, in tiles. */

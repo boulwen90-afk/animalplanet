@@ -580,7 +580,43 @@ def skep(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
     b.ellipsoid(f"{name}.hole", hole, (0.03, 0.03, 0.03), pal["timber_dark"], detail=1)
 
 
+def anvil(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """An anvil on a block of wood: a narrow waist, a broad face and a horn towards one side, with a hammer lying on it."""
+    x, y = p["at"]
+    z0, s = p.get("z", 0.0), p.get("size", 0.2)
+    normal, along = FACES[p.get("face", "-y")]
+    foot = Vector((x, y, z0))
+    b.limb(f"{name}.block", foot, foot + UP * s * 0.9, s * 0.7, s * 0.62, pal["timber_mid"], 8)
+    top = foot + UP * s * 0.9
+    b.box(f"{name}.foot", top + UP * s * 0.12, (s * 0.9, s * 0.62, s * 0.24), pal["iron"])
+    b.box(f"{name}.waist", top + UP * s * 0.42, (s * 0.5, s * 0.4, s * 0.4), pal["iron"])
+    b.box(f"{name}.face", top + UP * s * 0.74, (s * 1.25, s * 0.6, s * 0.28), pal["iron_bright"])
+    b.limb(f"{name}.horn", top + UP * s * 0.74 + along * s * 0.6, top + UP * s * 0.74 + along * s * 1.2, s * 0.16, 0.0, pal["iron_bright"], 6)
+    # A hammer left lying across the face.
+    head = top + UP * s * 0.95 - along * s * 0.25
+    b.limb(f"{name}.hammer_shaft", head, head + normal * s * 1.0 + UP * s * 0.05, 0.016, 0.016, pal["timber_new"], 5)
+    b.box(f"{name}.hammer_head", head, (s * 0.42, s * 0.2, s * 0.2), pal["iron"])
+
+
+def hearth(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """A forge hearth: a stone block open towards one side, with a bed of glowing coals in its mouth."""
+    x, y = p["at"]
+    z0, w, d, h = p.get("z", 0.0), p.get("width", 0.5), p.get("depth", 0.4), p.get("height", 0.5)
+    normal, along = FACES[p.get("face", "-y")]
+    centre = Vector((x, y, z0))
+    across = (abs(along.x) * w + abs(normal.x) * d, abs(along.y) * w + abs(normal.y) * d)
+    b.box(f"{name}.block", centre + UP * h / 2, (across[0], across[1], h), pal["stone"])
+    b.box(f"{name}.rim", centre + UP * h, (across[0] * 1.08, across[1] * 1.08, 0.05), pal["stone_dark"])
+    # The mouth: a dark opening in the side that faces out, and the fire in it.
+    mouth = centre + normal * (d / 2) + UP * h * 0.45
+    face_box(b, f"{name}.mouth", p.get("face", "-y"), mouth + normal * 0.005, w * 0.62, 0.02, h * 0.5, pal["iron"])
+    face_box(b, f"{name}.fire", p.get("face", "-y"), mouth + normal * 0.02 - UP * h * 0.08, w * 0.5, 0.02, h * 0.3, pal["glow"])
+    face_box(b, f"{name}.embers", p.get("face", "-y"), mouth + normal * 0.03 - UP * h * 0.17, w * 0.36, 0.02, h * 0.12, pal["glow_hot"])
+
+
 PARTS = {
+    "anvil": anvil,
+    "hearth": hearth,
     "window": window,
     "skep": skep,
     "fish_rack": fish_rack,
