@@ -60,9 +60,12 @@ export function describeSelection(
 /** What a unit or building is doing, or undefined if it is nothing worth mentioning. */
 function describeActivity(entity: Entity, entities: readonly Entity[]): string | undefined {
   if (entity.kind === 'building') {
-    return entity.complete
-      ? undefined
-      : STRINGS.hud.underConstruction(Math.floor(buildFraction(entity) * 100));
+    if (!entity.complete) {
+      return STRINGS.hud.underConstruction(Math.floor(buildFraction(entity) * 100));
+    }
+    // A building that shoots says what it does to those it shoots at.
+    const attack = BUILDING_DEFS[entity.type].attack;
+    return attack ? STRINGS.hud.shoots(attack.damage, attack.range) : undefined;
   }
   const task = entity.task;
   if (task.kind === 'flee') return STRINGS.hud.surrendered;

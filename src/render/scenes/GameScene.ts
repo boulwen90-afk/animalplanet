@@ -54,6 +54,7 @@ import { SceneryLibrary } from '../scenery/SceneryLibrary';
 import { MapView } from '../views/MapView';
 import { PLAYER_COLORS } from '../views/visuals';
 import { PlacementView } from '../views/PlacementView';
+import { ProjectileView } from '../views/ProjectileView';
 import { SelectionView } from '../views/SelectionView';
 import { restartGame } from '../session';
 import type { HudButton, HudButtonId, HudSource, ResourceBarInfo, UiScene } from './UiScene';
@@ -103,6 +104,7 @@ export class GameScene extends Scene implements HudSource {
   /** Undefined when the fog of war is off. */
   private fogView: FogView | undefined;
   private entityView!: EntityView;
+  private projectileView!: ProjectileView;
   private selectionView!: SelectionView;
   private testApi: TestApi | undefined;
   /** Timestamp of the previous frame, in milliseconds. */
@@ -165,6 +167,9 @@ export class GameScene extends Scene implements HudSource {
       REPAIR_POINTER.frame,
       REPAIR_POINTER.hotspot,
       'pointer',
+    );
+    this.projectileView = new ProjectileView(this, MAP_CONFIG, (owner) =>
+      scenery.textureKey(owner),
     );
     this.selectionView = new SelectionView(this);
 
@@ -268,6 +273,9 @@ export class GameScene extends Scene implements HudSource {
       this.elapsedTotal,
       (entity) => isEntityVisibleTo(state, LOCAL_PLAYER, entity),
     );
+    this.projectileView.update(state, alpha, this.elapsedTotal, (x, y) =>
+      isTileVisible(state, LOCAL_PLAYER, x, y),
+    );
     const seen = state.players[LOCAL_PLAYER]?.visibility;
     if (seen) this.fogView?.update(seen);
     this.selectionView.update(elapsed);
@@ -308,6 +316,13 @@ export class GameScene extends Scene implements HudSource {
         ) {
           this.lastAlertAt = this.elapsedTotal;
           this.alertUntil = this.elapsedTotal + UI_CONFIG.alertMs;
+        }
+        break;
+      case 'projectileHit':
+        // What lands out of sight is not shown.
+        if (isTileVisible(state, LOCAL_PLAYER, Math.floor(event.x), Math.floor(event.y))) {
+          this.entityView.flash(event.targetId);
+          this.projectileView.showHit(event.x, event.y);
         }
         break;
       case 'repairPaused':
@@ -598,6 +613,8 @@ export class GameScene extends Scene implements HudSource {
       getUnitSprite: (id) => this.entityView.describeUnit(id) ?? null,
       getBuildingSprite: (id) => this.entityView.describeBuilding(id) ?? null,
       getBuildingDamage: (id) => this.entityView.describeDamage(id),
+      getProjectiles: () => this.projectileView.describe(),
+      getRangeRings: () => this.entityView.describeRangeRings(),
       getPointer: () => ({
         shown: this.pointerShown,
         css: this.game.canvas.style.cursor,

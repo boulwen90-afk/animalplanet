@@ -142,6 +142,12 @@ describe('describeCommandPanel', () => {
           info: 'Vid vatten, 3 Samlare',
         },
         {
+          action: { kind: 'build', building: 'vakttorn' },
+          label: 'Bygg Vakttorn',
+          cost: '120 trä',
+          info: 'Skjuter på fiender',
+        },
+        {
           action: { kind: 'repair' },
           label: 'Laga',
           cost: '',

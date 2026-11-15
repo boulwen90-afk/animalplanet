@@ -2,7 +2,9 @@ import type { GameObjects, Scene } from 'phaser';
 import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
 import { tileCenterToWorld, tileToWorld, type Point, type TileSize } from '../../sim/map/iso';
 import type { PlacementProblem } from '../../sim/systems/construction';
+import { UI_CONFIG } from '../../data/ui';
 import type { BuildingLibrary } from '../buildings/BuildingLibrary';
+import { groundCircle } from '../effects/projectiles';
 import { PLACEMENT_COLORS, PLACEMENT_PREVIEW } from './visuals';
 
 /** Depth of the outline: on the ground, below everything standing on the map. */
@@ -104,6 +106,16 @@ export class PlacementView {
         PLACEMENT_PREVIEW.placeWidth,
         PLACEMENT_PREVIEW.placeWidth / 2,
       );
+    }
+
+    // How far it would shoot from there: a ring on the ground round it.
+    const attack = BUILDING_DEFS[placement.building].attack;
+    if (attack) {
+      const middle = tileToWorld(placement.x + n / 2, placement.y + n / 2, this.size);
+      const { rx, ry } = groundCircle(attack.range, this.size);
+      const { color, alpha, width } = UI_CONFIG.rangeRing;
+      this.graphics.lineStyle(width, color, alpha);
+      this.graphics.strokeEllipse(middle.x, middle.y, rx * 2, ry * 2);
     }
 
     this.updatePreview(placement, n);

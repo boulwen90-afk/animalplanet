@@ -37,3 +37,7 @@ building = "barracks"
 [[building]]
 race = "bear"
 building = "main"
+
+[[building]]
+race = "bear"
+building = "tower"

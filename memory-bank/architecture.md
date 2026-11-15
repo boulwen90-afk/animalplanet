@@ -55,6 +55,9 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/economy.ts` | Kostnader: vad som saknas, betala, återbetala | 5 |
 | `src/sim/systems/production.ts` | `produceUnits` (träning), `queueUnit`, `cancelQueuedUnit` | 5 |
 | `src/sim/systems/construction.ts` | `constructBuildings` (byggande), `canPlaceBuilding`, `placeBuilding`, `assistConstruction` | 6, 7 |
+| `src/sim/systems/shooting.ts` | Byggnader som skjuter: `shootFromBuildings`, `flyProjectiles`, `shootingTarget` | Efter MVP |
+| `src/render/effects/projectiles.ts` | En projektils bana på skärmen, träffens utseende och räckviddsringens mått, som rena funktioner | Efter MVP |
+| `src/render/views/ProjectileView.ts` | Ritar pilar i luften och splitterstjärnan där de landar | Efter MVP |
 | `src/sim/systems/repair.ts` | Lagning: `orderRepair`, `repairBuildings`, kostnad och takt, lediga platser runt en byggnad | Efter MVP |
 | `src/data/repair.ts` | `REPAIR_CONFIG`: kostnadsandel, liv per sekund och avtagande effekt | Efter MVP |
 | `src/render/effects/damage.ts` | Skadans utseende som rena funktioner: skadenivå, var det ryker och brinner, hur en puff och en eld ser ut vid en tidpunkt | Efter MVP |
@@ -332,6 +335,31 @@ motsvarande längre tid.
   det huvudbyggnaden (`START_CONFIG.building`) sätts `winner` till andra
   sidan.
 
+### Byggnader som skjuter (`systems/shooting.ts`)
+
+- En byggnadstyp med `attack` i `BUILDING_DEFS` (`damage`, `range`,
+  `cooldown`, `projectileSpeed`) skjuter av sig själv när den är färdig.
+  I dag är det Vakttornet.
+- **`shootFromBuildings`** körs varje steg efter närstriden. Byggnadens
+  `attackCooldown` räknas ned; vid 0 väljer `shootingTarget` den närmaste
+  fiendeenhet som sidan ser (`isAttackable`) inom `range` rutor från
+  byggnadens mitt, vid lika avstånd den som kom först in i spelet. Finns
+  en läggs en projektil i `state.projectiles`, händelsen `shot` läggs, och
+  nedräkningen sätts till `shotTicks` (30 steg för tornet). Byggnader är
+  aldrig mål.
+- **`Projectile`**: `id` (ur samma räknare som enheterna), `owner`,
+  `sourceId`, `targetId`, `startX/Y`, `x/y`, `prevX/Y`, `speed` (rutor per
+  steg) och `damage`. Den ligger i speltillståndet, så en match är
+  fortfarande helt bestämd av sitt frö.
+- **`flyProjectiles`** flyttar varje projektil rakt mot målets nuvarande
+  plats. Är den inom ett stegs flykt landar den: målet förlorar
+  `shotDamage` (skadan minus rustning, minst 1), händelsen `projectileHit`
+  läggs, och ett mål utan liv kapitulerar (`surrender`). Har målet lämnat
+  spelet eller kapitulerat tas projektilen bort utan verkan. En projektil
+  lever vidare om byggnaden som sköt den faller.
+- Tornets synfält (8) är större än räckvidden (6), så `isAttackable`, som
+  kräver att målet syns, hindrar aldrig ett skott inom räckvidden.
+
 ### Kollision mellan enheter
 
 Varje enhetstyp har en `radius` i rutor (`UNIT_DEFS`): Ramkrigare 0,45,
@@ -445,8 +473,16 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
   6. **Anfallsvåg:** när vågens tidigaste tid är inne och tillräckligt många
      soldater är hemma går vågen mot fiendens huvudbyggnad. Passeras den
      senaste tiden går den med de soldater som finns.
-  7. **Soldater i en våg** anfaller fiendesoldater inom sin upptäcktsradie
-     och annars huvudbyggnaden.
+  7. **Soldater i en våg** anfaller fiendesoldater inom sin upptäcktsradie,
+     därefter ett fientligt torn som har dem inom sin räckvidd (det
+     närmaste), och annars huvudbyggnaden.
+- **Torn:** sist bland byggena. Har sidan en färdig kasern, färre än
+  `AI_CONFIG.towers.max` (1) torn placerade under matchen
+  (`AiState.towersPlaced`; ett torn som faller ersätts inte) och minst
+  `whenWood` (150) trä, bygger den ett torn `distance` (6) rutor från
+  huvudbyggnadens mitt i riktning mot fiendens huvudbyggnad. Med fler
+  torn sprids de `spread` (50) grader isär sett från huvudbyggnaden
+  (`towerSpot`).
 - Vågorna står i `AI_CONFIG.waves`: 4 soldater vid 4:00–5:30, 6 vid
   7:00–8:30, 8 vid 10:00–11:30, och därefter 10 soldater var 150:e sekund.
 - AI:n läser vilka byggnader som är kasern och förråd ur `BUILDING_DEFS`
@@ -481,8 +517,9 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
 
 `state.events` talar om för renderingen vad som hände i det senaste steget:
 `hit`, `surrender`, `enterCave`, `vanish`, `buildingCollapsed`,
-`buildingAttacked` och `repairPaused` (en lagning har stannat för att
-träet tog slut). `GameScene` kör därför ett steg i taget och läser
+`buildingAttacked`, `repairPaused` (en lagning har stannat för att
+träet tog slut), `shot` (en byggnad har skjutit) och `projectileHit` (det
+som sköts har landat på sitt mål, med plats och skada). `GameScene` kör därför ett steg i taget och läser
 händelserna efter varje steg. Simuleringen själv använder dem inte.
 
 ### Byggande
@@ -807,6 +844,27 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
   ovanför, t.ex. `3/12`. Grottan ritas
   när spelaren har utforskat dess ruta. Antalet visas alltid för egna
   grottor, och för andras bara medan de är i sikte.
+- **`ProjectileView`** ritar `state.projectiles` med bilden `arrow` ur
+  miljöns atlas, i skyttens lagfärg (fjädrarna är maskade). Banan räknas
+  av rena funktioner i `effects/projectiles.ts`:
+  - `projectilePose(start, at, target, muzzlePx, tile)`: markpunkten är
+    projektilens interpolerade plats; höjden över marken går från
+    `MUZZLE_HEIGHT` (tornets plattform, 72 px) till
+    `UI_CONFIG.projectile.targetHeightPx` (14) med en båge ovanpå
+    (`arcPxPerTile` 4 px per ruta den ska flyga). Bilden vrids åt det håll
+    banan går just där.
+  - Pilar över rutor spelaren inte ser ritas inte.
+  - `showHit` (vid händelsen `projectileHit`, om rutan syns) visar bilden
+    `hit` på målet i `hitMs` (220 ms): den växer från 0,7 till 1,6 gånger
+    sin storlek och tonas bort (`hitBurstAt`). Bildens mittpunkt sätts på
+    det som är kvar efter beskärningen, inte på den obeskurna bildrutan.
+    Samtidigt blinkar målet vitt (`EntityView.flash`).
+  - Pilarna ritas på djup 800 000: över tak och träd, under livstaplar.
+- **Räckviddsring.** Ett markerat eget färdigt torn, och ett torn som
+  placeras, får en gul ellips på marken: `groundCircle(range, tile)` ger
+  halvaxlarna för en cirkel på marken sedd ur spelets vinkel
+  (`UI_CONFIG.rangeRing`). Markeringspanelen visar "Skada 9 · Räckvidd 6"
+  för egna torn (`describeSelection`).
 - **`DamageView`** ritar skadan på färdiga byggnader i sikte, med bilder
   ur miljöns atlas. `EntityView` anropar den för varje sådan byggnad och
   varje bildruta (`begin`, `show`, `end`); det som inte visades en
@@ -942,8 +1000,8 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
 - **Byggnader i spelet (`render/buildings/`).** Byggnadstyper som finns i
   `BUILDING_ART` ritas från sina atlaser. I dag gäller det Storide
   (`bear_main`), Krigshall (`bear_barracks`), Visthus (`bear_storage`),
-  Odling (`bear_field`), Fiskehytta (`bear_fishery`) och Ide (`bear_den`),
-  för båda sidorna. Alla byggnadstyper har därmed bilder; en typ utan
+  Odling (`bear_field`), Fiskehytta (`bear_fishery`), Ide (`bear_den`) och
+  Vakttorn (`bear_tower`), för båda sidorna. Alla byggnadstyper har därmed bilder; en typ utan
   bild ritas fortfarande som ett platshållarblock.
   - `BuildingLibrary` laddar atlaserna och gör en färgad kopia per
     spelare, på samma sätt som `CharacterLibrary`.
@@ -1219,6 +1277,7 @@ kommer utöver det.
 | Åker och annan mark (`plot`) | ingen lägsta höjd | – | – |
 | Liten byggnad, 2×2 rutor (`small`) | minst 1,0 | 64 | 1,8 |
 | Stor byggnad, 3×3 rutor (`large`) | minst 1,4 | 90 | 2,5 |
+| Torn på en ruta (`tower`) | minst 1,5 | 96 | 2,7 |
 | Huvudbyggnad (`main`) | minst 1,8 | 115 | 3,3 |
 
 - **Mot rutan:** en krigare är drygt en halv rutbredd hög, och högst 0,62
@@ -1435,7 +1494,17 @@ lagfärgsmask som figurerna (`buildings.py`).
 | `den` | Ide | 2×2 | `small` | 64 px | 75 px |
 | `storage` | Visthus | 2×2 | `small` | 64 px | 79 px |
 | `barracks` | Krigshall | 3×3 | `large` | 90 px | 112 px |
+| `tower` | Vakttorn | 1×1 | `tower` | 96 px | 120 px |
 | `main` | Storide | 3×3 | `main` | 115 px | 137 px |
+
+Vakttornet (`tower`, 1×1, storleksklass `tower`) är ett smalt timmertorn
+på stenfot: ett skaft av stockar, en plattform som kragar ut över skaftet
+med ett räcke av stockar, fyra stolpar som bär ett spetsigt skiffertak,
+vimpel i lagfärg och rasens sigill på väggen mot betraktaren. Klassen
+`tower` kräver 96 px: högre än ett litet hus, så att tornet syns fast det
+bara står på en ruta. Byggstadierna är stomme med plank, skaft med
+ställning och plattformens bara stolpar, och det färdiga tornet. Inga nya
+delar behövdes i `lib/structures.py`.
 
 Odlingen (`field`, 2×2, storleksklass `plot`) är en åker och inget hus.
 Klassen `plot` har ingen lägsta höjd i `game.toml`; det som skiljer en
@@ -1562,8 +1631,8 @@ bara kontrollerat på samma maskin och samma Blender-version.
 ### Miljön (`--scenery`)
 
 `build.py --scenery --sprites` skriver `assets/scenery/scenery.json`,
-`scenery.png` och `scenery_mask.png`: 35 bilder på 256×242 px (59 kB +
-9 kB mask). Utan `--sprites` görs bara förhandsbilderna
+`scenery.png` och `scenery_mask.png`: 37 bilder på 256×249 px (60 kB +
+10 kB mask). Utan `--sprites` görs bara förhandsbilderna
 `assets/previews/scenery/items.png` (alla föremål på en rad) och
 `map.png` (ett stycke karta med sjö, skog, klippor och grotta).
 
@@ -1576,7 +1645,9 @@ bara kontrollerat på samma maskin och samma Blender-version.
   kontur (`shadow = false`, `outline = false` på föremålet); hammaren har
   kontur men ingen skugga. Skalstandarden ger dem egna spann: `effect`
   0,2–0,55 rutbredder (13–35 px) och `icon` 0,3–0,5 (högst 32 px, som en
-  muspekare får vara).
+  muspekare får vara). Tornets `arrow` (en pil som ligger platt och pekar
+  åt höger; fjädrarna är i lagfärg; `projectile`, högst 0,2 rutbredder
+  hög) och `hit` (en splitterstjärna; `spark`, 0,1–0,45).
   De byggs av delarna i `lib/nature.py` och renderas med samma kamera,
   ljus, kontur och skala som byggnaderna, så de hör hemma bredvid dem.
   Allt är låg-poly med platta ytor, som husen.
@@ -1615,12 +1686,12 @@ bara kontrollerat på samma maskin och samma Blender-version.
 | `terrain.ts` | Terrängtyper, gångbarhet och vilken resurs de ger |
 | `types.ts` | Vilka enhets- och byggnadstyper som finns |
 | `units.ts` | Enheters kostnad, träningstid, HP, fart, bärförmåga, insamlingstakt, vad de kan bygga och om de kan laga |
-| `buildings.ts` | Vilka enheter en byggnad tränar, dess HP, storlek, kostnad, byggtid och om den är avlämningsplats; `repairPrice` för en byggnad utan pris. Start-HP för byggen och extra arbetares takt |
+| `buildings.ts` | Vilka enheter en byggnad tränar, dess HP, storlek, kostnad, byggtid och om den är avlämningsplats; `repairPrice` för en byggnad utan pris; `attack` (skada, räckvidd, tid mellan skott, projektilens fart) för en som skjuter. Start-HP för byggen och extra arbetares takt |
 | `repair.ts` | Lagning: andel av priset för en full lagning, liv per sekund, och hur mycket varje ytterligare arbetare ger |
 | `resources.ts` | Mängd per källa, vilken last källan ger (`load`), sökradie när en källa tar slut |
 | `setup.ts` | Startbyggnad, startenheter, startresurser och befolkningstak |
-| `ui.ts` | Dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order, träffblink, utfall, skakning, varningstid, samt för pekskärm: hur långt ett finger får röra sig och ändå räknas som ett tryck (10 px), hålltid för dragruta (300 ms) och ringens radie. `damage`: under vilken andel liv en byggnad ryker och brinner, och rökens och eldens mått och takt |
-| `ai.ts` | Datormotståndarens beslutstakt, antal arbetare, andel arbetare på trä, flest soldater, försvarsradie, anfallsvågor och lagning (`repair`) |
+| `ui.ts` | Dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order, träffblink, utfall, skakning, varningstid, samt för pekskärm: hur långt ett finger får röra sig och ändå räknas som ett tryck (10 px), hålltid för dragruta (300 ms) och ringens radie. `damage`: under vilken andel liv en byggnad ryker och brinner, och rökens och eldens mått och takt. `projectile`: pilens båge, träffhöjd och träffeffektens tid och storlek. `rangeRing`: räckviddsringens färg |
+| `ai.ts` | Datormotståndarens beslutstakt, antal arbetare, andel arbetare på trä, flest soldater, försvarsradie, anfallsvågor, lagning (`repair`) och torn (`towers`) |
 | `production.ts` | Längsta produktionskö |
 | `strings.ts` | All speltext (svenska) |
 
@@ -1673,6 +1744,8 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getDebug()` | Vad räknaren från `?debug=1` visar: `visible`, `text` och `fps` |
 | `getNotice()` | Meddelandet som förklarar en nekad order, eller en tom sträng |
 | `getBuildingSprite(id)` | Hur en byggnad som ritas från bilder ser ut just nu: `frame` (`construction_1`, `construction_2` eller `complete`) och `texture`. `null` för platshållarblock |
+| `getProjectiles()` | Det som är i luften så som det ritas: `projectiles` (varje pil spelaren ser, med `id`, plats i världspixlar, `rotation` i radianer och `texture`), `bursts` (antal splitterstjärnor som visas nu) och `burstsShown` (antal som har visats sedan start) |
+| `getRangeRings()` | Id på de byggnader som har en räckviddsring ritad runt sig: markerade egna torn |
 | `getBuildingDamage(id)` | Skadan som ritas på en byggnad: `level` (`none`, `smoke` eller `fire`) och antalet rökpuffar (`puffs`) och eldar (`flames`) |
 | `getPointer()` | Muspekaren: `shown` (`repair` medan den är hammaren över en skadad byggnad som de markerade skulle laga, annars `default`), `css` (spelytans CSS-markör) och `repairTarget` (byggnadens id eller `null`) |
 | `setLife(id, life)` | Sätter livet på en enhet eller byggnad till ett tal över 0, som efter en träff eller en lagning. För tester som behöver en skadad byggnad utan att spela en strid först |

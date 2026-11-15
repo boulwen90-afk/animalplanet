@@ -1,0 +1,126 @@
+{
+ "frames": {
+  "construction_1": {
+   "frame": {
+    "x": 128,
+    "y": 158,
+    "w": 66,
+    "h": 70
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 102,
+    "w": 66,
+    "h": 70
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8053
+   }
+  },
+  "construction_2": {
+   "frame": {
+    "x": 70,
+    "y": 2,
+    "w": 66,
+    "h": 120
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 52,
+    "w": 66,
+    "h": 120
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8053
+   }
+  },
+  "complete": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 66,
+    "h": 154
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 18,
+    "w": 66,
+    "h": 154
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8053
+   }
+  },
+  "shadow": {
+   "frame": {
+    "x": 2,
+    "y": 158,
+    "w": 124,
+    "h": 71
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 51,
+    "y": 111,
+    "w": 124,
+    "h": 71
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.8053
+   }
+  }
+ },
+ "meta": {
+  "app": "animalplanet tools/blender",
+  "image": "bear_tower.png",
+  "mask": "bear_tower_mask.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 256,
+   "h": 231
+  },
+  "scale": 1,
+  "pixelsPerUnit": 24.0,
+  "building": {
+   "gameBuilding": "vakttorn",
+   "sizeClass": "tower",
+   "footprint": 1,
+   "roofHeight": 119.5,
+   "minRoofHeight": 96.0,
+   "height": 133.3
+  },
+  "neutral": "#bcbcbc",
+  "stages": [
+   "construction_1",
+   "construction_2",
+   "complete"
+  ]
+ }
+}

@@ -91,7 +91,11 @@ export type SimEvent =
   | { type: 'buildingCollapsed'; buildingId: number; owner: PlayerId; x: number; y: number }
   | { type: 'buildingAttacked'; buildingId: number; owner: PlayerId }
   /** The repair of a building has stopped because its side ran out of wood. */
-  | { type: 'repairPaused'; buildingId: number; owner: PlayerId };
+  | { type: 'repairPaused'; buildingId: number; owner: PlayerId }
+  /** A building has shot at a unit. */
+  | { type: 'shot'; sourceId: number; targetId: number; projectileId: number }
+  /** What a building shot has landed on its target, at a place in tiles. */
+  | { type: 'projectileHit'; targetId: number; x: number; y: number; damage: number };
 
 /** How much a side knows about a tile. See GDD section 9. */
 export const UNEXPLORED = 0;
@@ -119,6 +123,8 @@ export interface AiState {
   attackers: number[];
   /** The simulation step at which each wave so far set off. */
   waveTicks: number[];
+  /** How many towers it has placed so far. A tower that falls is not replaced. */
+  towersPlaced: number;
 }
 
 export interface Unit {
@@ -165,6 +171,8 @@ export interface Building {
   queue: UnitType[];
   /** Simulation steps spent training the first unit in the queue. */
   trainTicks: number;
+  /** Simulation steps until the building may shoot again, for one that shoots. */
+  attackCooldown: number;
   /**
    * Life that has been paid for but not yet given back by a repair. Wood is
    * paid one unit at a time, and one unit buys more life than a step of
@@ -174,6 +182,31 @@ export interface Building {
 }
 
 export type Entity = Unit | Building;
+
+/**
+ * Something shot through the air at a unit. It follows its target and
+ * lands on it; if the target is gone before that, it is taken away.
+ */
+export interface Projectile {
+  id: number;
+  /** The side that shot it. */
+  owner: PlayerId;
+  /** The building that shot it, and the unit it was shot at. */
+  sourceId: number;
+  targetId: number;
+  /** Where it was shot from, in continuous tile coordinates. */
+  startX: number;
+  startY: number;
+  /** Where it is, and where it was before the latest simulation step. */
+  x: number;
+  y: number;
+  prevX: number;
+  prevY: number;
+  /** How far it flies in one simulation step, in tiles. */
+  speed: number;
+  /** Life it takes from its target, before the target's armour. */
+  damage: number;
+}
 
 /**
  * The complete state of a game. Everything the simulation needs lives here,
@@ -191,8 +224,10 @@ export interface GameState {
   players: PlayerState[];
   /** All units and buildings, in order of creation. */
   entities: Entity[];
-  /** Id the next created entity gets. Ids are never reused. */
+  /** Id the next created entity or projectile gets. Ids are never reused. */
   nextEntityId: number;
+  /** What is in the air right now, in the order it was shot. */
+  projectiles: Projectile[];
   /**
    * Whether the fog of war is on. With it off, every side sees everything;
    * unit tests of other things and ?fog=0 use that.

@@ -38,6 +38,15 @@ export const AI_CONFIG = {
    * go back to gathering.
    */
   repair: { below: 0.9, workers: 2, minWood: 20 },
+  /**
+   * Watchtowers. Once it has a barracks it builds towers, one at a time and
+   * never more than `max` in a game (one that falls is not replaced), when
+   * it has at least `whenWood` wood in stock:
+   * what its soldiers and houses leave over. They stand `distance` tiles
+   * from the middle of its main building, on the side that faces the enemy,
+   * `spread` degrees apart as seen from the main building.
+   */
+  towers: { max: 1, whenWood: 150, distance: 6, spread: 50 },
   /** It stops training soldiers at this many. */
   maxSoldiers: 20,
   /** Soldiers at home go for enemy units that come this close to the main building, in tiles. */

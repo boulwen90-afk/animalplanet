@@ -74,7 +74,14 @@ export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label:
   ide: { wallHeight: 46, label: 'I' },
   odling: { wallHeight: 6, label: 'O' },
   fiskehytta: { wallHeight: 44, label: 'F' },
+  vakttorn: { wallHeight: 96, label: 'T' },
 };
+
+/**
+ * How far above the ground a building that shoots lets go of what it
+ * shoots, in pixels: the platform of a watchtower.
+ */
+export const MUZZLE_HEIGHT: Partial<Record<BuildingType, number>> = { vakttorn: 72 };
 
 /**
  * A unit standing behind a building is drawn on top of it, this solid, so

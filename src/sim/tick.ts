@@ -7,6 +7,7 @@ import { moveUnits } from './systems/movement';
 import { produceUnits } from './systems/production';
 import { repairBuildings } from './systems/repair';
 import { separateUnits, settleUnits } from './systems/separation';
+import { flyProjectiles, shootFromBuildings } from './systems/shooting';
 import { resolveSurrenders } from './systems/surrender';
 import { updateVisibility } from './systems/visibility';
 
@@ -23,6 +24,8 @@ export function tick(state: GameState): void {
   repairBuildings(state);
   gatherResources(state);
   resolveCombat(state);
+  shootFromBuildings(state);
+  flyProjectiles(state);
   resolveSurrenders(state);
   moveUnits(state);
   separateUnits(state);

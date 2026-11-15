@@ -26,6 +26,7 @@ import {
 } from '../characters/animation';
 import type { BuildingLibrary, BuildingSheet } from '../buildings/BuildingLibrary';
 import { damageLevel } from '../effects/damage';
+import { groundCircle } from '../effects/projectiles';
 import type { DamageInfo, DamageView } from './DamageView';
 import { SHADOW_FRAME, buildingCovers, stageOf } from '../buildings/stage';
 import type { CharacterLibrary, CharacterSheet } from '../characters/CharacterLibrary';
@@ -145,6 +146,8 @@ export class EntityView {
   private readonly overlay: GameObjects.Graphics;
   /** Frame time of the latest update, in milliseconds. */
   private now = 0;
+  /** The buildings whose range is shown with a ring this frame. */
+  private ringed: number[] = [];
   /** What each building in sight covers on the screen this frame. */
   private covers: { corner: Point; side: number; heightTiles: number; depth: number }[] = [];
 
@@ -186,6 +189,11 @@ export class EntityView {
     });
   }
 
+  /** Turns a unit or building white for a moment: something has landed on it. */
+  flash(targetId: number): void {
+    this.flashUntil.set(targetId, this.now + UI_CONFIG.hitFlashMs);
+  }
+
   /**
    * @param alpha How far into the next simulation step the frame is, from 0 to 1.
    * @param now Frame time in milliseconds, for effects that last a set time.
@@ -202,6 +210,7 @@ export class EntityView {
     this.marks.clear();
     this.marks.lineStyle(2, SELECTION_COLOR, 1);
     this.overlay.clear();
+    this.ringed = [];
     this.damage?.begin(now);
 
     const byId = new Map<number, Entity>();
@@ -295,6 +304,11 @@ export class EntityView {
       frame: sprite.image.frame.name,
       texture: sprite.image.texture.key,
     };
+  }
+
+  /** Ids of the buildings that have a ring drawn round them this frame, showing how far they shoot. */
+  describeRangeRings(): number[] {
+    return [...this.ringed];
   }
 
   /** The smoke and fire drawn on a building right now. */
@@ -644,6 +658,18 @@ export class EntityView {
       ],
       true,
     );
+    // A building that shoots shows how far: a ring on the ground round it.
+    const attack = BUILDING_DEFS[building.type].attack;
+    if (attack && building.complete) {
+      this.ringed.push(building.id);
+      const centre = buildingCentre(building);
+      const at = tileToWorld(centre.x, centre.y, this.size);
+      const { rx, ry } = groundCircle(attack.range, this.size);
+      const { color, alpha, width } = UI_CONFIG.rangeRing;
+      this.marks.lineStyle(width, color, alpha);
+      this.marks.strokeEllipse(at.x, at.y, rx * 2, ry * 2);
+      this.marks.lineStyle(2, SELECTION_COLOR, 1);
+    }
   }
 
   private createSprite(entity: Entity): EntitySprite {

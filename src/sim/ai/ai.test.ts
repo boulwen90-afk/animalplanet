@@ -7,6 +7,7 @@ import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
 import {
   buildingCentre,
+  createBuilding,
   createUnit,
   hasSurrendered,
   populationOf,
@@ -506,6 +507,94 @@ describe('repairs', () => {
     }
     expect(repairersOf(state, base)).toHaveLength(0);
     for (const worker of crew) expect(worker.task.kind).toBe('gather');
+  });
+});
+
+describe('watchtowers', () => {
+  const towersOf = (state: GameState, owner: number) => buildingsOf(state, owner, 'vakttorn');
+  // Against a side that does nothing the game is won before there is wood
+  // to spare for a tower, so here the computer plays both sides.
+  const bothSides = (seed: number) => createGame(seed, undefined, undefined, { ai: [0, 1] });
+
+  it('builds a tower by its base, on the side that faces the enemy, once it has wood to spare', () => {
+    for (const seed of SEEDS) {
+      const state = bothSides(seed);
+      let built: Building | undefined;
+      for (let i = 0; i < 12 * MINUTE && !built; i++) {
+        tick(state);
+        built = towersOf(state, 1).find((tower) => tower.complete);
+      }
+      expect(built, `seed ${seed}`).toBeDefined();
+      // It had a barracks first: soldiers come before towers.
+      expect(buildingsOf(state, 1, 'krigshall'), `seed ${seed}`).toMatchObject([
+        { complete: true },
+      ]);
+      const base = buildingCentre(buildingsOf(state, 1, 'storide')[0]!);
+      const enemy = buildingCentre(buildingsOf(state, 0, 'storide')[0]!);
+      const at = buildingCentre(built!);
+      expect(tileDistance(at.x, at.y, base.x, base.y), `seed ${seed}`).toBeLessThanOrEqual(
+        AI_CONFIG.towers.distance + 4,
+      );
+      // Nearer the enemy than its own main building is.
+      expect(tileDistance(at.x, at.y, enemy.x, enemy.y), `seed ${seed}`).toBeLessThan(
+        tileDistance(base.x, base.y, enemy.x, enemy.y),
+      );
+    }
+  });
+
+  it('never has more towers than the data file says, and does not replace one that falls', () => {
+    const state = bothSides(1);
+    let most = 0;
+    for (let i = 0; i < 12 * MINUTE; i++) {
+      tick(state);
+      most = Math.max(most, towersOf(state, 1).length);
+    }
+    expect(most).toBe(AI_CONFIG.towers.max);
+    expect(state.players[1]!.ai!.towersPlaced).toBe(AI_CONFIG.towers.max);
+
+    for (const tower of towersOf(state, 1)) {
+      state.entities.splice(state.entities.indexOf(tower), 1);
+    }
+    state.players[1]!.resources.wood = 1000;
+    advance(state, MINUTE);
+    expect(towersOf(state, 1)).toHaveLength(0);
+  });
+
+  it('does not build a tower before it has a barracks, however much wood it has', () => {
+    const state = againstNobody(1);
+    state.players[1]!.resources.wood = 1000;
+    for (let i = 0; i < 3 * MINUTE; i++) {
+      tick(state);
+      const barracks = buildingsOf(state, 1, 'krigshall').some((b) => b.complete);
+      if (!barracks) expect(towersOf(state, 1)).toHaveLength(0);
+    }
+  });
+
+  it('its attackers tear down a tower that shoots at them before they go on to the main building', () => {
+    const state = againstNobody(1);
+    const home = buildingsOf(state, 0, 'storide')[0]!;
+    const centre = buildingCentre(home);
+    // A tower of the player's by its main building, on the way the attackers come.
+    const enemyBase = buildingCentre(buildingsOf(state, 1, 'storide')[0]!);
+    const dx = Math.sign(enemyBase.x - centre.x);
+    const dy = Math.sign(enemyBase.y - centre.y);
+    const tower = createBuilding(state, 'vakttorn', 0, home.x + 1 + dx * 4, home.y + 1 + dy * 4);
+
+    let attackedTower = false;
+    let towerFell = -1;
+    for (let i = 0; i < 9 * MINUTE && state.winner === null; i++) {
+      tick(state);
+      const attackers = unitsOf(state, 1, 'ramkrigare').filter(
+        (unit) => unit.task.kind === 'attack' && unit.task.targetId === tower.id,
+      );
+      if (attackers.length > 0) attackedTower = true;
+      if (towerFell < 0 && !state.entities.includes(tower)) towerFell = state.tick;
+    }
+    expect(attackedTower).toBe(true);
+    expect(towerFell).toBeGreaterThan(0);
+    // With the tower gone they went on: the main building is damaged or has fallen.
+    const left = buildingsOf(state, 0, 'storide')[0];
+    expect(left === undefined || left.hp < BUILDING_DEFS.storide.hp).toBe(true);
   });
 });
 

@@ -14,6 +14,7 @@ import type { DamageInfo } from '../render/views/DamageView';
 import type { BuildingSpriteInfo, UnitSpriteInfo } from '../render/views/EntityView';
 import type { SceneryInfo } from '../render/views/MapView';
 import type { Placement, PlacementPreviewInfo } from '../render/views/PlacementView';
+import type { ProjectileInfo } from '../render/views/ProjectileView';
 import type { Command, CommandResult } from '../sim/commands';
 import type { Point } from '../sim/map/iso';
 import type { GameState, PlayerId } from '../sim/state';
@@ -64,6 +65,8 @@ export interface TestApiSource {
   getUnitSprite(id: number): UnitSpriteInfo | null;
   getBuildingSprite(id: number): BuildingSpriteInfo | null;
   getBuildingDamage(id: number): DamageInfo;
+  getProjectiles(): ProjectileInfo;
+  getRangeRings(): number[];
   getPointer(): PointerInfo;
   getScenery(tileX: number, tileY: number): SceneryInfo;
   getObjectCount(): number;
@@ -134,6 +137,14 @@ export interface TestApi {
   setLife(id: number, life: number): void;
   /** The damage drawn on a building: whether it smokes or burns, and how many puffs and fires show. */
   getBuildingDamage(id: number): DamageInfo;
+  /**
+   * What is in the air as it is drawn: each projectile the player can see
+   * with its place in world pixels and the way it points, and the bursts
+   * where projectiles have landed.
+   */
+  getProjectiles(): ProjectileInfo;
+  /** Ids of the buildings that have a ring drawn round them, showing how far they shoot: selected ones that shoot. */
+  getRangeRings(): number[];
   /**
    * The mouse pointer: `repair` while it is the hammer shown over a damaged
    * building that the selected units would repair, the CSS cursor of the
@@ -216,6 +227,8 @@ export function installTestApi(source: TestApiSource): TestApi {
     getUnitSprite: (id) => source.getUnitSprite(id),
     getBuildingSprite: (id) => source.getBuildingSprite(id),
     getBuildingDamage: (id) => source.getBuildingDamage(id),
+    getProjectiles: () => source.getProjectiles(),
+    getRangeRings: () => source.getRangeRings(),
     setLife: (id, life) => source.setLife(id, life),
     getPointer: () => source.getPointer(),
     getScenery: (tileX, tileY) => source.getScenery(tileX, tileY),

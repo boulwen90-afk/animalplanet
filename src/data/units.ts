@@ -55,7 +55,7 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     sight: 6,
     carryCapacity: 10,
     gatherRate: 1,
-    builds: ['visthus', 'krigshall', 'ide', 'odling', 'fiskehytta'],
+    builds: ['visthus', 'krigshall', 'ide', 'odling', 'fiskehytta', 'vakttorn'],
     repairs: true,
     damage: 3,
     armor: 0,

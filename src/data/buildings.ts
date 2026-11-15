@@ -28,6 +28,18 @@ export interface WorkDef {
   deliverTo: 'nearest' | 'here';
 }
 
+/** How a building shoots, for one that defends itself and what stands near it. */
+export interface AttackDef {
+  /** Life each shot takes from its target, before the target's armour. */
+  damage: number;
+  /** How far it shoots, in tiles, from the middle of the building to the target. */
+  range: number;
+  /** Seconds between two shots. */
+  cooldown: number;
+  /** How fast what it shoots flies, in tiles per second. */
+  projectileSpeed: number;
+}
+
 export interface BuildingDef {
   /** Unit types this building can train. */
   trains: readonly UnitType[];
@@ -61,6 +73,8 @@ export interface BuildingDef {
    * has no price of its own. See REPAIR_CONFIG.
    */
   repairPrice?: Cost;
+  /** How the finished building shoots at enemy units that come near, if it does. */
+  attack?: AttackDef;
 }
 
 /** Building types. See GDD section 8. */
@@ -168,6 +182,23 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
       reach: 3,
       deliverTo: 'here',
     },
+  },
+  /**
+   * A watchtower. It shoots by itself at the nearest enemy unit within its
+   * range, and sees far. It stands on a single tile.
+   */
+  vakttorn: {
+    trains: [],
+    hp: 500,
+    sight: 8,
+    size: 1,
+    dropoff: false,
+    cost: { wood: 120 },
+    buildTime: 30,
+    armor: 0,
+    housing: 0,
+    walkable: false,
+    attack: { damage: 9, range: 6, cooldown: 1.5, projectileSpeed: 12 },
   },
 };
 
