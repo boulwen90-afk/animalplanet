@@ -1,4 +1,9 @@
-import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
+import {
+  BUILDING_DEFS,
+  BUILD_MENUS,
+  type BuildMenu,
+  type BuildingType,
+} from '../../data/buildings';
 import { PRODUCTION_CONFIG } from '../../data/production';
 import { RESOURCE_TYPES, type Cost } from '../../data/resources';
 import { STRINGS } from '../../data/strings';
@@ -32,6 +37,12 @@ export interface CommandPanelInfo {
   /** One button per thing the selection can train, build or otherwise do. */
   buttons: CommandButton[];
   /**
+   * The tabs of a build menu, when what the selection can build is found
+   * under more than one; the buttons are those of the active tab. Left out
+   * for panels without tabs.
+   */
+  tabs?: { menu: BuildMenu; label: string; active: boolean }[];
+  /**
    * The production queue; the first unit is the one in training. Undefined
    * for panels without a queue, such as the build menu.
    */
@@ -51,14 +62,17 @@ export function formatCost(cost: Cost): string {
  * The command panel for the current selection, or undefined if it should not
  * show. One finished building of the player's that can train units gives
  * train buttons and its queue. A selection of the player's own units gives a
- * build menu with everything any of them can build, and last a button to
- * repair if any of them can: it names the damaged building nearest the
- * first of them and what mending it will cost.
+ * build menu with what any of them can build under the tab `menu`, and last
+ * a button to repair if any of them can: it names the damaged building
+ * nearest the first of them and what mending it will cost. The menu has a
+ * tab for each group of buildings there is something to build in, and none
+ * if there is only one such group.
  */
 export function describeCommandPanel(
   entities: readonly Entity[],
   selected: ReadonlySet<number>,
   player: PlayerId,
+  menu: BuildMenu = BUILD_MENUS[0],
 ): CommandPanelInfo | undefined {
   const chosen = entities.filter((entity) => selected.has(entity.id));
   const [first] = chosen;
@@ -91,15 +105,32 @@ export function describeCommandPanel(
     }
     if (UNIT_DEFS[entity.type].repairs) repairer ??= entity;
   }
-  const buttons: CommandButton[] = buildable.map((building) => ({
-    action: { kind: 'build', building },
-    label: STRINGS.hud.build(STRINGS.buildings[building]),
-    cost: formatCost(BUILDING_DEFS[building].cost),
-    info: STRINGS.buildingInfo[building],
-  }));
+  // A tab for each group that has something to build; the one asked for, or else the first.
+  const menus = BUILD_MENUS.filter((name) =>
+    buildable.some((type) => BUILDING_DEFS[type].menu === name),
+  );
+  const active = menus.includes(menu) ? menu : menus[0];
+  const buttons: CommandButton[] = buildable
+    .filter((building) => BUILDING_DEFS[building].menu === active)
+    .map((building) => ({
+      action: { kind: 'build', building },
+      label: STRINGS.hud.build(STRINGS.buildings[building]),
+      cost: formatCost(BUILDING_DEFS[building].cost),
+      info: STRINGS.buildingInfo[building],
+    }));
+  // Repairing is at hand under every tab.
   if (repairer?.kind === 'unit') buttons.push(repairButton(entities, player, repairer));
   if (buttons.length === 0) return undefined;
-  return { buttons, progress: 0 };
+  if (menus.length < 2) return { buttons, progress: 0 };
+  return {
+    buttons,
+    progress: 0,
+    tabs: menus.map((name) => ({
+      menu: name,
+      label: STRINGS.menus[name],
+      active: name === active,
+    })),
+  };
 }
 
 /** The repair button for a selection whose first repairer stands at `from`. */
@@ -130,6 +161,8 @@ function repairButton(
 /** Where the parts of the command panel sit on the screen. */
 export interface CommandPanelLayout {
   panel: ScreenRect;
+  /** One rectangle per tab, in a row along the top of the panel; empty for panels without tabs. */
+  tabs: ScreenRect[];
   /** One rectangle per button. */
   buttons: ScreenRect[];
   /** One rectangle per place in the production queue; empty for panels without a queue. */
@@ -149,6 +182,8 @@ const PAD = 8;
 const BUTTON = { width: 160, minWidth: 136, height: 64, gap: 8 };
 /** The narrowest panel that is put beside the selection panel instead of above it. */
 const MIN_BESIDE = 2 * PAD + 2 * BUTTON.width + BUTTON.gap;
+/** A tab of the build menu, and the space between the row of tabs and the buttons under it. */
+const TAB = { width: 108, height: 40, gap: 6 };
 /** Queue places are at least 44 px so they can be tapped on a touch screen. */
 const SLOT = { size: 44, gap: 2 };
 /** Space between the buttons and the queue. */
@@ -161,6 +196,7 @@ export function commandPanelLayout(
   viewHeight: number,
   buttonCount: number,
   withQueue = true,
+  tabCount = 0,
 ): CommandPanelLayout {
   const selection = selectionPanelRect(viewWidth, viewHeight);
   const beside = selection.x + selection.width + MARGIN;
@@ -193,7 +229,9 @@ export function commandPanelLayout(
     Math.floor((buttonRoom - (columns - 1) * BUTTON.gap) / columns),
   );
   const buttonsHeight = rows * BUTTON.height + (rows - 1) * BUTTON.gap;
-  const height = 2 * PAD + buttonsHeight + (stacked ? QUEUE_GAP + queueHeight : 0);
+  // The tabs take a row of their own above the buttons.
+  const tabsHeight = tabCount > 0 ? TAB.height + TAB.gap : 0;
+  const height = 2 * PAD + tabsHeight + buttonsHeight + (stacked ? QUEUE_GAP + queueHeight : 0);
 
   // Its lower edge is level with the selection panel's, or just above that panel.
   const panel: ScreenRect = {
@@ -203,11 +241,22 @@ export function commandPanelLayout(
     height,
   };
 
+  const tabs: ScreenRect[] = [];
+  for (let i = 0; i < tabCount; i++) {
+    tabs.push({
+      x: panel.x + PAD + i * (TAB.width + BUTTON.gap),
+      y: panel.y + PAD,
+      width: TAB.width,
+      height: TAB.height,
+    });
+  }
+
+  const buttonsTop = panel.y + PAD + tabsHeight;
   const buttons: ScreenRect[] = [];
   for (let i = 0; i < buttonCount; i++) {
     buttons.push({
       x: panel.x + PAD + (i % columns) * (buttonWidth + BUTTON.gap),
-      y: panel.y + PAD + Math.floor(i / columns) * (BUTTON.height + BUTTON.gap),
+      y: buttonsTop + Math.floor(i / columns) * (BUTTON.height + BUTTON.gap),
       width: buttonWidth,
       height: BUTTON.height,
     });
@@ -217,8 +266,8 @@ export function commandPanelLayout(
     ? panel.x + PAD
     : panel.x + PAD + rowWidth(buttonCount, buttonWidth) + QUEUE_GAP;
   const slotsY = stacked
-    ? panel.y + PAD + buttonsHeight + QUEUE_GAP
-    : panel.y + PAD + Math.floor((buttonsHeight - queueHeight) / 2);
+    ? buttonsTop + buttonsHeight + QUEUE_GAP
+    : buttonsTop + Math.floor((buttonsHeight - queueHeight) / 2);
   const slots: ScreenRect[] = [];
   for (let i = 0; withQueue && i < PRODUCTION_CONFIG.maxQueue; i++) {
     slots.push({
@@ -231,6 +280,7 @@ export function commandPanelLayout(
 
   return {
     panel,
+    tabs,
     buttons,
     slots,
     progressBar: {
@@ -243,7 +293,10 @@ export function commandPanelLayout(
 }
 
 /** What a click on the command panel means. */
-export type CommandPanelHit = { kind: 'button'; index: number } | { kind: 'queue'; index: number };
+export type CommandPanelHit =
+  | { kind: 'button'; index: number }
+  | { kind: 'queue'; index: number }
+  | { kind: 'tab'; index: number };
 
 /** The button or queue place at a screen position, if any. */
 export function commandPanelHit(
@@ -251,6 +304,8 @@ export function commandPanelHit(
   x: number,
   y: number,
 ): CommandPanelHit | undefined {
+  const tab = layout.tabs.findIndex((rect) => rectContains(rect, x, y));
+  if (tab >= 0) return { kind: 'tab', index: tab };
   const button = layout.buttons.findIndex((rect) => rectContains(rect, x, y));
   if (button >= 0) return { kind: 'button', index: button };
   const slot = layout.slots.findIndex((rect) => rectContains(rect, x, y));

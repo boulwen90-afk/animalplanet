@@ -1,4 +1,4 @@
-import type { BuildingType } from './buildings';
+import type { BuildMenu, BuildingType } from './buildings';
 import type { ResourceType } from './resources';
 import type { UnitType } from './units';
 
@@ -17,6 +17,11 @@ export const STRINGS = {
     fiskehytta: 'Fiskehytta',
     vakttorn: 'Vakttorn',
   } satisfies Record<BuildingType, string>,
+  /** The tabs of the build menu. */
+  menus: {
+    economy: 'Ekonomi',
+    defence: 'Försvar',
+  } satisfies Record<BuildMenu, string>,
   /** One short line about each building, shown in the build menu. */
   buildingInfo: {
     storide: 'Huvudbyggnad',

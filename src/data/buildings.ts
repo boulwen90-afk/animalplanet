@@ -40,7 +40,13 @@ export interface AttackDef {
   projectileSpeed: number;
 }
 
+/** The tabs of the build menu. Every building belongs to one. */
+export const BUILD_MENUS = ['economy', 'defence'] as const;
+export type BuildMenu = (typeof BUILD_MENUS)[number];
+
 export interface BuildingDef {
+  /** Which tab of the build menu the building is found under. */
+  menu: BuildMenu;
   /** Unit types this building can train. */
   trains: readonly UnitType[];
   /** Hit points. */
@@ -81,6 +87,7 @@ export interface BuildingDef {
 export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
   /** Main building. Each side starts with one; it cannot be built. */
   storide: {
+    menu: 'economy',
     trains: ['samlare'],
     hp: 1500,
     sight: 9,
@@ -95,6 +102,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
   },
   /** Storehouse: a drop-off point to place near resources. */
   visthus: {
+    menu: 'economy',
     trains: [],
     hp: 400,
     sight: 5,
@@ -108,6 +116,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
   },
   /** Barracks: trains soldiers. */
   krigshall: {
+    menu: 'defence',
     trains: ['ramkrigare'],
     hp: 700,
     sight: 6,
@@ -121,6 +130,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
   },
   /** Housing: the bears' den. It only gives room for more units. */
   ide: {
+    menu: 'economy',
     trains: [],
     hp: 300,
     sight: 4,
@@ -137,6 +147,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
    * drop-off, as with berries. It never runs out, but gives food more slowly.
    */
   odling: {
+    menu: 'economy',
     trains: [],
     hp: 200,
     sight: 3,
@@ -162,6 +173,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
    * gives food faster than a field but more slowly than berries.
    */
   fiskehytta: {
+    menu: 'economy',
     trains: [],
     hp: 350,
     sight: 5,
@@ -188,6 +200,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
    * range, and sees far. It stands on a single tile.
    */
   vakttorn: {
+    menu: 'defence',
     trains: [],
     hp: 500,
     sight: 8,

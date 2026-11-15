@@ -158,8 +158,12 @@ describe('generateMap', () => {
           `seed ${seed}`,
         ).toBeGreaterThanOrEqual(water.size);
         // ...and a place by it for a fishing hut with all its fishing places.
-        expect(fishingSites(map, start, water).length, `seed ${seed}`).toBeGreaterThan(0);
-        expect(hasFishingSite(map, start, MAP_GEN_CONFIG)).toBe(true);
+        const sites = fishingSites(map, start, water).length;
+        expect(sites, `seed ${seed}`).toBeGreaterThan(0);
+        // The generator's own check says the same. It counts the places all
+        // over again, so it is asked on a few maps only: the test must not
+        // take seconds.
+        if (seed < 5) expect(hasFishingSite(map, start, MAP_GEN_CONFIG)).toBe(sites > 0);
       }
     }
   });

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { BUILDING_DEFS } from '../../data/buildings';
+import { UNIT_DEFS } from '../../data/units';
 import { applyCommand } from '../../sim/commands';
 import { createBuilding, createUnit } from '../../sim/entities';
 import { openState } from '../../sim/testUtils';
@@ -118,12 +120,6 @@ describe('describeCommandPanel', () => {
           info: 'Lämna mat och trä',
         },
         {
-          action: { kind: 'build', building: 'krigshall' },
-          label: 'Bygg Krigshall',
-          cost: '150 trä',
-          info: 'Tränar Ramkrigare',
-        },
-        {
           action: { kind: 'build', building: 'ide' },
           label: 'Bygg Ide',
           cost: '30 trä',
@@ -142,12 +138,6 @@ describe('describeCommandPanel', () => {
           info: 'Vid vatten, 3 Samlare',
         },
         {
-          action: { kind: 'build', building: 'vakttorn' },
-          label: 'Bygg Vakttorn',
-          cost: '120 trä',
-          info: 'Skjuter på fiender',
-        },
-        {
           action: { kind: 'repair' },
           label: 'Laga',
           cost: '',
@@ -156,9 +146,48 @@ describe('describeCommandPanel', () => {
         },
       ],
       progress: 0,
+      // The menu opens on the first tab.
+      tabs: [
+        { menu: 'economy', label: 'Ekonomi', active: true },
+        { menu: 'defence', label: 'Försvar', active: false },
+      ],
     };
     expect(describeCommandPanel(state.entities, new Set([a.id]), 0)).toEqual(expected);
     expect(describeCommandPanel(state.entities, new Set([a.id, b.id]), 0)).toEqual(expected);
+  });
+
+  it('shows the buildings for defence under the second tab, with the repair button there too', () => {
+    const { state } = setup();
+    const worker = createUnit(state, 'samlare', 0, 1, 1);
+    const panel = describeCommandPanel(state.entities, new Set([worker.id]), 0, 'defence')!;
+    expect(panel.buttons.map((button) => [button.label, button.cost, button.info])).toEqual([
+      ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
+      ['Bygg Vakttorn', '120 trä', 'Skjuter på fiender'],
+      ['Laga', '', 'Inget är skadat'],
+    ]);
+    expect(panel.tabs).toEqual([
+      { menu: 'economy', label: 'Ekonomi', active: false },
+      { menu: 'defence', label: 'Försvar', active: true },
+    ]);
+  });
+
+  it('puts every building a Samlare can build under exactly one tab', () => {
+    const { state } = setup();
+    const worker = createUnit(state, 'samlare', 0, 1, 1);
+    const built = (['economy', 'defence'] as const).flatMap((menu) =>
+      describeCommandPanel(state.entities, new Set([worker.id]), 0, menu)!
+        .buttons.filter((button) => button.action.kind === 'build')
+        .map((button) => (button.action.kind === 'build' ? button.action.building : '')),
+    );
+    expect([...built].sort()).toEqual([...UNIT_DEFS.samlare.builds].sort());
+    for (const type of UNIT_DEFS.samlare.builds) {
+      expect(['economy', 'defence'], type).toContain(BUILDING_DEFS[type].menu);
+    }
+  });
+
+  it('has no tabs for a building that trains units', () => {
+    const { state, storide } = setup();
+    expect(describeCommandPanel(state.entities, new Set([storide.id]), 0)?.tabs).toBeUndefined();
   });
 
   it('ends the menu with a repair button that names the nearest damaged building and its cost', () => {
@@ -314,6 +343,50 @@ describe('commandPanelLayout on a phone', () => {
     expect(new Set(layout.buttons.map((rect) => rect.y)).size).toBe(1);
     expect(layout.panel.x).toBeGreaterThan(selection.x + selection.width);
     expect(layout.panel.x + layout.panel.width).toBeLessThanOrEqual(1280);
+  });
+
+  it('puts the tabs in a row above the buttons, each large enough to tap', () => {
+    for (const [width, height] of [
+      [390, 844],
+      [844, 390],
+      [1280, 720],
+    ] as const) {
+      const layout = commandPanelLayout(width, height, 5, false, 2);
+      expect(layout.tabs).toHaveLength(2);
+      const [first, second] = layout.tabs;
+      expect(second!.y).toBe(first!.y);
+      expect(second!.x).toBeGreaterThanOrEqual(first!.x + first!.width);
+      for (const tab of layout.tabs) {
+        expect(tab.height).toBeGreaterThanOrEqual(40);
+        expect(tab.width).toBeGreaterThanOrEqual(100);
+        expect(tab.x).toBeGreaterThanOrEqual(layout.panel.x);
+        expect(tab.x + tab.width).toBeLessThanOrEqual(layout.panel.x + layout.panel.width);
+        // Every button is below the tabs.
+        for (const button of layout.buttons) {
+          expect(button.y).toBeGreaterThanOrEqual(tab.y + tab.height);
+        }
+      }
+      expect(layout.panel.y).toBeGreaterThanOrEqual(0);
+      expect(layout.panel.y + layout.panel.height).toBeLessThanOrEqual(height);
+    }
+  });
+
+  it('has no row of tabs when the panel has none', () => {
+    const plain = commandPanelLayout(1280, 720, 4, false);
+    const tabbed = commandPanelLayout(1280, 720, 4, false, 2);
+    expect(plain.tabs).toEqual([]);
+    expect(tabbed.panel.height).toBeGreaterThan(plain.panel.height);
+  });
+
+  it('tells a press on a tab from a press on a button', () => {
+    const layout = commandPanelLayout(1280, 720, 4, false, 2);
+    const tab = layout.tabs[1]!;
+    const button = layout.buttons[0]!;
+    expect(commandPanelHit(layout, tab.x + 5, tab.y + 5)).toEqual({ kind: 'tab', index: 1 });
+    expect(commandPanelHit(layout, button.x + 5, button.y + 5)).toEqual({
+      kind: 'button',
+      index: 0,
+    });
   });
 
   it('keeps the panel on the screen however many rows it has', () => {

@@ -6,7 +6,7 @@ import { STRINGS } from '../../data/strings';
 import { UI_CONFIG } from '../../data/ui';
 import { SIM_CONFIG, TICK_MS } from '../../data/sim';
 import { consumeSteps, createStepClock } from '../../sim/clock';
-import { BUILDING_DEFS } from '../../data/buildings';
+import { BUILDING_DEFS, BUILD_MENUS, type BuildMenu } from '../../data/buildings';
 import { applyCommand, type CommandResult } from '../../sim/commands';
 import {
   buildingCentre,
@@ -117,6 +117,8 @@ export class GameScene extends Scene implements HudSource {
   /** What the mouse pointer looks like, and the pointer shown over a building that can be repaired. */
   private pointerShown: 'default' | 'repair' = 'default';
   private repairPointer = 'pointer';
+  /** The tab of the build menu that is showing. It stays as it is when the selection changes. */
+  private buildMenu: BuildMenu = BUILD_MENUS[0];
   /** How many times the screen has shaken because a building collapsed. */
   private shakeCount = 0;
   /** How many frames have been drawn. */
@@ -468,7 +470,13 @@ export class GameScene extends Scene implements HudSource {
       this.state.entities,
       this.selectionController.selection,
       LOCAL_PLAYER,
+      this.buildMenu,
     );
+  }
+
+  selectCommandTab(index: number): void {
+    const tab = this.getCommandPanelInfo()?.tabs?.[index];
+    if (tab) this.buildMenu = tab.menu;
   }
 
   activateButton(index: number): CommandResult {
@@ -554,8 +562,13 @@ export class GameScene extends Scene implements HudSource {
     return (
       command !== undefined &&
       rectContains(
-        commandPanelLayout(width, height, command.buttons.length, command.queue !== undefined)
-          .panel,
+        commandPanelLayout(
+          width,
+          height,
+          command.buttons.length,
+          command.queue !== undefined,
+          command.tabs?.length ?? 0,
+        ).panel,
         x,
         y,
       )
