@@ -212,6 +212,26 @@ def arrow(b: Builder, pal: Palette, p: dict, name: str) -> None:
         )
 
 
+def javelin(b: Builder, pal: Palette, p: dict, name: str) -> None:
+    """
+    A thrown javelin lying flat, pointing to the right on the screen, with
+    the middle of its shaft on the middle of the tile: the game turns the
+    picture the way it flies. Thicker and longer than an arrow, with a broad
+    head and a binding in the team colour instead of feathers.
+    """
+    foot = _at(p) + UP * 0.03
+    right = Vector((1.0, 1.0, 0.0)).normalized()
+    half = p.get("length", 0.8) / 2
+    r = p.get("radius", 0.03)
+    head = p.get("head", 0.2)
+    tail, tip = foot - right * half, foot + right * half
+    neck = tip - right * head
+    b.limb(f"{name}.shaft", tail, neck, r, r, pal["wood_cut"], 5)
+    b.limb(f"{name}.binding", neck - right * 0.12, neck - right * 0.02, r * 1.5, r * 1.5, pal["team"], 5)
+    b.limb(f"{name}.head", neck - right * 0.02, neck + right * head * 0.4, r * 1.2, r * 2.8, pal["iron_light"], 4)
+    b.limb(f"{name}.tip", neck + right * head * 0.4, tip, r * 2.8, 0.0, pal["iron_light"], 4)
+
+
 def burst(b: Builder, pal: Palette, p: dict, name: str) -> None:
     """Where something lands: pale splinters flying out from a point, each (across, up, length)."""
     centre = _at(p) + UP * p.get("height", 0.2)
@@ -224,6 +244,7 @@ def burst(b: Builder, pal: Palette, p: dict, name: str) -> None:
 
 PARTS = {
     "arrow": arrow,
+    "javelin": javelin,
     "burst": burst,
     "smoke": smoke,
     "flame": flame,

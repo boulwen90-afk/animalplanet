@@ -1,0 +1,195 @@
+# The bears' throwing range, the Kastbana: a tall lean-to against a wall of
+# logs, with racks of javelins under it, and in the yard in front of it
+# targets of coiled straw to throw at.
+# Lengths are in tiles; see lib/structures.py for the frame.
+name = "range"
+game_building = "kastbana"
+size_class = "small"
+footprint = 2
+
+[colors]
+straw = "#d6b65e"
+straw_dark = "#ad8c40"
+straw_light = "#f1e2b0"
+
+[[part]]
+type = "base"
+box = [-0.92, -0.92, 0.92, 0.92]
+height = 0.1
+corner = 0.12
+from = "construction_1"
+
+[[part]]
+type = "frame"
+box = [-0.8, 0.0, 0.8, 0.76]
+z = [0.1, 1.0]
+spacing = 0.8
+thickness = 0.08
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "logpile"
+at = [-0.45, -0.55]
+z = 0.1
+along = "x"
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "planks"
+at = [0.4, -0.6]
+z = 0.1
+along = "x"
+length = 0.5
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "scaffold"
+box = [-0.8, 0.0, 0.8, 0.76]
+height = 1.1
+out = 0.1
+from = "construction_1"
+until = "construction_2"
+
+# The wall at the back, which the roof leans on.
+[[part]]
+type = "walls"
+box = [-0.82, 0.58, 0.82, 0.8]
+z = [0.1, 1.44]
+log = 0.115
+ends = 0.04
+from = "construction_2"
+
+# The posts at the front and the beam across them.
+[[part]]
+type = "beam"
+start = [-0.78, -0.02, 0.1]
+end = [-0.78, -0.02, 1.02]
+radius = 0.055
+from = "construction_2"
+
+[[part]]
+type = "beam"
+start = [0.78, -0.02, 0.1]
+end = [0.78, -0.02, 1.02]
+radius = 0.055
+from = "construction_2"
+
+[[part]]
+type = "beam"
+start = [0.0, -0.02, 0.1]
+end = [0.0, -0.02, 1.02]
+radius = 0.05
+from = "construction_2"
+
+[[part]]
+type = "beam"
+start = [-0.86, -0.02, 1.02]
+end = [0.86, -0.02, 1.02]
+radius = 0.05
+from = "construction_2"
+
+# Bare rafters while the roof is not yet covered.
+[[part]]
+type = "beam"
+start = [-0.6, 0.72, 1.6]
+end = [-0.6, -0.1, 0.98]
+radius = 0.035
+material = "timber_new"
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "beam"
+start = [-0.2, 0.72, 1.6]
+end = [-0.2, -0.1, 0.98]
+radius = 0.035
+material = "timber_new"
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "beam"
+start = [0.2, 0.72, 1.6]
+end = [0.2, -0.1, 0.98]
+radius = 0.035
+material = "timber_new"
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "beam"
+start = [0.6, 0.72, 1.6]
+end = [0.6, -0.1, 0.98]
+radius = 0.035
+material = "timber_new"
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "shed_roof"
+box = [-0.86, -0.04, 0.86, 0.84]
+high = 1.68
+low = 0.98
+overhang = 0.1
+courses = 4
+thickness = 0.08
+cap = "team"
+
+# Under the roof: javelins on racks against the wall, and a barrel of them.
+[[part]]
+type = "rack"
+at = [-0.38, 0.4]
+z = 0.1
+face = "-y"
+width = 0.6
+height = 0.5
+
+[[part]]
+type = "rack"
+at = [0.36, 0.4]
+z = 0.1
+face = "-y"
+width = 0.5
+height = 0.46
+
+# In the yard: two straw targets at one end, seen from where the throwers
+# stand at the other, and a plank to mark the line they throw from.
+[[part]]
+type = "target"
+at = [-0.62, -0.66]
+z = 0.1
+face = "+x"
+radius = 0.21
+height = 0.42
+javelin = true
+
+[[part]]
+type = "target"
+at = [-0.62, -0.26]
+z = 0.1
+face = "+x"
+radius = 0.21
+height = 0.42
+
+[[part]]
+type = "slab"
+box = [0.6, -0.84, 0.68, -0.14]
+z = [0.1, 0.13]
+material = "timber_new"
+
+[[part]]
+type = "barrel"
+at = [0.78, -0.3]
+z = 0.1
+radius = 0.1
+height = 0.24
+
+[[part]]
+type = "pennant"
+at = [0.56, 0.78]
+z = 1.4
+height = 0.62
+face = "-y"

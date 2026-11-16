@@ -4,7 +4,10 @@ import { UI_CONFIG } from '../../data/ui';
 import sceneryAtlas from '../../../assets/scenery/scenery.json';
 import towerAtlas from '../../../assets/buildings/bear_tower/bear_tower.json';
 import { tileToWorld } from '../../sim/map/iso';
-import { MUZZLE_HEIGHT } from '../views/visuals';
+import { createBuilding, createUnit } from '../../sim/entities';
+import { openState } from '../../sim/testUtils';
+import { PROJECTILE_FRAMES, landHeight } from '../views/ProjectileView';
+import { BUILDING_VISUALS, CHARACTER_VISUALS, MUZZLE_HEIGHT, THROW_HEIGHT } from '../views/visuals';
 import {
   flightHeight,
   flightProgress,
@@ -83,6 +86,30 @@ describe('projectilePose', () => {
   });
 });
 
+describe('where something lands', () => {
+  it('is the chest of a unit, and half-way up the wall of a building', () => {
+    const state = openState(12, 12);
+    const unit = createUnit(state, 'samlare', 0, 1, 1);
+    const hall = createBuilding(state, 'krigshall', 0, 5, 5);
+    expect(landHeight(unit)).toBeUndefined();
+    expect(landHeight(undefined)).toBeUndefined();
+    expect(landHeight(hall)).toBe(BUILDING_VISUALS.krigshall.wallHeight / 2);
+    expect(landHeight(hall)!).toBeGreaterThan(projectile.targetHeightPx);
+  });
+
+  it('a javelin thrown at a building comes down on its wall, not on the ground at its middle', () => {
+    const start = { x: 2, y: 5 };
+    const wall = { x: 9, y: 5 };
+    const land = 31;
+    const pose = projectilePose(start, wall, wall, 34, TILE, land);
+    const ground = tileToWorld(wall.x, wall.y, TILE);
+    expect(pose.x).toBeCloseTo(ground.x);
+    expect(pose.y).toBeCloseTo(ground.y - land);
+    expect(flightHeight(1, 7, 34, land)).toBeCloseTo(land);
+    expect(flightHeight(0, 7, 34, land)).toBeCloseTo(34);
+  });
+});
+
 describe('hitBurstAt', () => {
   it('shows for 220 ms, growing and fading, and is then over', () => {
     expect(projectile.hitMs).toBe(220);
@@ -117,6 +144,22 @@ describe('the pictures', () => {
     expect(frames.hit).toBeDefined();
     expect(frames.arrow!.frame.w).toBeGreaterThan(frames.arrow!.frame.h * 2);
     expect(frames.hit!.frame.h).toBeLessThanOrEqual(32);
+  });
+
+  it('has a picture for each kind of projectile, and the javelin is longer and thicker than the arrow', () => {
+    expect(PROJECTILE_FRAMES).toEqual({ arrow: 'arrow', javelin: 'javelin' });
+    for (const frame of Object.values(PROJECTILE_FRAMES))
+      expect(frames[frame], frame).toBeDefined();
+    expect(frames.javelin!.frame.w).toBeGreaterThan(frames.arrow!.frame.w);
+    expect(frames.javelin!.frame.h).toBeGreaterThanOrEqual(frames.arrow!.frame.h);
+    expect(frames.javelin!.frame.w).toBeGreaterThan(frames.javelin!.frame.h * 2);
+  });
+
+  it('lets a javelin go from the hand of the thrower: about the height of its head', () => {
+    const height = CHARACTER_VISUALS.ramkastare!.height;
+    expect(THROW_HEIGHT.ramkastare).toBeDefined();
+    expect(THROW_HEIGHT.ramkastare!).toBeGreaterThan(height * 0.6);
+    expect(THROW_HEIGHT.ramkastare!).toBeLessThanOrEqual(height);
   });
 
   it('lets the arrow go from the platform of the tower, below its roof', () => {

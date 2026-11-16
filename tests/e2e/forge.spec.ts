@@ -123,7 +123,7 @@ test.describe('the smithy', () => {
     await selectForge(page, forge);
     const panel = await commandPanel(page);
     expect(panel.buttons.map((b) => [b.label, b.cost, b.info])).toEqual([
-      ['Vapen I', '100 mat, 50 trä', '+2 skada, krigare'],
+      ['Vapen I', '100 mat, 50 trä', '+2 skada, soldater'],
       ['Rustning I', '75 mat, 75 trä', '+1 rustning, alla'],
       ['Verktyg I', '100 mat, 50 trä', '+20 % fart, Samlare'],
     ]);
@@ -187,7 +187,7 @@ test.describe('the smithy', () => {
     expect([next.label, next.cost, next.info]).toEqual([
       'Vapen II',
       '175 mat, 100 trä',
-      '+2 skada, krigare',
+      '+2 skada, soldater',
     ]);
 
     // The upgrade shows on the unit: a Ramkrigare strikes for 12 now.

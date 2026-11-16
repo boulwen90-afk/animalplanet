@@ -7,7 +7,7 @@ import { UNIT_DEFS } from '../../data/units';
 import { buildingCentre, hasSurrendered } from '../../sim/entities';
 import { tileToWorld, type Point, type TileSize } from '../../sim/map/iso';
 import type { Building, Entity, GameState, Unit } from '../../sim/state';
-import { strikeTicks } from '../../sim/systems/combat';
+import { strikeTicks, throwTicks } from '../../sim/systems/combat';
 import { buildFraction } from '../../sim/systems/construction';
 import { researchFraction } from '../../sim/systems/research';
 import { ticksPerUnit, workFocus } from '../../sim/systems/gathering';
@@ -467,11 +467,13 @@ export class EntityView {
         drawing.direction = facingOf(unit.x - unit.prevX, unit.y - unit.prevY) ?? drawing.direction;
         // By distance, not by time, so that the feet do not slide on the ground.
         frame = travelFrame(info, drawing.travelled, unit.id * 3);
-      } else if (activity === 'attack' && task.kind === 'attack') {
+      } else if ((activity === 'attack' || activity === 'throw') && task.kind === 'attack') {
         const target = byId.get(task.targetId);
         face(target && (target.kind === 'unit' ? target : buildingCentre(target)));
         const cooldown = Math.max(0, unit.attackCooldown - alpha);
-        frame = attackFrame(info, cooldown, strikeTicks(unit));
+        // The loop starts where the blow lands or the javelin leaves the hand.
+        const between = activity === 'throw' ? throwTicks(unit) : strikeTicks(unit);
+        frame = attackFrame(info, cooldown, between);
       } else if (task.kind === 'gather' && task.phase === 'gathering') {
         // One swing or one handful for each unit of the resource: it is taken
         // as the loop starts. Slow work, as on a field, takes several strokes.

@@ -1,0 +1,65 @@
+# The javelin thrower: a cloth tunic under a leather harness, a leather cap,
+# a quiver of javelins across the back and one in the hand. No shield.
+# It fights from a distance and is weak at close quarters.
+# In the game: "ramkastare" for the bears.
+name = "thrower"
+game_unit = "ramkastare"
+size_class = "warrior"   # which height the size standard gives it; see game.toml
+
+# How fast it moves in the game, in tiles a second: the same number as in
+# src/data/units.ts (a test compares them). The gait is fitted to it.
+[movement]
+speed = 2.0
+
+# The animations this unit is drawn with, from the shared library in animations/.
+# "throw" is its attack from a distance, "jab" its attack at close quarters.
+[animations]
+list = ["idle", "walk", "throw", "jab", "defeat"]
+
+[armor]
+tunic = true            # team colour: over the body, with a skirt and short sleeves
+skirt_length = 0.24
+sleeve_length = 0.45    # how far down the upper arm the sleeves reach, 0..1
+harness = true          # leather straps crossing the chest, with a brass disc
+wraps = true            # leather around the forearms and the shins
+shoulder_guard = "left" # one leather plate, on the shoulder away from the throwing arm
+belt = true
+cap = true              # leather, with a band in the team colour; the ears stay free
+quiver = true           # leather, across the back, with javelins in it
+quiver_radius = 0.15
+quiver_spares = 3
+
+[weapon]
+type = "javelin"        # a short, heavy throwing spear with an iron head
+hand = "right"
+length = 1.9            # from the butt to the tip; it is held a little behind the middle
+head = 0.42
+width = 0.11
+direction = [0.05, -0.08, 1.0]    # held upright at the side, like a staff
+flat_axis = [1.0, 0.0, 0.0]
+
+# Frames of an animation where the hand is empty: in "throw", from when the
+# javelin has left the hand until the next one is drawn from the quiver.
+[weapon.hidden_frames]
+throw = [0, 1, 2, 3, 4]
+
+[colors]
+steel = "#8a94a0"
+steel_dark = "#49515c"
+blade = "#c6ced8"
+brass = "#c2933a"
+leather = "#4a2e1a"
+wood = "#8a6a3c"
+
+# The static pose: which way each part of a limb points from its joint.
+# The figure faces -Y; its right side is -X.
+[pose]
+head_pitch_deg = 8.0
+upper_arm_r = [-0.45, 0.0, -0.9]
+forearm_r = [-0.10, -0.75, 0.5]
+upper_arm_l = [0.50, -0.15, -0.90]
+forearm_l = [0.05, -0.60, -0.75]
+thigh_l = [0.26, -0.26, -1.0]     # the left foot leads, as when it throws
+shin_l = [0.02, 0.18, -1.0]
+thigh_r = [-0.28, 0.16, -1.0]
+shin_r = [-0.03, 0.12, -1.0]

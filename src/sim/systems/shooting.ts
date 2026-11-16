@@ -3,8 +3,9 @@ import { SIM_CONFIG } from '../../data/sim';
 import { buildingCentre, hasSurrendered, isBuilding, isUnit } from '../entities';
 import { tileDistance } from '../map/grid';
 import { buildPathGrid } from '../pathfinding/passability';
-import type { Building, GameState, Projectile, Unit } from '../state';
-import { isAttackable } from './combat';
+import type { Building, Entity, GameState, Projectile, Unit } from '../state';
+import { collapse, isAttackable, provoke } from './combat';
+import { launchProjectile } from './projectiles';
 import { unitArmor } from '../upgrades';
 import { surrender } from './surrender';
 
@@ -15,11 +16,13 @@ export function shotTicks(building: Building): number {
 }
 
 /**
- * Life a shot with the given damage takes from a unit: damage minus the
- * unit's armour, with its side's upgrades, and at least 1.
+ * Life a shot or a throw with the given damage takes from what it lands on:
+ * damage minus the target's armour, a unit's with its side's upgrades, and
+ * at least 1.
  */
-export function shotDamage(state: GameState, damage: number, target: Unit): number {
-  return Math.max(1, damage - unitArmor(state, target));
+export function shotDamage(state: GameState, damage: number, target: Entity): number {
+  const armor = isUnit(target) ? unitArmor(state, target) : BUILDING_DEFS[target.type].armor;
+  return Math.max(1, damage - armor);
 }
 
 /**
@@ -60,49 +63,36 @@ export function shootFromBuildings(state: GameState): void {
     const target = shootingTarget(state, building);
     if (!target) continue;
 
-    const centre = buildingCentre(building);
-    const projectile: Projectile = {
-      id: state.nextEntityId++,
-      owner: building.owner,
-      sourceId: building.id,
-      targetId: target.id,
-      startX: centre.x,
-      startY: centre.y,
-      x: centre.x,
-      y: centre.y,
-      prevX: centre.x,
-      prevY: centre.y,
-      speed: attack.projectileSpeed / SIM_CONFIG.ticksPerSecond,
+    launchProjectile(state, building.owner, building.id, buildingCentre(building), target.id, {
+      kind: attack.projectile,
       damage: attack.damage,
-    };
-    state.projectiles.push(projectile);
-    building.attackCooldown = shotTicks(building);
-    state.events.push({
-      type: 'shot',
-      sourceId: building.id,
-      targetId: target.id,
-      projectileId: projectile.id,
+      speed: attack.projectileSpeed,
     });
+    building.attackCooldown = shotTicks(building);
   }
 }
 
 /**
  * Runs one simulation step of everything in the air. A projectile flies
- * straight towards where its target is now, and lands when it gets there:
- * the target loses life, and surrenders if it has none left. A projectile
- * whose target has left the game or surrendered meanwhile is taken away.
+ * straight towards where its target is now, the middle of a building, and
+ * lands when it gets there: the target loses life. A unit with none left
+ * surrenders, and a building with none left collapses. A unit that is hit
+ * while it stands idle turns on the unit that threw. A projectile whose
+ * target has left the game or surrendered meanwhile is taken away.
  */
 export function flyProjectiles(state: GameState): void {
   if (state.projectiles.length === 0) return;
   const flying: Projectile[] = [];
   for (const projectile of state.projectiles) {
+    if (state.winner !== null) break;
     const target = state.entities.find((entity) => entity.id === projectile.targetId);
-    if (!target || !isUnit(target) || hasSurrendered(target)) continue;
+    if (!target || (isUnit(target) && hasSurrendered(target))) continue;
 
     projectile.prevX = projectile.x;
     projectile.prevY = projectile.y;
-    const dx = target.x - projectile.x;
-    const dy = target.y - projectile.y;
+    const aim = isUnit(target) ? { x: target.x, y: target.y } : buildingCentre(target);
+    const dx = aim.x - projectile.x;
+    const dy = aim.y - projectile.y;
     const distance = Math.hypot(dx, dy);
     if (distance > projectile.speed) {
       projectile.x += (dx / distance) * projectile.speed;
@@ -113,14 +103,15 @@ export function flyProjectiles(state: GameState): void {
 
     const damage = shotDamage(state, projectile.damage, target);
     target.hp -= damage;
-    state.events.push({
-      type: 'projectileHit',
-      targetId: target.id,
-      x: target.x,
-      y: target.y,
-      damage,
-    });
-    if (target.hp <= 0) surrender(state, buildPathGrid(state), target);
+    state.events.push({ type: 'projectileHit', targetId: target.id, x: aim.x, y: aim.y, damage });
+    if (isBuilding(target)) {
+      state.events.push({ type: 'buildingAttacked', buildingId: target.id, owner: target.owner });
+      if (target.hp <= 0) collapse(state, target);
+    } else if (target.hp <= 0) {
+      surrender(state, buildPathGrid(state), target);
+    } else {
+      provoke(state, target, projectile.sourceId);
+    }
   }
   state.projectiles = flying;
 }

@@ -37,10 +37,10 @@ export interface UpgradeDef {
 }
 
 export const UPGRADE_DEFS: Record<UpgradeType, UpgradeDef> = {
-  /** Sharper blades: soldiers strike harder. */
+  /** Sharper blades and points: soldiers strike and throw harder. */
   weapons: {
     stat: 'damage',
-    units: ['ramkrigare'],
+    units: ['ramkrigare', 'ramkastare'],
     levels: [
       { cost: { food: 100, wood: 50 }, time: 40, bonus: 2 },
       { cost: { food: 175, wood: 100 }, time: 60, bonus: 2 },
@@ -49,7 +49,7 @@ export const UPGRADE_DEFS: Record<UpgradeType, UpgradeDef> = {
   /** Better armour: every unit takes less from each strike. */
   armor: {
     stat: 'armor',
-    units: ['samlare', 'ramkrigare'],
+    units: ['samlare', 'ramkrigare', 'ramkastare'],
     levels: [
       { cost: { food: 75, wood: 75 }, time: 40, bonus: 1 },
       { cost: { food: 150, wood: 150 }, time: 60, bonus: 1 },

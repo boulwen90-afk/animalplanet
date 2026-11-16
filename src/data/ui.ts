@@ -65,12 +65,17 @@ export const UI_CONFIG = {
     /** How far above its fire a column of smoke starts, in pixels. */
     smokeAboveFire: 12,
   },
-  /** What a building shoots, as it is drawn. */
+  /** What a building shoots and what a unit throws, as it is drawn. */
   projectile: {
     /** How high above the straight line it flies at the top of its arc, in pixels for each tile it has to go. */
     arcPxPerTile: 4,
     /** How far above the ground it lands on its target, in pixels: about the chest of a unit. */
     targetHeightPx: 14,
+    /**
+     * How far up a building it lands, as a share of the height a click
+     * still hits the building at (BUILDING_VISUALS): about the middle of its wall.
+     */
+    buildingHitShare: 0.5,
     /** How long the burst where it lands shows, in milliseconds, and how it grows meanwhile; 1 is the size of its picture. */
     hitMs: 220,
     hitScale: { start: 0.7, end: 1.6 },

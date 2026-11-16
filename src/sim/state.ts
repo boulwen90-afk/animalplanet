@@ -1,5 +1,6 @@
 import type { BuildingType } from '../data/buildings';
 import type { LoadKind, ResourceType } from '../data/resources';
+import type { ProjectileKind } from '../data/types';
 import type { UnitType } from '../data/units';
 import type { UpgradeType } from '../data/upgrades';
 import type { GameMap } from './map/grid';
@@ -63,7 +64,11 @@ export interface RepairTask {
   waiting: boolean;
 }
 
-/** Fighting a unit or building: walking up to it and striking until it is defeated. */
+/**
+ * Fighting a unit or building: walking up to it and striking until it is
+ * defeated. A unit that fights from a distance walks until it is within its
+ * range, and throws from there.
+ */
 export interface AttackTask {
   kind: 'attack';
   targetId: number;
@@ -71,6 +76,12 @@ export interface AttackTask {
   repathTicks: number;
   /** True while every place by the target is taken and the unit waits nearby for one. */
   waiting?: boolean;
+  /**
+   * For a unit that fights from a distance: true if its latest attack was a
+   * throw, false if it was a strike at close quarters. The display shows
+   * the one or the other.
+   */
+  threw?: boolean;
 }
 
 /**
@@ -95,9 +106,9 @@ export type SimEvent =
   | { type: 'repairPaused'; buildingId: number; owner: PlayerId }
   /** A side has worked out a level of an upgrade. */
   | { type: 'upgradeDone'; owner: PlayerId; upgrade: UpgradeType; level: number }
-  /** A building has shot at a unit. */
+  /** A building has shot at a unit, or a unit has thrown at a unit or a building. */
   | { type: 'shot'; sourceId: number; targetId: number; projectileId: number }
-  /** What a building shot has landed on its target, at a place in tiles. */
+  /** What was shot or thrown has landed on its target, at a place in tiles. */
   | { type: 'projectileHit'; targetId: number; x: number; y: number; damage: number };
 
 /** How much a side knows about a tile. See GDD section 9. */
@@ -155,7 +166,7 @@ export interface Unit {
    * of the latest unit of the resource the unit got. Null with no load.
    */
   carryLoad: LoadKind | null;
-  /** Simulation steps until the unit may strike again. */
+  /** Simulation steps until the unit may strike or throw again. */
   attackCooldown: number;
 }
 
@@ -193,14 +204,17 @@ export interface Building {
 export type Entity = Unit | Building;
 
 /**
- * Something shot through the air at a unit. It follows its target and
- * lands on it; if the target is gone before that, it is taken away.
+ * Something shot or thrown through the air: at a unit by a tower, or at a
+ * unit or a building by a unit that fights from a distance. It follows its
+ * target and lands on it; if the target is gone before that, it is taken away.
  */
 export interface Projectile {
   id: number;
   /** The side that shot it. */
   owner: PlayerId;
-  /** The building that shot it, and the unit it was shot at. */
+  /** What it is: the display has a picture for each kind. */
+  kind: ProjectileKind;
+  /** The building or unit that shot it, and the unit or building it was shot at. */
   sourceId: number;
   targetId: number;
   /** Where it was shot from, in continuous tile coordinates. */

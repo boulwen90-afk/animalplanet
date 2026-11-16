@@ -1,0 +1,126 @@
+{
+ "frames": {
+  "construction_1": {
+   "frame": {
+    "x": 266,
+    "y": 2,
+    "w": 130,
+    "h": 101
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 83,
+    "w": 130,
+    "h": 101
+   },
+   "sourceSize": {
+    "w": 256,
+    "h": 256
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5921
+   }
+  },
+  "construction_2": {
+   "frame": {
+    "x": 134,
+    "y": 2,
+    "w": 130,
+    "h": 119
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 65,
+    "w": 130,
+    "h": 119
+   },
+   "sourceSize": {
+    "w": 256,
+    "h": 256
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5921
+   }
+  },
+  "complete": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 130,
+    "h": 135
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 49,
+    "w": 130,
+    "h": 135
+   },
+   "sourceSize": {
+    "w": 256,
+    "h": 256
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5921
+   }
+  },
+  "shadow": {
+   "frame": {
+    "x": 2,
+    "y": 139,
+    "w": 165,
+    "h": 92
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 64,
+    "y": 100,
+    "w": 165,
+    "h": 92
+   },
+   "sourceSize": {
+    "w": 256,
+    "h": 256
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5921
+   }
+  }
+ },
+ "meta": {
+  "app": "animalplanet tools/blender",
+  "image": "bear_range.png",
+  "mask": "bear_range_mask.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 512,
+   "h": 233
+  },
+  "scale": 1,
+  "pixelsPerUnit": 24.0,
+  "building": {
+   "gameBuilding": "kastbana",
+   "sizeClass": "small",
+   "footprint": 2,
+   "roofHeight": 73.3,
+   "minRoofHeight": 64.0,
+   "height": 79.2
+  },
+  "neutral": "#bcbcbc",
+  "stages": [
+   "construction_1",
+   "construction_2",
+   "complete"
+  ]
+ }
+}

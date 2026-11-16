@@ -2,14 +2,20 @@
 export const AI_CONFIG = {
   /** How often the opponent makes decisions. */
   decisionInterval: 1,
-  /** It trains workers until it has this many. */
-  targetWorkers: 8,
   /**
-   * The share of its workers it keeps on wood; the rest gather food. With 8
-   * workers this puts 3 on wood, which matches what its soldiers cost. At 0.5
-   * it had 1200 unused wood after ten minutes and no food.
+   * It trains workers until it has this many. It was 8 until there were
+   * javelin throwers: with their price in wood on top of a throwing range,
+   * a tower and a smithy, 8 workers left one side or the other without one
+   * of those buildings in most games.
    */
-  woodShare: 0.375,
+  targetWorkers: 10,
+  /**
+   * The share of its workers it keeps on wood; the rest gather food. With
+   * 10 workers this puts 4 on wood, which matches what its soldiers of both
+   * kinds and its buildings cost. With 4 of 9 on wood it had 400 unused wood
+   * after twelve minutes and no food.
+   */
+  woodShare: 0.4,
   /**
    * It builds more housing when it has this little room left, counting the
    * units in its queues, so that training does not have to wait for a house.
@@ -60,7 +66,16 @@ export const AI_CONFIG = {
     order: ['weapons', 'armor', 'gathering'],
     saveAbove: 6,
   },
-  /** It stops training soldiers at this many. */
+  /**
+   * Javelin throwers. Once it has a finished barracks and a storehouse it
+   * builds a throwing range, one, as soon as it can pay for it. There it trains a
+   * thrower for every `soldiersEach` soldiers that fight hand to hand, so
+   * that a wave has somebody to stand in front of its throwers. A thrower
+   * in a wave turns on a watchtower when it comes within `towerMargin`
+   * tiles more than its own range of it: before the tower can reach it.
+   */
+  throwers: { soldiersEach: 2, towerMargin: 2 },
+  /** It stops training soldiers at this many, of both kinds together. */
   maxSoldiers: 20,
   /** Soldiers at home go for enemy units that come this close to the main building, in tiles. */
   defendRadius: 12,

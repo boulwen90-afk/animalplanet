@@ -32,6 +32,8 @@ const BUILDINGS: { name: string; building: BuildingType; sizeClass: string; tile
     { name: 'bear_den', building: 'ide', sizeClass: 'small', tileWidths: 1.0 },
     { name: 'bear_fishery', building: 'fiskehytta', sizeClass: 'small', tileWidths: 1.0 },
     { name: 'bear_storage', building: 'visthus', sizeClass: 'small', tileWidths: 1.0 },
+    { name: 'bear_forge', building: 'smedja', sizeClass: 'small', tileWidths: 1.0 },
+    { name: 'bear_range', building: 'kastbana', sizeClass: 'small', tileWidths: 1.0 },
     { name: 'bear_barracks', building: 'krigshall', sizeClass: 'large', tileWidths: 1.4 },
     { name: 'bear_main', building: 'storide', sizeClass: 'main', tileWidths: 1.8 },
   ];

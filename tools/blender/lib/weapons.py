@@ -103,6 +103,22 @@ def build_weapon(b: Builder, weapon: dict, hand: Vector, pal: Palette, group: st
                 pal["steel"],
                 turn,
             )
+    elif kind == "javelin":
+        # A short, heavy throwing spear, held at the middle of its shaft: a
+        # pine shaft, a leaf-shaped iron head on a socket, and a binding in
+        # the team colour under the head.
+        head = weapon.get("head", 0.32)
+        width = weapon.get("width", 0.09)
+        butt = hand - d * (length * 0.45)
+        neck = hand + d * (length * 0.55 - head)
+        tip = hand + d * (length * 0.55)
+        b.limb(f"{group}.shaft", butt, neck, 0.036, 0.034, pal["wood"], 6)
+        b.limb(f"{group}.grip", hand - d * 0.12, hand + d * 0.12, 0.045, 0.045, pal["leather"], 6)
+        b.limb(f"{group}.binding", neck - d * 0.16, neck - d * 0.04, 0.05, 0.05, pal["team"], 6)
+        b.limb(f"{group}.socket", neck - d * 0.04, neck + d * 0.05, 0.05, 0.04, pal["steel_dark"], 6)
+        belly = neck + d * (head * 0.38)
+        b.limb(f"{group}.head", neck + d * 0.03, belly, width * 0.45, width, pal["blade"], 4, 0.3, wide)
+        b.limb(f"{group}.head_tip", belly, tip, width, 0.0, pal["blade"], 4, 0.3, wide)
     else:
         raise ValueError(f"Unknown weapon type {kind!r}")
 

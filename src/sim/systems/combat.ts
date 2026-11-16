@@ -1,7 +1,7 @@
 import { BUILDING_DEFS } from '../../data/buildings';
 import { START_CONFIG } from '../../data/setup';
 import { SIM_CONFIG } from '../../data/sim';
-import { COMBAT_CONFIG, UNIT_DEFS } from '../../data/units';
+import { COMBAT_CONFIG, UNIT_DEFS, type RangedDef } from '../../data/units';
 import type { CommandResult } from '../commands';
 import {
   buildingTiles,
@@ -10,20 +10,52 @@ import {
   isUnit,
   removeEntity,
   tileGapToBuilding,
+  unitDestination,
   unitTile,
 } from '../entities';
 import { tileDistance } from '../map/grid';
+import type { Point } from '../map/iso';
 import { approachPath } from '../pathfinding/approach';
-import type { PathGrid } from '../pathfinding/astar';
+import { findPath, reachableTiles, type PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
 import type { Building, Entity, GameState, PlayerId, Unit } from '../state';
-import { unitArmor, unitDamage } from '../upgrades';
+import { throwDamage, unitArmor, unitDamage } from '../upgrades';
+import { launchProjectile } from './projectiles';
 import { surrender } from './surrender';
 import { isEntityVisibleTo } from './visibility';
 
 /** Simulation steps between two strikes by a unit. */
 export function strikeTicks(unit: Unit): number {
   return Math.max(1, Math.round(UNIT_DEFS[unit.type].attackCooldown * SIM_CONFIG.ticksPerSecond));
+}
+
+/** Simulation steps between two throws by a unit that fights from a distance; 0 for one that does not. */
+export function throwTicks(unit: Unit): number {
+  const ranged = UNIT_DEFS[unit.type].ranged;
+  return ranged ? Math.max(1, Math.round(ranged.cooldown * SIM_CONFIG.ticksPerSecond)) : 0;
+}
+
+/**
+ * How far it is from a unit to something, in tiles, as a throw is measured:
+ * to the middle of a unit, and to the nearest edge of a building.
+ */
+export function throwDistance(from: Point, target: Entity): number {
+  if (isUnit(target)) return tileDistance(from.x, from.y, target.x, target.y);
+  const size = BUILDING_DEFS[target.type].size;
+  const x = Math.min(Math.max(from.x, target.x), target.x + size);
+  const y = Math.min(Math.max(from.y, target.y), target.y + size);
+  return tileDistance(from.x, from.y, x, y);
+}
+
+/**
+ * How a unit attacks a target from where it stands. A unit that fights from
+ * a distance throws at everything except an enemy unit on a tile next to
+ * its own: it has no room to throw at that, and strikes it. Every other
+ * unit strikes.
+ */
+export function attackMode(unit: Unit, target: Entity): 'strike' | 'throw' {
+  if (!UNIT_DEFS[unit.type].ranged) return 'strike';
+  return isUnit(target) && isInReach(unit, target) ? 'strike' : 'throw';
 }
 
 /**
@@ -95,6 +127,20 @@ export function orderAttack(
 }
 
 /**
+ * Makes a unit that has been hit from a distance turn on the unit that
+ * threw, if it stands idle, fights on its own and can see the thrower.
+ * Without this a soldier would stand and be thrown at from just outside
+ * the radius at which it notices enemies.
+ */
+export function provoke(state: GameState, victim: Unit, attackerId: number): void {
+  if (victim.task.kind !== 'idle' || victim.path.length > 0) return;
+  if (UNIT_DEFS[victim.type].aggroRadius <= 0) return;
+  const attacker = state.entities.find((entity) => entity.id === attackerId);
+  if (!attacker || !isUnit(attacker) || !isAttackable(state, attacker, victim.owner)) return;
+  victim.task = { kind: 'attack', targetId: attacker.id, repathTicks: 0 };
+}
+
+/**
  * Lets an idle unit that notices enemies pick the nearest enemy unit within
  * its aggro radius as its target. Units with no aggro radius only fight on order.
  */
@@ -143,7 +189,10 @@ function standsOnTakenTile(state: GameState, unit: Unit): boolean {
   return false;
 }
 
-/** Strikes the target if it is within reach, and otherwise walks towards it. */
+/**
+ * Strikes the target if it is within reach, and otherwise walks towards it.
+ * A unit that fights from a distance throws instead, from within its range.
+ */
 function pursueOrStrike(state: GameState, unit: Unit, grids: GridCache): void {
   const task = unit.task;
   if (task.kind !== 'attack') return;
@@ -151,6 +200,12 @@ function pursueOrStrike(state: GameState, unit: Unit, grids: GridCache): void {
   if (!target || !isAttackable(state, target, unit.owner)) {
     unit.task = { kind: 'idle' };
     unit.path = [];
+    return;
+  }
+
+  const ranged = UNIT_DEFS[unit.type].ranged;
+  if (ranged && attackMode(unit, target) === 'throw') {
+    pursueOrThrow(state, unit, target, ranged, grids);
     return;
   }
 
@@ -182,10 +237,112 @@ function pursueOrStrike(state: GameState, unit: Unit, grids: GridCache): void {
   );
 }
 
+/**
+ * Throws at the target if it is within range, and otherwise walks to where
+ * it is. The unit stops as soon as it is within range, as far from the
+ * target as it can be; but not on a tile where somebody else already stands.
+ */
+function pursueOrThrow(
+  state: GameState,
+  unit: Unit,
+  target: Entity,
+  ranged: RangedDef,
+  grids: GridCache,
+): void {
+  const task = unit.task;
+  if (task.kind !== 'attack') return;
+  if (throwDistance(unit, target) <= ranged.range && !standsOnTakenTile(state, unit)) {
+    unit.path = [];
+    if (unit.attackCooldown > 0) return;
+    launchProjectile(state, unit.owner, unit.id, { x: unit.x, y: unit.y }, target.id, {
+      kind: ranged.projectile,
+      damage: throwDamage(state, unit),
+      speed: ranged.projectileSpeed,
+    });
+    unit.attackCooldown = throwTicks(unit);
+    task.threw = true;
+    return;
+  }
+
+  task.repathTicks--;
+  if ((unit.path.length > 0 || task.waiting) && task.repathTicks > 0) return;
+  const path = throwingPath(state, grids.get(), unit, target, ranged.range);
+  if (!path) {
+    // There is nowhere it can throw from.
+    unit.task = { kind: 'idle' };
+    unit.path = [];
+    return;
+  }
+  unit.path = path;
+  task.waiting = path.length === 0;
+  task.repathTicks = Math.max(
+    1,
+    Math.round(COMBAT_CONFIG.repathInterval * SIM_CONFIG.ticksPerSecond),
+  );
+}
+
+/**
+ * A unit that stands anywhere on a tile is no further than this from the
+ * middle of the tile: half the diagonal. A tile whose middle is this much
+ * inside a range is within the range all over.
+ */
+const TILE_REACH = Math.SQRT1_2;
+
+/**
+ * A path for a unit to a tile it can throw at the target from: of the tiles
+ * that are within `range` of the target all over, that the unit can walk
+ * to, and that no other unit stands on or is heading for, the one closest
+ * to the unit. Coming from outside the range that is a tile at the rim of
+ * it, so a group spreads out along the rim instead of crowding in.
+ *
+ * Returns an empty path if the unit already stands on that tile, and
+ * undefined if there is no such tile.
+ */
+function throwingPath(
+  state: GameState,
+  grid: PathGrid,
+  unit: Unit,
+  target: Entity,
+  range: number,
+): Point[] | undefined {
+  const here = unitTile(unit);
+  const reach = reachableTiles(grid, here);
+  const taken = new Set<number>();
+  for (const other of state.entities) {
+    if (!isUnit(other) || other === unit) continue;
+    const tile = unitDestination(other);
+    taken.add(tile.y * grid.width + tile.x);
+  }
+
+  const size = isBuilding(target) ? BUILDING_DEFS[target.type].size : 0;
+  const far = Math.ceil(range);
+  const fromX = Math.max(0, Math.floor(target.x) - far);
+  const fromY = Math.max(0, Math.floor(target.y) - far);
+  const toX = Math.min(grid.width - 1, Math.floor(target.x) + size + far);
+  const toY = Math.min(grid.height - 1, Math.floor(target.y) + size + far);
+  let best: Point | undefined;
+  let bestDistance = Infinity;
+  for (let y = fromY; y <= toY; y++) {
+    for (let x = fromX; x <= toX; x++) {
+      const index = y * grid.width + x;
+      if (!reach[index] || taken.has(index)) continue;
+      const middle = { x: x + 0.5, y: y + 0.5 };
+      if (throwDistance(middle, target) > range - TILE_REACH) continue;
+      const distance = tileDistance(middle.x, middle.y, unit.x, unit.y);
+      if (distance < bestDistance) {
+        best = { x, y };
+        bestDistance = distance;
+      }
+    }
+  }
+  return best && findPath(grid, here, best);
+}
+
 function strike(state: GameState, attacker: Unit, target: Entity, grids: GridCache): void {
   const damage = strikeDamage(state, attacker, target);
   target.hp -= damage;
   attacker.attackCooldown = strikeTicks(attacker);
+  if (attacker.task.kind === 'attack') attacker.task.threw = false;
   state.events.push({ type: 'hit', attackerId: attacker.id, targetId: target.id, damage });
 
   if (isBuilding(target)) {
@@ -200,7 +357,7 @@ function strike(state: GameState, attacker: Unit, target: Entity, grids: GridCac
 }
 
 /** Removes a building whose life has run out. Losing the main building loses the game. */
-function collapse(state: GameState, building: Building): void {
+export function collapse(state: GameState, building: Building): void {
   removeEntity(state, building.id);
   state.events.push({
     type: 'buildingCollapsed',

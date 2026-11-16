@@ -23,6 +23,7 @@ export const OUTLINE_COLOR = 0x10141a;
 export const UNIT_VISUALS: Record<UnitType, { shape: 'circle' | 'square'; radius: number }> = {
   samlare: { shape: 'circle', radius: 9 },
   ramkrigare: { shape: 'square', radius: 11 },
+  ramkastare: { shape: 'square', radius: 10 },
 };
 
 /**
@@ -46,6 +47,7 @@ export const CHARACTER_VISUALS: Partial<
 > = {
   samlare: { height: 34, halfWidth: 11, selectionWidth: 34, shadowScale: 0.84 },
   ramkrigare: { height: 41, halfWidth: 13, selectionWidth: 40, shadowScale: 1 },
+  ramkastare: { height: 40, halfWidth: 12, selectionWidth: 38, shadowScale: 0.95 },
 };
 
 /**
@@ -76,6 +78,7 @@ export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label:
   fiskehytta: { wallHeight: 44, label: 'F' },
   vakttorn: { wallHeight: 96, label: 'T' },
   smedja: { wallHeight: 48, label: 'M' },
+  kastbana: { wallHeight: 46, label: 'B' },
 };
 
 /**
@@ -83,6 +86,12 @@ export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label:
  * shoots, in pixels: the platform of a watchtower.
  */
 export const MUZZLE_HEIGHT: Partial<Record<BuildingType, number>> = { vakttorn: 72 };
+
+/**
+ * How far above the ground a unit that throws lets go of what it throws, in
+ * pixels: the hand of a javelin thrower, stretched out at the height of its head.
+ */
+export const THROW_HEIGHT: Partial<Record<UnitType, number>> = { ramkastare: 34 };
 
 /**
  * A unit standing behind a building is drawn on top of it, this solid, so

@@ -8,6 +8,10 @@ unit = "warrior"
 race = "bear"
 unit = "worker"
 
+[[figure]]
+race = "bear"
+unit = "thrower"
+
 # The first figure of the next race. No unit in the game uses it yet.
 [[figure]]
 race = "tiger"
@@ -45,3 +49,7 @@ building = "tower"
 [[building]]
 race = "bear"
 building = "forge"
+
+[[building]]
+race = "bear"
+building = "range"

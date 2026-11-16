@@ -59,7 +59,7 @@ function decide(state: GameState, player: PlayerId, memory: AiState): void {
   assignIdleWorkers(state, player, base, workers);
   // An upgrade it is saving for comes before more soldiers.
   const saving = research(state, player, buildings, soldiers.length);
-  if (!saving) trainSoldiers(state, player, buildings, soldiers.length);
+  if (!saving) trainSoldiers(state, player, buildings, soldiers);
 
   // Soldiers that are gone no longer belong to a wave.
   memory.attackers = memory.attackers.filter((id) => soldiers.some((s) => s.id === id));
@@ -101,27 +101,44 @@ function trainWorkers(state: GameState, player: PlayerId, base: Building, worker
   applyCommand(state, { type: 'train', player, buildingId: base.id, unit: type });
 }
 
-/** Trains soldiers, one at a time, in every finished building that can. */
+/**
+ * Trains soldiers, one at a time, in every finished building that can.
+ * Soldiers that fight from a distance are kept to their share: one for
+ * every few that fight hand to hand. See AI_CONFIG.throwers.
+ */
 function trainSoldiers(
   state: GameState,
   player: PlayerId,
   buildings: readonly Building[],
-  soldiers: number,
+  soldiers: readonly Unit[],
 ): void {
-  let planned = soldiers;
+  const isThrower = (type: Unit['type']) => UNIT_DEFS[type].ranged !== undefined;
+  // What it has and what it has ordered, of each kind.
+  let throwers = soldiers.filter((soldier) => isThrower(soldier.type)).length;
+  let planned = soldiers.length;
+  for (const building of buildings) {
+    for (const queued of building.queue) {
+      if (UNIT_DEFS[queued].aggroRadius <= 0) continue;
+      planned++;
+      if (isThrower(queued)) throwers++;
+    }
+  }
   for (const building of buildings) {
     if (!building.complete) continue;
     for (const type of BUILDING_DEFS[building.type].trains) {
       if (UNIT_DEFS[type].aggroRadius <= 0) continue;
-      planned += building.queue.filter((queued) => queued === type).length;
       if (building.queue.length > 0 || planned >= AI_CONFIG.maxSoldiers) continue;
+      const others = planned - throwers;
+      if (isThrower(type) && (throwers + 1) * AI_CONFIG.throwers.soldiersEach > others) continue;
       const result = applyCommand(state, {
         type: 'train',
         player,
         buildingId: building.id,
         unit: type,
       });
-      if (result.ok) planned++;
+      if (!result.ok) continue;
+      planned++;
+      if (isThrower(type)) throwers++;
     }
   }
 }
@@ -163,15 +180,22 @@ function build(
   if (housing && needsHousing(state, player, buildings)) {
     wanted.push({ type: housing, near: centre });
   }
-  if (
-    !buildings.some((b) => BUILDING_DEFS[b.type].trains.some((t) => UNIT_DEFS[t].aggroRadius > 0))
-  ) {
-    const barracks = buildableBarracks();
-    if (barracks) wanted.push({ type: barracks, near: centre });
+  const hasBarracks = buildings.some(
+    (b) => b.complete && BUILDING_DEFS[b.type].trains.some((t) => UNIT_DEFS[t].aggroRadius > 0),
+  );
+  const barracks = buildableBarracks();
+  if (barracks && !buildings.some((b) => b.type === barracks)) {
+    wanted.push({ type: barracks, near: centre });
   } else if (!buildings.some((b) => b.type !== base.type && BUILDING_DEFS[b.type].dropoff)) {
     const storehouse = buildableStorehouse();
     const forest = nearestSource(state, 'wood', centre);
     if (storehouse && forest) wanted.push({ type: storehouse, near: forest });
+  } else if (hasBarracks) {
+    // With a finished barracks and a storehouse: a throwing range, once.
+    const range = buildableRange();
+    if (range && !buildings.some((b) => b.type === range)) {
+      wanted.push({ type: range, near: centre });
+    }
   }
 
   // Food without end last: it is for when the berries run low, not instead
@@ -192,9 +216,6 @@ function build(
   // Towers last of all: with wood to spare, on the side that faces the enemy.
   const tower = buildableTower();
   const towers = memory.towersPlaced;
-  const hasBarracks = buildings.some(
-    (b) => b.complete && BUILDING_DEFS[b.type].trains.some((t) => UNIT_DEFS[t].aggroRadius > 0),
-  );
   if (
     tower &&
     hasBarracks &&
@@ -448,12 +469,23 @@ function placesWanted(state: GameState, centre: Point, workers: number): number 
   return Math.min(Math.ceil(short / foodPerField), max, onFood);
 }
 
-/** The building type that trains soldiers. */
+/** The building type that trains soldiers who fight hand to hand. */
 function buildableBarracks(): BuildingType | undefined {
   return (Object.keys(BUILDING_DEFS) as BuildingType[]).find(
     (type) =>
       BUILDING_DEFS[type].buildTime > 0 &&
-      BUILDING_DEFS[type].trains.some((unit) => UNIT_DEFS[unit].aggroRadius > 0),
+      BUILDING_DEFS[type].trains.some(
+        (unit) => UNIT_DEFS[unit].aggroRadius > 0 && UNIT_DEFS[unit].ranged === undefined,
+      ),
+  );
+}
+
+/** The building type that trains soldiers who fight from a distance. */
+function buildableRange(): BuildingType | undefined {
+  return (Object.keys(BUILDING_DEFS) as BuildingType[]).find(
+    (type) =>
+      BUILDING_DEFS[type].buildTime > 0 &&
+      BUILDING_DEFS[type].trains.some((unit) => UNIT_DEFS[unit].ranged !== undefined),
   );
 }
 
@@ -784,7 +816,9 @@ function sendWave(
 /**
  * Keeps the soldiers of a wave at it: they fight enemy soldiers that come
  * within their reach, then tear down a tower that can shoot them where they
- * stand, and otherwise go for the enemy's main building.
+ * stand, and otherwise go for the enemy's main building. A soldier that
+ * fights from a distance turns on a tower sooner: when the tower is just
+ * outside its own range, so that it never has to step into the tower's.
  */
 function driveAttackers(
   state: GameState,
@@ -816,13 +850,16 @@ function driveAttackers(
       enemyFighters.filter((e) => tileDistance(e.x, e.y, soldier.x, soldier.y) <= reach),
       soldier,
     );
-    // A tower that has the soldier within its range: the nearest such one.
+    // A tower that has the soldier within its range, or that the soldier
+    // will soon have within its own: the nearest such one.
+    const ownRange = UNIT_DEFS[soldier.type].ranged?.range;
+    const notices = ownRange === undefined ? 0 : ownRange + AI_CONFIG.throwers.towerMargin;
     let tower: Building | undefined;
     let towerDistance = Infinity;
     for (const candidate of enemyTowers) {
       const centre = buildingCentre(candidate);
       const distance = tileDistance(centre.x, centre.y, soldier.x, soldier.y);
-      const range = BUILDING_DEFS[candidate.type].attack?.range ?? 0;
+      const range = Math.max(BUILDING_DEFS[candidate.type].attack?.range ?? 0, notices);
       if (distance <= range && distance < towerDistance) {
         tower = candidate;
         towerDistance = distance;

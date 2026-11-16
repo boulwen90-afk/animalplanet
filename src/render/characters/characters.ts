@@ -1,5 +1,8 @@
 import type { LoadKind } from '../../data/resources';
 import type { UnitType } from '../../data/types';
+import bearThrowerAtlasUrl from '../../../assets/characters/bear_thrower/bear_thrower.json?url';
+import bearThrowerBaseUrl from '../../../assets/characters/bear_thrower/bear_thrower.png';
+import bearThrowerMaskUrl from '../../../assets/characters/bear_thrower/bear_thrower_mask.png';
 import bearWarriorAtlasUrl from '../../../assets/characters/bear_warrior/bear_warrior.json?url';
 import bearWarriorBaseUrl from '../../../assets/characters/bear_warrior/bear_warrior.png';
 import bearWarriorMaskUrl from '../../../assets/characters/bear_warrior/bear_warrior_mask.png';
@@ -40,5 +43,11 @@ export const CHARACTERS: Partial<Record<UnitType, CharacterSource>> = {
     atlasUrl: bearWarriorAtlasUrl,
     baseUrl: bearWarriorBaseUrl,
     maskUrl: bearWarriorMaskUrl,
+  },
+  ramkastare: {
+    name: 'bear_thrower',
+    atlasUrl: bearThrowerAtlasUrl,
+    baseUrl: bearThrowerBaseUrl,
+    maskUrl: bearThrowerMaskUrl,
   },
 };

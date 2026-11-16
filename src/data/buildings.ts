@@ -1,5 +1,5 @@
 import type { Cost, LoadKind, ResourceType } from './resources';
-import type { BuildingType, UnitType } from './types';
+import type { BuildingType, ProjectileKind, UnitType } from './types';
 import type { UpgradeType } from './upgrades';
 
 export type { BuildingType } from './types';
@@ -39,6 +39,8 @@ export interface AttackDef {
   cooldown: number;
   /** How fast what it shoots flies, in tiles per second. */
   projectileSpeed: number;
+  /** What it shoots. */
+  projectile: ProjectileKind;
 }
 
 /** The tabs of the build menu. Every building belongs to one. */
@@ -214,7 +216,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     armor: 0,
     housing: 0,
     walkable: false,
-    attack: { damage: 9, range: 6, cooldown: 1.5, projectileSpeed: 12 },
+    attack: { damage: 9, range: 6, cooldown: 1.5, projectileSpeed: 12, projectile: 'arrow' },
   },
   /**
    * A smithy. Upgrades are worked out here: bought once, they hold for all
@@ -233,6 +235,23 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     housing: 0,
     walkable: false,
     researches: ['weapons', 'armor', 'gathering'],
+  },
+  /**
+   * A throwing range: a lean-to with racks of javelins and straw targets.
+   * It trains the soldiers that fight from a distance.
+   */
+  kastbana: {
+    menu: 'defence',
+    trains: ['ramkastare'],
+    hp: 500,
+    sight: 5,
+    size: 2,
+    dropoff: false,
+    cost: { wood: 130 },
+    buildTime: 30,
+    armor: 0,
+    housing: 0,
+    walkable: false,
   },
 };
 
