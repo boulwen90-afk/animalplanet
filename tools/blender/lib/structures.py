@@ -278,7 +278,8 @@ def palisade(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
     """A row of sharpened posts between two points."""
     start, end = Vector((*p["start"], p.get("z", 0.0))), Vector((*p["end"], p.get("z", 0.0)))
     h, r = p["height"], p.get("radius", 0.07)
-    count = max(2, round((end - start).length / (r * 2.1)) + 1)
+    # With `gap` above 1 the posts stand that many times further apart: a row that is being raised.
+    count = max(2, round((end - start).length / (r * 2.1 * p.get("gap", 1.0))) + 1)
     for i in range(count):
         at = start.lerp(end, i / (count - 1))
         tall = h * (1.0 + 0.08 * ((i * 7) % 3 - 1))     # a little uneven, in a fixed pattern
@@ -675,7 +676,38 @@ def target(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
         b.limb(f"{name}.javelin_binding", at + out * 0.08, at + out * 0.14, 0.024, 0.024, pal["team"], 4)
 
 
+def gate_leaves(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """
+    The two leaves of a gate, shut: planks standing side by side between two
+    points, with iron bands across them and a dark seam where they meet.
+    """
+    start, end = Vector((*p["start"], p.get("z", 0.0))), Vector((*p["end"], p.get("z", 0.0)))
+    h, thick = p["height"], p.get("thickness", 0.07)
+    along = (end - start).normalized()
+    across = Vector((-along.y, along.x, 0.0))
+    turn = frame((0.0, 0.0, 1.0), tuple(along))
+    width = (end - start).length
+    planks = p.get("planks", 6)
+    for i in range(planks):
+        centre = start + along * width * (i + 0.5) / planks + UP * h / 2
+        material = pal["door"] if i % 2 == 0 else pal["timber_mid"]
+        b.box(f"{name}.plank_{i}", centre, (width / planks * 0.94, thick, h), material, turn)
+    middle = (start + end) / 2
+    for side in (1.0, -1.0):
+        face = across * side * (thick / 2 + 0.008)
+        b.box(f"{name}.seam_{'a' if side > 0 else 'b'}", middle + UP * h / 2 + face, (0.03, 0.012, h), pal["iron"], turn)
+        for j, share in enumerate((0.22, 0.74)):
+            b.box(
+                f"{name}.band_{'a' if side > 0 else 'b'}_{j}",
+                middle + UP * h * share + face,
+                (width * 0.96, 0.014, 0.07),
+                pal["iron"],
+                turn,
+            )
+
+
 PARTS = {
+    "gate_leaves": gate_leaves,
     "shed_roof": shed_roof,
     "target": target,
     "anvil": anvil,
@@ -718,12 +750,19 @@ PARTS = {
 STAGES = ("construction_1", "construction_2", "complete")
 
 
-def build_structure(b: Builder, pal: Palette, building: dict, emblem) -> dict[str, list]:
+def build_structure(b: Builder, pal: Palette, building: dict, emblem) -> tuple[dict[str, list], dict[str, list | None]]:
     """
     Builds every part of a building. Returns, for each stage, the objects
-    that are in the picture at that stage.
+    that are in the picture at that stage, and for each object the variants
+    of the building it belongs to, or None for one that is in them all.
+
+    A building can come in several variants, listed under `variants` in its
+    config: a piece of wall looks one way when it stands in a row and
+    another at a corner. A part with `variant` is only in that variant, or
+    in those, if it is a list.
     """
     by_stage: dict[str, list] = {stage: [] for stage in STAGES}
+    variants_of: dict[str, list | None] = {}
     for index, part in enumerate(building["part"]):
         kind = part["type"]
         if kind not in PARTS:
@@ -735,4 +774,12 @@ def build_structure(b: Builder, pal: Palette, building: dict, emblem) -> dict[st
         last = STAGES.index(part.get("until", "complete"))
         for stage in STAGES[first : last + 1]:
             by_stage[stage].extend(made)
-    return by_stage
+        wanted = part.get("variant")
+        if wanted is not None:
+            wanted = [wanted] if isinstance(wanted, str) else list(wanted)
+            unknown = set(wanted) - set(building.get("variants", []))
+            if unknown:
+                raise SystemExit(f"Building {building['name']!r}: unknown variant {sorted(unknown)}")
+        for made_part in made:
+            variants_of[made_part.name] = wanted
+    return by_stage, variants_of

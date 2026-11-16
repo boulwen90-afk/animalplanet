@@ -151,16 +151,14 @@ async function buildRange(page: Page, spare = 0): Promise<Building> {
 }
 
 test.describe('the throwing range', () => {
-  test('is in the build menu under "Försvar", with its price and what it does', async ({
-    page,
-  }) => {
+  test('is in the build menu under "Armé", with its price and what it does', async ({ page }) => {
     await openGame(page, '&ai=0&fog=0');
     const state = await getState(page);
     const worker = state.entities.find((e) => e.kind === 'unit' && e.owner === 0)!;
     const on = await tileToScreen(page, worker.x, worker.y);
     await page.mouse.click(on.x, on.y - 8);
     await expect.poll(async () => (await commandPanel(page)).visible).toBe(true);
-    await openBuildTab(page, 'Försvar');
+    await openBuildTab(page, 'Armé');
     const button = (await commandPanel(page)).buttons.find((b) => b.label === 'Bygg Kastbana');
     expect([button?.cost, button?.info]).toEqual(['130 trä', 'Tränar Ramkastare']);
   });

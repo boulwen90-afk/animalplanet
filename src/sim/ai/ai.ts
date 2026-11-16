@@ -18,9 +18,10 @@ import {
 import { inBounds, isWalkable, isWater, tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
 import { resourceAmountAt, resourceAt } from '../resources';
-import type { AiState, Building, GameState, PlayerId, Unit } from '../state';
+import type { AiState, Building, Entity, GameState, PlayerId, Unit } from '../state';
 import { reachableTiles, type PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
+import { canGetToAttack, wallInTheWay } from '../systems/breach';
 import { canPlaceBuilding } from '../systems/construction';
 import { plannedWorkTiles } from '../systems/gathering';
 import { needsRepair } from '../systems/repair';
@@ -538,7 +539,7 @@ function findBuildSite(
   let grid: PathGrid | undefined;
   let canReach: Uint8Array | undefined;
   const reachable = (x: number, y: number): boolean => {
-    grid ??= buildPathGrid(state);
+    grid ??= buildPathGrid(state, player);
     canReach ??= reachFromBase(state, grid, player);
     // Next to it is enough: a builder works from beside the footprint.
     for (let ty = y - 1; ty <= y + size; ty++) {
@@ -819,6 +820,10 @@ function sendWave(
  * stand, and otherwise go for the enemy's main building. A soldier that
  * fights from a distance turns on a tower sooner: when the tower is just
  * outside its own range, so that it never has to step into the tower's.
+ *
+ * A soldier that cannot get at what it should attack, because the enemy has
+ * walled it off, attacks the piece of wall that stands first in its way
+ * instead, and goes on when the way is open.
  */
 function driveAttackers(
   state: GameState,
@@ -843,6 +848,8 @@ function driveAttackers(
       BUILDING_DEFS[entity.type].attack !== undefined,
   );
 
+  // The ground its soldiers can walk on, made when the first of them needs it.
+  let grid: PathGrid | undefined;
   for (const soldier of soldiers) {
     if (!memory.attackers.includes(soldier.id)) continue;
     const reach = UNIT_DEFS[soldier.type].aggroRadius;
@@ -866,7 +873,13 @@ function driveAttackers(
       }
     }
     const current = soldier.task.kind === 'attack' ? soldier.task.targetId : undefined;
-    const wanted = threat?.id ?? tower?.id ?? target.id;
+    let goal: Entity = threat ?? tower ?? target;
+    // Walled off: break through where the wall stands in the way.
+    grid ??= buildPathGrid(state, player);
+    if (!canGetToAttack(grid, soldier, goal)) {
+      goal = wallInTheWay(state, soldier, goal) ?? goal;
+    }
+    const wanted = goal.id;
     if (current === wanted) continue;
     // It finishes a fight it is in before turning back to the building.
     if (!threat && current !== undefined && enemyFighters.some((e) => e.id === current)) continue;

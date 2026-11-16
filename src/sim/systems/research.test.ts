@@ -75,9 +75,9 @@ describe('the data', () => {
     }
   });
 
-  it('a Smedja is built by Samlare and is found under the tab for defence', () => {
+  it('a Smedja is built by Samlare and is found under the tab for the army', () => {
     expect(UNIT_DEFS.samlare.builds).toContain('smedja');
-    expect(BUILDING_DEFS.smedja.menu).toBe('defence');
+    expect(BUILDING_DEFS.smedja.menu).toBe('army');
     expect(BUILDING_DEFS.smedja.cost).toEqual({ wood: 150 });
   });
 });

@@ -20,10 +20,13 @@ export const STRINGS = {
     vakttorn: 'Vakttorn',
     smedja: 'Smedja',
     kastbana: 'Kastbana',
+    palissad: 'Palissad',
+    port: 'Port',
   } satisfies Record<BuildingType, string>,
   /** The tabs of the build menu. */
   menus: {
     economy: 'Ekonomi',
+    army: 'Armé',
     defence: 'Försvar',
   } satisfies Record<BuildMenu, string>,
   /** One short line about each building, shown in the build menu. */
@@ -37,6 +40,8 @@ export const STRINGS = {
     vakttorn: 'Skjuter på fiender',
     smedja: 'Uppgraderar enheter',
     kastbana: 'Tränar Ramkastare',
+    palissad: 'Dras ut i en linje',
+    port: 'Bara egna går igenom',
   } satisfies Record<BuildingType, string>,
   /** The upgrades worked out at a Smedja: their names, and what a level of each gives. */
   upgrades: {
@@ -77,6 +82,11 @@ export const STRINGS = {
     /** Shown when a repair stops for lack of wood. */
     repairPaused: 'Slut på trä – lagningen väntar',
     costPart: (amount: number, resource: string) => `${amount} ${resource.toLowerCase()}`,
+    /** The price of something that is bought a piece at a time, such as a wall. */
+    costEach: (cost: string) => `${cost} per del`,
+    /** By a wall that is being drawn out: how many pieces it is, and what they cost together. */
+    wallLine: (pieces: number, cost: string) =>
+      pieces === 1 ? `1 del · ${cost}` : `${pieces} delar · ${cost}`,
     population: 'Befolkning',
     populationCount: (current: number, room: number) => `${current}/${room}`,
     /** Shown when a unit cannot be trained for lack of room. */
@@ -88,6 +98,8 @@ export const STRINGS = {
       unexplored: 'Outforskad mark',
       needsShore: 'Måste stå intill vatten',
       noWorkPlace: 'Ingen fiskeplats här',
+      /** On a touch screen, before a wall has been given a place to start. */
+      lineStart: 'Tryck där muren ska börja',
       /** Shown where a fishing hut may stand: how many of its workers get a place on the shore. */
       workPlaces: (count: number) => (count === 1 ? '1 fiskeplats' : `${count} fiskeplatser`),
     },

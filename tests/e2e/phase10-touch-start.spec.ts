@@ -440,7 +440,7 @@ test.describe('phase 10: on a phone', () => {
     for (const button of (await commandPanel(page)).buttons) onScreen(button);
     // The tabs fit too, and a tap on the second shows its buttons.
     const tabs = (await commandPanel(page)).tabs;
-    expect(tabs.map((tab) => tab.label)).toEqual(['Ekonomi', 'Försvar']);
+    expect(tabs.map((tab) => tab.label)).toEqual(['Ekonomi', 'Armé', 'Försvar']);
     for (const tab of tabs) onScreen(tab, 54, 20);
     await touch.tap(tabs[1]!.x, tabs[1]!.y);
     await expect.poll(async () => (await commandPanel(page)).tabs[1]!.active).toBe(true);

@@ -17,7 +17,8 @@ import { tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
 import { approachPath } from '../pathfinding/approach';
 import { findPath, reachableTiles, type PathGrid } from '../pathfinding/astar';
-import { buildPathGrid } from '../pathfinding/passability';
+import { PathGrids } from '../pathfinding/passability';
+import { rerouteForOpening } from '../pathfinding/reroute';
 import type { Building, Entity, GameState, PlayerId, Unit } from '../state';
 import { throwDamage, unitArmor, unitDamage } from '../upgrades';
 import { launchProjectile } from './projectiles';
@@ -78,25 +79,9 @@ export function isAttackable(state: GameState, entity: Entity, player: PlayerId)
   return isEntityVisibleTo(state, player, entity);
 }
 
-/** The walkable tiles, built when first needed and rebuilt after a building collapses. */
-class GridCache {
-  private grid: PathGrid | undefined;
-
-  constructor(private readonly state: GameState) {}
-
-  get(): PathGrid {
-    this.grid ??= buildPathGrid(this.state);
-    return this.grid;
-  }
-
-  invalidate(): void {
-    this.grid = undefined;
-  }
-}
-
 /** Runs one simulation step of fighting for every unit. */
 export function resolveCombat(state: GameState): void {
-  const grids = new GridCache(state);
+  const grids = new PathGrids(state);
   // Copy the list: units and buildings can leave the game while looping.
   for (const unit of state.entities.filter(isUnit)) {
     if (state.winner !== null) return;
@@ -193,7 +178,7 @@ function standsOnTakenTile(state: GameState, unit: Unit): boolean {
  * Strikes the target if it is within reach, and otherwise walks towards it.
  * A unit that fights from a distance throws instead, from within its range.
  */
-function pursueOrStrike(state: GameState, unit: Unit, grids: GridCache): void {
+function pursueOrStrike(state: GameState, unit: Unit, grids: PathGrids): void {
   const task = unit.task;
   if (task.kind !== 'attack') return;
   const target = state.entities.find((entity) => entity.id === task.targetId);
@@ -222,7 +207,7 @@ function pursueOrStrike(state: GameState, unit: Unit, grids: GridCache): void {
   task.repathTicks--;
   if ((unit.path.length > 0 || task.waiting) && task.repathTicks > 0) return;
   const tiles = isBuilding(target) ? buildingTiles(target) : [unitTile(target)];
-  const path = approachPath(state, grids.get(), unit, tiles);
+  const path = approachPath(state, grids.for(unit.owner), unit, tiles);
   if (!path) {
     // It cannot get next to the target.
     unit.task = { kind: 'idle' };
@@ -247,7 +232,7 @@ function pursueOrThrow(
   unit: Unit,
   target: Entity,
   ranged: RangedDef,
-  grids: GridCache,
+  grids: PathGrids,
 ): void {
   const task = unit.task;
   if (task.kind !== 'attack') return;
@@ -266,7 +251,7 @@ function pursueOrThrow(
 
   task.repathTicks--;
   if ((unit.path.length > 0 || task.waiting) && task.repathTicks > 0) return;
-  const path = throwingPath(state, grids.get(), unit, target, ranged.range);
+  const path = throwingPath(state, grids.for(unit.owner), unit, target, ranged.range);
   if (!path) {
     // There is nowhere it can throw from.
     unit.task = { kind: 'idle' };
@@ -338,7 +323,7 @@ function throwingPath(
   return best && findPath(grid, here, best);
 }
 
-function strike(state: GameState, attacker: Unit, target: Entity, grids: GridCache): void {
+function strike(state: GameState, attacker: Unit, target: Entity, grids: PathGrids): void {
   const damage = strikeDamage(state, attacker, target);
   target.hp -= damage;
   attacker.attackCooldown = strikeTicks(attacker);
@@ -352,13 +337,17 @@ function strike(state: GameState, attacker: Unit, target: Entity, grids: GridCac
       grids.invalidate();
     }
   } else if (target.hp <= 0) {
-    surrender(state, grids.get(), target);
+    surrender(state, grids.for(target.owner), target);
   }
 }
 
-/** Removes a building whose life has run out. Losing the main building loses the game. */
+/**
+ * Removes a building whose life has run out. Units on the move take the way
+ * that has opened, if it is shorter. Losing the main building loses the game.
+ */
 export function collapse(state: GameState, building: Building): void {
   removeEntity(state, building.id);
+  if (!BUILDING_DEFS[building.type].walkable) rerouteForOpening(state);
   state.events.push({
     type: 'buildingCollapsed',
     buildingId: building.id,

@@ -1,0 +1,323 @@
+{
+ "frames": {
+  "x_construction_1": {
+   "frame": {
+    "x": 2,
+    "y": 139,
+    "w": 42,
+    "h": 45
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 75,
+    "y": 77,
+    "w": 42,
+    "h": 45
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "x_construction_2": {
+   "frame": {
+    "x": 101,
+    "y": 80,
+    "w": 42,
+    "h": 56
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 75,
+    "y": 66,
+    "w": 42,
+    "h": 56
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "x_complete": {
+   "frame": {
+    "x": 145,
+    "y": 80,
+    "w": 42,
+    "h": 56
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 75,
+    "y": 66,
+    "w": 42,
+    "h": 56
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "x_shadow": {
+   "frame": {
+    "x": 108,
+    "y": 139,
+    "w": 68,
+    "h": 39
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 67,
+    "y": 90,
+    "w": 68,
+    "h": 39
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "y_construction_1": {
+   "frame": {
+    "x": 189,
+    "y": 80,
+    "w": 42,
+    "h": 48
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 75,
+    "y": 74,
+    "w": 42,
+    "h": 48
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "y_construction_2": {
+   "frame": {
+    "x": 144,
+    "y": 2,
+    "w": 42,
+    "h": 58
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 75,
+    "y": 64,
+    "w": 42,
+    "h": 58
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "y_complete": {
+   "frame": {
+    "x": 188,
+    "y": 2,
+    "w": 42,
+    "h": 58
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 75,
+    "y": 64,
+    "w": 42,
+    "h": 58
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "y_shadow": {
+   "frame": {
+    "x": 178,
+    "y": 139,
+    "w": 66,
+    "h": 39
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 68,
+    "y": 90,
+    "w": 66,
+    "h": 39
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "block_construction_1": {
+   "frame": {
+    "x": 46,
+    "y": 139,
+    "w": 60,
+    "h": 43
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 66,
+    "y": 83,
+    "w": 60,
+    "h": 43
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "block_construction_2": {
+   "frame": {
+    "x": 76,
+    "y": 2,
+    "w": 66,
+    "h": 73
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 55,
+    "w": 66,
+    "h": 73
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "block_complete": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 72,
+    "h": 76
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 60,
+    "y": 52,
+    "w": 72,
+    "h": 76
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  },
+  "block_shadow": {
+   "frame": {
+    "x": 2,
+    "y": 80,
+    "w": 97,
+    "h": 57
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 51,
+    "y": 83,
+    "w": 97,
+    "h": 57
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.5755
+   }
+  }
+ },
+ "meta": {
+  "app": "animalplanet tools/blender",
+  "image": "bear_wall.png",
+  "mask": "bear_wall_mask.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 256,
+   "h": 186
+  },
+  "scale": 1,
+  "pixelsPerUnit": 24.0,
+  "building": {
+   "gameBuilding": "palissad",
+   "sizeClass": "wall",
+   "footprint": 1,
+   "roofHeight": 45.0,
+   "minRoofHeight": 28.8,
+   "height": 45.0
+  },
+  "neutral": "#bcbcbc",
+  "stages": [
+   "construction_1",
+   "construction_2",
+   "complete"
+  ],
+  "variants": [
+   "x",
+   "y",
+   "block"
+  ]
+ }
+}

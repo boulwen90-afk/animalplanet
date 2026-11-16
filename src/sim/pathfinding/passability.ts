@@ -2,14 +2,38 @@ import { BUILDING_DEFS } from '../../data/buildings';
 import { TERRAIN_DEFS } from '../../data/terrain';
 import { buildingTiles, isBuilding } from '../entities';
 import type { Point } from '../map/iso';
-import type { GameState } from '../state';
+import type { Building, GameState, PlayerId } from '../state';
 import { canStep, isPassable, type PathGrid } from './astar';
 
 /**
- * The walkable tiles right now: walkable terrain not covered by a building.
- * A building that is itself walkable, such as a field, covers nothing.
+ * The walkable tiles right now, for the units of one side: walkable
+ * terrain not covered by a building. A building that is itself walkable,
+ * such as a field, covers nothing, and neither does a gate for the side
+ * that owns it. With no side given, every gate is shut.
  */
-export function buildPathGrid(state: GameState): PathGrid {
+export function buildPathGrid(state: GameState, owner?: PlayerId): PathGrid {
+  return gridWithout(
+    state,
+    (building) => BUILDING_DEFS[building.type].wall === 'gate' && building.owner === owner,
+  );
+}
+
+/**
+ * The walkable tiles as they would be for a side if the other side had no
+ * walls: its pieces of wall and its gates cover nothing. A path over this
+ * grid shows where a wall must be broken through to get somewhere.
+ */
+export function buildBreachGrid(state: GameState, owner: PlayerId): PathGrid {
+  return gridWithout(
+    state,
+    (building) =>
+      BUILDING_DEFS[building.type].wall !== undefined &&
+      (building.owner !== owner || BUILDING_DEFS[building.type].wall === 'gate'),
+  );
+}
+
+/** The walkable tiles, where the buildings picked out by `open` count as open ground. */
+function gridWithout(state: GameState, open: (building: Building) => boolean): PathGrid {
   const { width, height, terrain } = state.map;
   const blocked = new Uint8Array(width * height);
   for (let i = 0; i < blocked.length; i++) {
@@ -17,7 +41,7 @@ export function buildPathGrid(state: GameState): PathGrid {
     if (tile === undefined || !TERRAIN_DEFS[tile].walkable) blocked[i] = 1;
   }
   for (const entity of state.entities) {
-    if (!isBuilding(entity) || BUILDING_DEFS[entity.type].walkable) continue;
+    if (!isBuilding(entity) || BUILDING_DEFS[entity.type].walkable || open(entity)) continue;
     for (const tile of buildingTiles(entity)) {
       if (tile.x >= 0 && tile.y >= 0 && tile.x < width && tile.y < height) {
         blocked[tile.y * width + tile.x] = 1;
@@ -25,6 +49,30 @@ export function buildPathGrid(state: GameState): PathGrid {
     }
   }
   return { width, height, blocked };
+}
+
+/**
+ * The walkable tiles of each side, built when first asked for. The sides
+ * differ where there are gates. Whoever changes what stands on the ground
+ * calls `invalidate`, and the grids are built anew.
+ */
+export class PathGrids {
+  private readonly grids = new Map<PlayerId, PathGrid>();
+
+  constructor(private readonly state: GameState) {}
+
+  for(owner: PlayerId): PathGrid {
+    let grid = this.grids.get(owner);
+    if (!grid) {
+      grid = buildPathGrid(this.state, owner);
+      this.grids.set(owner, grid);
+    }
+    return grid;
+  }
+
+  invalidate(): void {
+    this.grids.clear();
+  }
 }
 
 const NEIGHBOURS: readonly (readonly [number, number])[] = [

@@ -72,8 +72,10 @@ class StructureStudio:
         emblem = load_emblem(race["emblem"]) if race.get("emblem") else None
         self.name = f"{race['name']}_{building['name']}"
         builder = Builder(self.name, None)
-        self.by_stage = build_structure(builder, palette, building, emblem)
+        self.by_stage, self.variants_of = build_structure(builder, palette, building, emblem)
         self.parts = builder.parts
+        # The variants the building comes in; one without a name for a building that has none.
+        self.variants: list[str | None] = list(building.get("variants", [])) or [None]
 
         # The config is in tiles, with x along the game's tile x axis. Seen from
         # the camera that axis runs down to the right, so the building is turned
@@ -136,19 +138,24 @@ class StructureStudio:
             self.target_z,
         )
 
-    def show(self, stage: str) -> list:
-        shown = self.by_stage[stage]
+    def show(self, stage: str, variant: str | None = None) -> list:
+        """Puts the parts of one stage of one variant in the picture, and returns them."""
+        shown = [
+            part
+            for part in self.by_stage[stage]
+            if self.variants_of[part.name] is None or variant in self.variants_of[part.name]
+        ]
         names = {part.name for part in shown}
         for part in self.parts:
             part.hide_render = part.name not in names
         return shown
 
-    def sprite(self, stage: str, scale: int):
+    def sprite(self, stage: str, scale: int, variant: str | None = None):
         """One stage of the building, with its outline: (picture, mask, shadow alone)."""
         sprite = self.game["sprite"]
         size = self.frame * scale
         figure, mask, shade = export.render_passes(
-            self.scene, self.show(stage), self.ground, self.scratch, size, size, True
+            self.scene, self.show(stage, variant), self.ground, self.scratch, size, size, True
         )
         edge = np.concatenate([figure[0, :, 3], figure[-1, :, 3], figure[:, 0, 3], figure[:, -1, 3]])
         if edge.max() > 0.05:
@@ -194,11 +201,14 @@ def export_building(race: dict, building: dict, game: dict, out: Path, neutral: 
     scale = sprite["atlas_scale"]
     studio = _studio(race, building, game, out, neutral)
     frames = []
-    for stage in STAGES:
-        picture, mask, shadow = studio.sprite(stage, scale)
-        frames.append((stage, picture, mask))
-        if stage == "complete":
-            frames.append(("shadow", shadow, np.zeros_like(shadow)))
+    # A building with variants has a set of pictures for each, named <variant>_<stage>.
+    for variant in studio.variants:
+        prefix = f"{variant}_" if variant else ""
+        for stage in STAGES:
+            picture, mask, shadow = studio.sprite(stage, scale, variant)
+            frames.append((prefix + stage, picture, mask))
+            if stage == "complete":
+                frames.append((prefix + "shadow", shadow, np.zeros_like(shadow)))
     (out / ".render.png").unlink(missing_ok=True)
     _fail_if_clipped(studio)
     size = studio.frame * scale
@@ -223,6 +233,8 @@ def export_building(race: dict, building: dict, game: dict, out: Path, neutral: 
             },
             "neutral": neutral,
             "stages": list(STAGES),
+            # The variants it has pictures of; empty for a building with one look.
+            "variants": [variant for variant in studio.variants if variant],
         },
     )
     width, height = document["meta"]["size"]["w"], document["meta"]["size"]["h"]
@@ -241,22 +253,26 @@ def render_building_previews(race: dict, building: dict, game: dict, out: Path, 
     tile_w, tile_h = sprite["tile_width"] * scale, sprite["tile_height"] * scale
     cell = (n + 2) * tile_w
     high = (n + 1) * tile_h + round(studio.top_px * scale) + tile_h
-    ground = tiled_ground(cell * len(STAGES), high, tile_w, tile_h, preview["background"], preview["ground_edge"])
     # The middle of the footprint is a tile's middle for an odd side and a corner for an even one.
     row = round((high - (n / 2 + 0.5) * tile_h) / (tile_h / 2))
-    for index, stage in enumerate(STAGES):
-        picture, mask, shadow = studio.sprite(stage, scale)
-        column = (2 * index + 1) * (n + 2)
-        if (column + row) % 2 != n % 2:
-            column += 1
-        x, y = column * tile_w / 2, row * tile_h / 2
-        studio.place(ground, shadow, x, y, scale)
-        studio.place(ground, export.recolor(picture, mask, first, neutral), x, y, scale)
-    export.write_png(out / "stages.png", ground)
+    rows = []
+    # One row of stages for each variant.
+    for variant in studio.variants:
+        ground = tiled_ground(cell * len(STAGES), high, tile_w, tile_h, preview["background"], preview["ground_edge"])
+        for index, stage in enumerate(STAGES):
+            picture, mask, shadow = studio.sprite(stage, scale, variant)
+            column = (2 * index + 1) * (n + 2)
+            if (column + row) % 2 != n % 2:
+                column += 1
+            x, y = column * tile_w / 2, row * tile_h / 2
+            studio.place(ground, shadow, x, y, scale)
+            studio.place(ground, export.recolor(picture, mask, first, neutral), x, y, scale)
+        rows.append(ground)
+    export.write_png(out / "stages.png", np.concatenate(rows, axis=0))
 
     # The finished building, large, in each team colour.
     large = preview.get("building_scale", 3)
-    picture, mask, shadow = studio.sprite("complete", large)
+    picture, mask, shadow = studio.sprite("complete", large, studio.variants[0])
     cells = []
     for color in teams.values():
         canvas = export.flat(studio.frame * large, studio.frame * large, preview["background"])
@@ -281,7 +297,7 @@ def overview_pictures(game: dict, out: Path, neutral: str, scale: int) -> list[d
 
         race, building = load_race(entry["race"]), load_building(entry["race"], entry["building"])
         studio = _studio(race, building, game, out, neutral)
-        picture, mask, shadow = studio.sprite("complete", scale)
+        picture, mask, shadow = studio.sprite("complete", scale, studio.variants[0])
         (out / ".render.png").unlink(missing_ok=True)
         _fail_if_clipped(studio)
         size = studio.frame * scale

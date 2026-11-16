@@ -118,10 +118,11 @@ test.describe('phase 6: building', () => {
     await openGame(page);
     await selectWorker(page);
 
-    // The menu opens on the first of its two tabs.
+    // The menu opens on the first of its three tabs.
     const panel = await commandPanel(page);
     expect(panel.tabs.map((tab) => [tab.label, tab.active])).toEqual([
       ['Ekonomi', true],
+      ['Armé', false],
       ['Försvar', false],
     ]);
     expect(panel.buttons.map((b) => [b.label, b.cost, b.info])).toEqual([
@@ -136,22 +137,29 @@ test.describe('phase 6: building', () => {
     expect(await placement(page)).toBeNull();
   });
 
-  test('a click on the tab "Försvar" shows the buildings for defence, and the tab stays when the selection changes', async ({
+  test('a click on a tab shows its buildings, and the tab stays when the selection changes', async ({
     page,
   }) => {
     await openGame(page);
     const worker = await selectWorker(page);
+    await openBuildTab(page, 'Armé');
+    expect((await commandPanel(page)).buttons.map((b) => [b.label, b.cost, b.info])).toEqual([
+      ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
+      ['Bygg Smedja', '150 trä', 'Uppgraderar enheter'],
+      ['Bygg Kastbana', '130 trä', 'Tränar Ramkastare'],
+      ['Laga', '', 'Inget är skadat'],
+    ]);
     await openBuildTab(page, 'Försvar');
     const panel = await commandPanel(page);
     expect(panel.tabs.map((tab) => [tab.label, tab.active])).toEqual([
       ['Ekonomi', false],
+      ['Armé', false],
       ['Försvar', true],
     ]);
     expect(panel.buttons.map((b) => [b.label, b.cost, b.info])).toEqual([
-      ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
       ['Bygg Vakttorn', '120 trä', 'Skjuter på fiender'],
-      ['Bygg Smedja', '150 trä', 'Uppgraderar enheter'],
-      ['Bygg Kastbana', '130 trä', 'Tränar Ramkastare'],
+      ['Bygg Palissad', '6 trä per del', 'Dras ut i en linje'],
+      ['Bygg Port', '40 trä', 'Bara egna går igenom'],
       ['Laga', '', 'Inget är skadat'],
     ]);
     // The click on the tab was not a click on the map: the Samlare is still selected.
@@ -260,7 +268,7 @@ test.describe('phase 6: building', () => {
     expect(START_WOOD).toBeLessThan(BUILDING_DEFS.krigshall.cost.wood!);
 
     const flashed = await recordFlashes(page);
-    await openBuildTab(page, 'Försvar');
+    await openBuildTab(page, 'Armé');
     await clickBuildButton(page, 'Bygg Krigshall');
 
     await expect.poll(flashed).toEqual(['wood']);

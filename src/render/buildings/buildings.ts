@@ -11,6 +11,9 @@ import bearFieldMaskUrl from '../../../assets/buildings/bear_field/bear_field_ma
 import bearFisheryAtlasUrl from '../../../assets/buildings/bear_fishery/bear_fishery.json?url';
 import bearFisheryBaseUrl from '../../../assets/buildings/bear_fishery/bear_fishery.png';
 import bearFisheryMaskUrl from '../../../assets/buildings/bear_fishery/bear_fishery_mask.png';
+import bearGateAtlasUrl from '../../../assets/buildings/bear_gate/bear_gate.json?url';
+import bearGateBaseUrl from '../../../assets/buildings/bear_gate/bear_gate.png';
+import bearGateMaskUrl from '../../../assets/buildings/bear_gate/bear_gate_mask.png';
 import bearForgeAtlasUrl from '../../../assets/buildings/bear_forge/bear_forge.json?url';
 import bearForgeBaseUrl from '../../../assets/buildings/bear_forge/bear_forge.png';
 import bearForgeMaskUrl from '../../../assets/buildings/bear_forge/bear_forge_mask.png';
@@ -23,6 +26,9 @@ import bearRangeMaskUrl from '../../../assets/buildings/bear_range/bear_range_ma
 import bearStorageAtlasUrl from '../../../assets/buildings/bear_storage/bear_storage.json?url';
 import bearStorageBaseUrl from '../../../assets/buildings/bear_storage/bear_storage.png';
 import bearStorageMaskUrl from '../../../assets/buildings/bear_storage/bear_storage_mask.png';
+import bearWallAtlasUrl from '../../../assets/buildings/bear_wall/bear_wall.json?url';
+import bearWallBaseUrl from '../../../assets/buildings/bear_wall/bear_wall.png';
+import bearWallMaskUrl from '../../../assets/buildings/bear_wall/bear_wall_mask.png';
 import bearTowerAtlasUrl from '../../../assets/buildings/bear_tower/bear_tower.json?url';
 import bearTowerBaseUrl from '../../../assets/buildings/bear_tower/bear_tower.png';
 import bearTowerMaskUrl from '../../../assets/buildings/bear_tower/bear_tower_mask.png';
@@ -94,5 +100,17 @@ export const BUILDING_ART: Partial<Record<BuildingType, BuildingSource>> = {
     atlasUrl: bearRangeAtlasUrl,
     baseUrl: bearRangeBaseUrl,
     maskUrl: bearRangeMaskUrl,
+  },
+  palissad: {
+    name: 'bear_wall',
+    atlasUrl: bearWallAtlasUrl,
+    baseUrl: bearWallBaseUrl,
+    maskUrl: bearWallMaskUrl,
+  },
+  port: {
+    name: 'bear_gate',
+    atlasUrl: bearGateAtlasUrl,
+    baseUrl: bearGateBaseUrl,
+    maskUrl: bearGateMaskUrl,
   },
 };

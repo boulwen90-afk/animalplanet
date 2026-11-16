@@ -11,6 +11,8 @@ interface AtlasFile {
     scale: number;
     /** The grey the team-coloured parts are rendered in, as "#rrggbb". */
     neutral: string;
+    /** The variants the building has pictures of, named <variant>_<stage>; none for most. */
+    variants?: string[];
     building: {
       /** From the ground to the top of the roof, in game pixels. */
       roofHeight: number;
@@ -27,6 +29,11 @@ export interface BuildingSheet {
   displayScale: number;
   /** From the ground to the top of the roof, in game pixels. */
   roofHeight: number;
+  /**
+   * The variants the building has pictures of; empty for a building with
+   * one look. See `frameOf` for how the pictures are named.
+   */
+  variants: readonly string[];
   /** Key of the texture in a player's colour. */
   textureKey(owner: number): string;
 }
@@ -85,6 +92,7 @@ export class BuildingLibrary {
         name: source.name,
         displayScale: 1 / atlas.meta.scale,
         roofHeight: atlas.meta.building.roofHeight,
+        variants: atlas.meta.variants ?? [],
         textureKey: (owner) => key(source, `player-${owner}`),
       });
     }

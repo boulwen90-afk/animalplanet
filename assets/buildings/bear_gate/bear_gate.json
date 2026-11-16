@@ -1,0 +1,226 @@
+{
+ "frames": {
+  "x_construction_1": {
+   "frame": {
+    "x": 2,
+    "y": 84,
+    "w": 41,
+    "h": 69
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 74,
+    "y": 60,
+    "w": 41,
+    "h": 69
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6155
+   }
+  },
+  "x_construction_2": {
+   "frame": {
+    "x": 180,
+    "y": 2,
+    "w": 43,
+    "h": 69
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 74,
+    "y": 60,
+    "w": 43,
+    "h": 69
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6155
+   }
+  },
+  "x_complete": {
+   "frame": {
+    "x": 2,
+    "y": 2,
+    "w": 43,
+    "h": 80
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 74,
+    "y": 49,
+    "w": 43,
+    "h": 80
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6155
+   }
+  },
+  "x_shadow": {
+   "frame": {
+    "x": 130,
+    "y": 84,
+    "w": 78,
+    "h": 49
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 64,
+    "y": 92,
+    "w": 78,
+    "h": 49
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6155
+   }
+  },
+  "y_construction_1": {
+   "frame": {
+    "x": 137,
+    "y": 2,
+    "w": 41,
+    "h": 70
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 77,
+    "y": 60,
+    "w": 41,
+    "h": 70
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6155
+   }
+  },
+  "y_construction_2": {
+   "frame": {
+    "x": 92,
+    "y": 2,
+    "w": 43,
+    "h": 70
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 75,
+    "y": 60,
+    "w": 43,
+    "h": 70
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6155
+   }
+  },
+  "y_complete": {
+   "frame": {
+    "x": 47,
+    "y": 2,
+    "w": 43,
+    "h": 80
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 75,
+    "y": 49,
+    "w": 43,
+    "h": 80
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6155
+   }
+  },
+  "y_shadow": {
+   "frame": {
+    "x": 45,
+    "y": 84,
+    "w": 83,
+    "h": 51
+   },
+   "rotated": false,
+   "trimmed": true,
+   "spriteSourceSize": {
+    "x": 63,
+    "y": 91,
+    "w": 83,
+    "h": 51
+   },
+   "sourceSize": {
+    "w": 192,
+    "h": 192
+   },
+   "anchor": {
+    "x": 0.5,
+    "y": 0.6155
+   }
+  }
+ },
+ "meta": {
+  "app": "animalplanet tools/blender",
+  "image": "bear_gate.png",
+  "mask": "bear_gate_mask.png",
+  "format": "RGBA8888",
+  "size": {
+   "w": 256,
+   "h": 155
+  },
+  "scale": 1,
+  "pixelsPerUnit": 24.0,
+  "building": {
+   "gameBuilding": "port",
+   "sizeClass": "wall",
+   "footprint": 1,
+   "roofHeight": 47.8,
+   "minRoofHeight": 28.8,
+   "height": 60.4
+  },
+  "neutral": "#bcbcbc",
+  "stages": [
+   "construction_1",
+   "construction_2",
+   "complete"
+  ],
+  "variants": [
+   "x",
+   "y"
+  ]
+ }
+}

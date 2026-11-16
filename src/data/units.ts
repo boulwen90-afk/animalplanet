@@ -90,6 +90,8 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
       'vakttorn',
       'smedja',
       'kastbana',
+      'palissad',
+      'port',
     ],
     repairs: true,
     damage: 3,

@@ -1,0 +1,218 @@
+# The bears' palisade, the Palissad: sharpened stakes standing close on one
+# tile, with a rail in the side's colour along them. It comes in three
+# variants, and the game picks the one that fits what stands beside it:
+# "x" for a piece in a row along the x axis, "y" for one in a row along the
+# y axis, and "block" for a corner, a crossing or a piece standing alone: a
+# square of stakes that the rows run into.
+# Lengths are in tiles; see lib/structures.py for the frame.
+name = "wall"
+game_building = "palissad"
+size_class = "wall"
+footprint = 1
+variants = ["x", "y", "block"]
+
+# --- A piece in a row along x. First a few stakes, then every other, then all.
+[[part]]
+type = "palisade"
+variant = "x"
+start = [-0.5, 0.0]
+end = [0.5, 0.0]
+height = 0.5
+radius = 0.07
+gap = 3.4
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "palisade"
+variant = "x"
+start = [-0.5, 0.0]
+end = [0.5, 0.0]
+height = 0.8
+radius = 0.07
+gap = 1.75
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "palisade"
+variant = "x"
+start = [-0.5, 0.0]
+end = [0.5, 0.0]
+height = 0.8
+radius = 0.07
+
+# The rail, on the side the player sees.
+[[part]]
+type = "beam"
+variant = "x"
+start = [-0.5, -0.085, 0.5]
+end = [0.5, -0.085, 0.5]
+radius = 0.035
+material = "team"
+
+[[part]]
+type = "beam"
+variant = "x"
+start = [-0.5, -0.08, 0.2]
+end = [0.5, -0.08, 0.2]
+radius = 0.03
+material = "timber_dark"
+from = "construction_2"
+
+# --- A piece in a row along y.
+[[part]]
+type = "palisade"
+variant = "y"
+start = [0.0, -0.5]
+end = [0.0, 0.5]
+height = 0.5
+radius = 0.07
+gap = 3.4
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "palisade"
+variant = "y"
+start = [0.0, -0.5]
+end = [0.0, 0.5]
+height = 0.8
+radius = 0.07
+gap = 1.75
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "palisade"
+variant = "y"
+start = [0.0, -0.5]
+end = [0.0, 0.5]
+height = 0.8
+radius = 0.07
+
+[[part]]
+type = "beam"
+variant = "y"
+start = [0.085, -0.5, 0.5]
+end = [0.085, 0.5, 0.5]
+radius = 0.035
+material = "team"
+
+[[part]]
+type = "beam"
+variant = "y"
+start = [0.08, -0.5, 0.2]
+end = [0.08, 0.5, 0.2]
+radius = 0.03
+material = "timber_dark"
+from = "construction_2"
+
+# --- A corner, a crossing or a lone piece: a square of taller stakes.
+[[part]]
+type = "stakes"
+variant = "block"
+box = [-0.42, -0.42, 0.42, 0.42]
+height = 0.3
+from = "construction_1"
+until = "construction_1"
+
+[[part]]
+type = "palisade"
+variant = "block"
+start = [-0.44, -0.44]
+end = [0.44, -0.44]
+height = 0.92
+radius = 0.07
+gap = 1.75
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "palisade"
+variant = "block"
+start = [0.44, -0.44]
+end = [0.44, 0.44]
+height = 0.92
+radius = 0.07
+gap = 1.75
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "palisade"
+variant = "block"
+start = [-0.44, 0.44]
+end = [0.44, 0.44]
+height = 0.92
+radius = 0.07
+gap = 1.75
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "palisade"
+variant = "block"
+start = [-0.44, -0.44]
+end = [-0.44, 0.44]
+height = 0.92
+radius = 0.07
+gap = 1.75
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "palisade"
+variant = "block"
+start = [-0.44, -0.44]
+end = [0.44, -0.44]
+height = 0.92
+radius = 0.07
+
+[[part]]
+type = "palisade"
+variant = "block"
+start = [0.44, -0.44]
+end = [0.44, 0.44]
+height = 0.92
+radius = 0.07
+
+[[part]]
+type = "palisade"
+variant = "block"
+start = [-0.44, 0.44]
+end = [0.44, 0.44]
+height = 0.92
+radius = 0.07
+
+[[part]]
+type = "palisade"
+variant = "block"
+start = [-0.44, -0.44]
+end = [-0.44, 0.44]
+height = 0.92
+radius = 0.07
+
+# A floor of planks inside the square, and the rails on the two sides the player sees.
+[[part]]
+type = "slab"
+variant = "block"
+box = [-0.4, -0.4, 0.4, 0.4]
+z = [0.5, 0.56]
+material = "timber_mid"
+
+[[part]]
+type = "beam"
+variant = "block"
+start = [-0.5, -0.525, 0.58]
+end = [0.5, -0.525, 0.58]
+radius = 0.035
+material = "team"
+
+[[part]]
+type = "beam"
+variant = "block"
+start = [0.525, -0.5, 0.58]
+end = [0.525, 0.5, 0.58]
+radius = 0.035
+material = "team"

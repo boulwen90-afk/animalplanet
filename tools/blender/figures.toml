@@ -53,3 +53,11 @@ building = "forge"
 [[building]]
 race = "bear"
 building = "range"
+
+[[building]]
+race = "bear"
+building = "wall"
+
+[[building]]
+race = "bear"
+building = "gate"

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BUILDING_DEFS } from '../../data/buildings';
+import { BUILDING_DEFS, BUILD_MENUS } from '../../data/buildings';
 import { UNIT_DEFS } from '../../data/units';
 import { applyCommand } from '../../sim/commands';
 import { createBuilding, createUnit } from '../../sim/entities';
@@ -149,6 +149,7 @@ describe('describeCommandPanel', () => {
       // The menu opens on the first tab.
       tabs: [
         { menu: 'economy', label: 'Ekonomi', active: true },
+        { menu: 'army', label: 'Armé', active: false },
         { menu: 'defence', label: 'Försvar', active: false },
       ],
     };
@@ -156,19 +157,36 @@ describe('describeCommandPanel', () => {
     expect(describeCommandPanel(state.entities, new Set([a.id, b.id]), 0)).toEqual(expected);
   });
 
-  it('shows the buildings for defence under the second tab, with the repair button there too', () => {
+  it('shows what trains and equips soldiers under the second tab, with the repair button there too', () => {
     const { state } = setup();
     const worker = createUnit(state, 'samlare', 0, 1, 1);
-    const panel = describeCommandPanel(state.entities, new Set([worker.id]), 0, 'defence')!;
+    const panel = describeCommandPanel(state.entities, new Set([worker.id]), 0, 'army')!;
     expect(panel.buttons.map((button) => [button.label, button.cost, button.info])).toEqual([
       ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
-      ['Bygg Vakttorn', '120 trä', 'Skjuter på fiender'],
       ['Bygg Smedja', '150 trä', 'Uppgraderar enheter'],
       ['Bygg Kastbana', '130 trä', 'Tränar Ramkastare'],
       ['Laga', '', 'Inget är skadat'],
     ]);
     expect(panel.tabs).toEqual([
       { menu: 'economy', label: 'Ekonomi', active: false },
+      { menu: 'army', label: 'Armé', active: true },
+      { menu: 'defence', label: 'Försvar', active: false },
+    ]);
+  });
+
+  it('shows the tower, the palisade and the gate under the third tab: a wall is priced by the piece', () => {
+    const { state } = setup();
+    const worker = createUnit(state, 'samlare', 0, 1, 1);
+    const panel = describeCommandPanel(state.entities, new Set([worker.id]), 0, 'defence')!;
+    expect(panel.buttons.map((button) => [button.label, button.cost, button.info])).toEqual([
+      ['Bygg Vakttorn', '120 trä', 'Skjuter på fiender'],
+      ['Bygg Palissad', '6 trä per del', 'Dras ut i en linje'],
+      ['Bygg Port', '40 trä', 'Bara egna går igenom'],
+      ['Laga', '', 'Inget är skadat'],
+    ]);
+    expect(panel.tabs).toEqual([
+      { menu: 'economy', label: 'Ekonomi', active: false },
+      { menu: 'army', label: 'Armé', active: false },
       { menu: 'defence', label: 'Försvar', active: true },
     ]);
   });
@@ -176,14 +194,14 @@ describe('describeCommandPanel', () => {
   it('puts every building a Samlare can build under exactly one tab', () => {
     const { state } = setup();
     const worker = createUnit(state, 'samlare', 0, 1, 1);
-    const built = (['economy', 'defence'] as const).flatMap((menu) =>
+    const built = BUILD_MENUS.flatMap((menu) =>
       describeCommandPanel(state.entities, new Set([worker.id]), 0, menu)!
         .buttons.filter((button) => button.action.kind === 'build')
         .map((button) => (button.action.kind === 'build' ? button.action.building : '')),
     );
     expect([...built].sort()).toEqual([...UNIT_DEFS.samlare.builds].sort());
     for (const type of UNIT_DEFS.samlare.builds) {
-      expect(['economy', 'defence'], type).toContain(BUILDING_DEFS[type].menu);
+      expect(BUILD_MENUS, type).toContain(BUILDING_DEFS[type].menu);
     }
   });
 
