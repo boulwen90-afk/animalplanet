@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildingCovers, stageOf } from './stage';
+import { buildingCovers, frameOf, stageOf, wallVariant } from './stage';
 
 describe('stageOf', () => {
   it('shows the footing and frame for the first half of the work', () => {
@@ -49,5 +49,38 @@ describe('buildingCovers', () => {
   it('a lower building hides less', () => {
     expect(buildingCovers({ x: 8.5, y: 8.5 }, corner, 3, 1)).toBe(false);
     expect(buildingCovers({ x: 9.5, y: 9.5 }, corner, 3, 1)).toBe(true);
+  });
+});
+
+describe('wallVariant', () => {
+  it('a piece of palisade in a row runs with the row', () => {
+    expect(wallVariant('segment', true, false)).toBe('x');
+    expect(wallVariant('segment', false, true)).toBe('y');
+  });
+
+  it('at a corner or a crossing, and standing alone, it is a block', () => {
+    expect(wallVariant('segment', true, true)).toBe('block');
+    expect(wallVariant('segment', false, false)).toBe('block');
+  });
+
+  it('a gate turns with the wall it stands in, and stands along x where that does not say', () => {
+    expect(wallVariant('gate', true, false)).toBe('x');
+    expect(wallVariant('gate', false, true)).toBe('y');
+    expect(wallVariant('gate', true, true)).toBe('x');
+    expect(wallVariant('gate', false, false)).toBe('x');
+  });
+});
+
+describe('frameOf', () => {
+  it('is the name of the stage for a building with one look', () => {
+    expect(frameOf('complete')).toBe('complete');
+    expect(frameOf('construction_1')).toBe('construction_1');
+    expect(frameOf('shadow')).toBe('shadow');
+  });
+
+  it('has the variant first for a building that comes in several', () => {
+    expect(frameOf('complete', 'x')).toBe('x_complete');
+    expect(frameOf('construction_2', 'block')).toBe('block_construction_2');
+    expect(frameOf('shadow', 'y')).toBe('y_shadow');
   });
 });

@@ -71,8 +71,12 @@ describe('the data', () => {
   it('a house is cheap, costs only wood, and is built by workers', () => {
     const cost = BUILDING_DEFS.ide.cost;
     expect(cost).toEqual({ wood: 30 });
+    // Apart from the pieces of a wall, which are bought many at a time.
     const others = (Object.keys(BUILDING_DEFS) as BuildingType[]).filter(
-      (type) => type !== 'ide' && BUILDING_DEFS[type].buildTime > 0,
+      (type) =>
+        type !== 'ide' &&
+        BUILDING_DEFS[type].buildTime > 0 &&
+        BUILDING_DEFS[type].wall !== 'segment',
     );
     for (const type of others) {
       expect(BUILDING_DEFS[type].cost.wood!, type).toBeGreaterThan(cost.wood!);

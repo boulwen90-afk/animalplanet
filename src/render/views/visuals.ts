@@ -79,6 +79,8 @@ export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label:
   vakttorn: { wallHeight: 96, label: 'T' },
   smedja: { wallHeight: 48, label: 'M' },
   kastbana: { wallHeight: 46, label: 'B' },
+  palissad: { wallHeight: 26, label: 'P' },
+  port: { wallHeight: 34, label: 'G' },
 };
 
 /**

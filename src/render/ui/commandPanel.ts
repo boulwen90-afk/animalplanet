@@ -133,7 +133,11 @@ export function describeCommandPanel(
     .map((building) => ({
       action: { kind: 'build', building },
       label: STRINGS.hud.build(STRINGS.buildings[building]),
-      cost: formatCost(BUILDING_DEFS[building].cost),
+      // A wall is bought a piece at a time: the price is for each piece.
+      cost:
+        BUILDING_DEFS[building].wall === 'segment'
+          ? STRINGS.hud.costEach(formatCost(BUILDING_DEFS[building].cost))
+          : formatCost(BUILDING_DEFS[building].cost),
       info: STRINGS.buildingInfo[building],
     }));
   // Repairing is at hand under every tab.

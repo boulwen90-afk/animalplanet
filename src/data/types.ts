@@ -14,7 +14,9 @@ export type BuildingType =
   | 'fiskehytta'
   | 'vakttorn'
   | 'smedja'
-  | 'kastbana';
+  | 'kastbana'
+  | 'palissad'
+  | 'port';
 
 /** What flies through the air: what a tower shoots, and what a unit throws. */
 export type ProjectileKind = 'arrow' | 'javelin';

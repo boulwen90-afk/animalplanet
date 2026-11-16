@@ -6,7 +6,7 @@ import { isBuilding, isUnit, nearestBuildingTile, tileGapToBuilding, unitTile } 
 import { isWater, tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
 import { findPath, isPassable, reachableTiles, type PathGrid } from '../pathfinding/astar';
-import { buildPathGrid } from '../pathfinding/passability';
+import { PathGrids, buildPathGrid } from '../pathfinding/passability';
 import { resourceAt, takeFromSource } from '../resources';
 import type { Building, GameState, GatherTask, Unit } from '../state';
 import { gatherSpeed } from '../upgrades';
@@ -29,28 +29,9 @@ const AROUND: readonly (readonly [number, number])[] = [
 /** Most phase changes handled for one unit in one step; a safety limit, never reached in practice. */
 const MAX_TRANSITIONS = 6;
 
-/**
- * The walkable tiles, built when first needed and rebuilt after a source is
- * emptied, since an emptied source turns into open ground.
- */
-class GridCache {
-  private grid: PathGrid | undefined;
-
-  constructor(private readonly state: GameState) {}
-
-  get(): PathGrid {
-    this.grid ??= buildPathGrid(this.state);
-    return this.grid;
-  }
-
-  invalidate(): void {
-    this.grid = undefined;
-  }
-}
-
 /** Runs one simulation step of every gathering unit. */
 export function gatherResources(state: GameState): void {
-  const grids = new GridCache(state);
+  const grids = new PathGrids(state);
   for (const entity of state.entities) {
     if (!isUnit(entity) || entity.task.kind !== 'gather') continue;
     // A unit may finish one phase and start the next within the same step.
@@ -359,7 +340,7 @@ function freeWorkSite(
 }
 
 /** Advances a gathering unit. Returns true if it changed phase and should be run again this step. */
-function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
+function stepGatherer(state: GameState, unit: Unit, grids: PathGrids): boolean {
   const task = unit.task;
   if (task.kind !== 'gather') return false;
   const here = unitTile(unit);
@@ -379,11 +360,11 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
         return true;
       }
       // The source is gone, or the unit could not get next to it.
-      return retarget(state, grids.get(), unit, task);
+      return retarget(state, grids.for(unit.owner), unit, task);
     }
 
     case 'gathering': {
-      if (!sourceLeft) return retarget(state, grids.get(), unit, task);
+      if (!sourceLeft) return retarget(state, grids.for(unit.owner), unit, task);
       task.workTicks++;
       if (task.workTicks >= ticksPerUnit(state, unit, site)) {
         task.workTicks = 0;
@@ -398,10 +379,10 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
         }
       }
       if (unit.carryAmount >= UNIT_DEFS[unit.type].carryCapacity) {
-        return headToDropoff(state, grids.get(), unit, task);
+        return headToDropoff(state, grids.for(unit.owner), unit, task);
       }
       if (!site && resourceAt(state.map, task.node.x, task.node.y) === undefined) {
-        return retarget(state, grids.get(), unit, task);
+        return retarget(state, grids.for(unit.owner), unit, task);
       }
       return false;
     }
@@ -418,11 +399,11 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
         unit.carryLoad = null;
         task.phase = 'toSource';
         task.dropoffId = null;
-        walkToSource(state, grids.get(), unit, task);
+        walkToSource(state, grids.for(unit.owner), unit, task);
         return true;
       }
       // The building is gone, or the unit could not get next to it.
-      return headToDropoff(state, grids.get(), unit, task);
+      return headToDropoff(state, grids.for(unit.owner), unit, task);
     }
   }
 }

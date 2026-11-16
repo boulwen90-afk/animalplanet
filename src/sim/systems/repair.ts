@@ -165,7 +165,7 @@ export function orderRepair(
     .filter((unit) => unit.owner === player && unitIds.includes(unit.id) && canRepair(unit));
   if (repairers.length === 0) return { ok: false, reason: 'invalid' };
 
-  const grid = buildPathGrid(state);
+  const grid = buildPathGrid(state, player);
   const places = freeRepairPlaces(state, grid, building, repairers);
   for (const unit of repairers) {
     const here = unitTile(unit);
@@ -251,7 +251,7 @@ export function repairBuildings(state: GameState): void {
       for (const unit of crew) unit.task = { kind: 'idle' };
       // A building that gives work, such as a field, is worked again by those who mended it.
       if (BUILDING_DEFS[building.type].work) {
-        const grid = buildPathGrid(state);
+        const grid = buildPathGrid(state, building.owner);
         for (const unit of crew) startWorking(state, grid, unit, building);
       }
     }

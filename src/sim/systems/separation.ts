@@ -1,8 +1,8 @@
 import { SIM_CONFIG } from '../../data/sim';
 import { COLLISION_CONFIG, UNIT_DEFS } from '../../data/units';
 import { hasSurrendered, isUnit, unitDestination, unitTile } from '../entities';
-import { findPath, type PathGrid } from '../pathfinding/astar';
-import { buildPathGrid, nearestFreeTiles } from '../pathfinding/passability';
+import { findPath } from '../pathfinding/astar';
+import { PathGrids, nearestFreeTiles } from '../pathfinding/passability';
 import type { GameState, Unit } from '../state';
 
 /**
@@ -85,7 +85,8 @@ export function separateUnits(state: GameState): void {
 
   const furthest = COLLISION_CONFIG.maxPushSpeed / SIM_CONFIG.ticksPerSecond;
   const margin = COLLISION_CONFIG.tileMargin;
-  let grid: PathGrid | undefined;
+  // A gate is open ground to its own side only, so each side has its own grid.
+  const grids = new PathGrids(state);
   units.forEach((unit, i) => {
     const [dx, dy] = capped(pushX[i] as number, pushY[i] as number, furthest);
     if (dx === 0 && dy === 0) return;
@@ -110,7 +111,7 @@ export function separateUnits(state: GameState): void {
       const toX = Math.floor(x);
       const toY = Math.floor(y);
       if (toX !== tileX || toY !== tileY) {
-        grid ??= buildPathGrid(state);
+        const grid = grids.for(unit.owner);
         const outside = toX < 0 || toY < 0 || toX >= grid.width || toY >= grid.height;
         if (outside || grid.blocked[toY * grid.width + toX] !== 0) continue;
       }
@@ -147,7 +148,7 @@ export function settleUnits(state: GameState): void {
   }
   if (crowded.length === 0) return;
 
-  const grid = buildPathGrid(state);
+  const grids = new PathGrids(state);
   const taken = new Set<number>();
   for (const unit of state.entities) {
     if (!isUnit(unit)) continue;
@@ -155,6 +156,7 @@ export function settleUnits(state: GameState): void {
     taken.add(tile.y * width + tile.x);
   }
   for (const unit of crowded) {
+    const grid = grids.for(unit.owner);
     const here = unitTile(unit);
     const [free] = nearestFreeTiles(grid, [here], 1, taken);
     if (!free) continue;

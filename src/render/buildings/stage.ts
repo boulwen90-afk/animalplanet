@@ -6,6 +6,39 @@ export type BuildingStage = 'construction_1' | 'construction_2' | 'complete';
 /** The name of the shadow's picture in a building's atlas. */
 export const SHADOW_FRAME = 'shadow';
 
+/**
+ * The looks a piece of wall has pictures of. A piece of palisade is drawn
+ * as a row along the x axis, as a row along the y axis, or as a square
+ * block where rows meet; a gate stands in a row along one axis or the other.
+ */
+export type WallVariant = 'x' | 'y' | 'block';
+
+/**
+ * Which look fits a piece of wall, by where other pieces of its side stand
+ * beside it: along the x axis (on either side), along the y axis, both or
+ * neither. A piece of palisade in a row runs with the row; at a corner, a
+ * crossing or alone it is a block. A gate turns with the wall it stands in,
+ * and stands along x where that does not say.
+ */
+export function wallVariant(
+  kind: 'segment' | 'gate',
+  alongX: boolean,
+  alongY: boolean,
+): WallVariant {
+  if (kind === 'gate') return alongY && !alongX ? 'y' : 'x';
+  if (alongX && !alongY) return 'x';
+  if (alongY && !alongX) return 'y';
+  return 'block';
+}
+
+/**
+ * The name in a building's atlas of the picture of a stage, or of the
+ * shadow: for a building that comes in variants, that of the variant.
+ */
+export function frameOf(part: BuildingStage | typeof SHADOW_FRAME, variant?: string): string {
+  return variant ? `${variant}_${part}` : part;
+}
+
 /** From this share of the work done, a site shows its walls up; before it, the footing and the frame. */
 export const WALLS_UP_AT = 0.5;
 

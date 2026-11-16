@@ -43,7 +43,7 @@ export function produceUnits(state: GameState): void {
  * where no other unit stands or is heading. Returns false if there is none.
  */
 function spawnUnit(state: GameState, building: Building, type: UnitType): boolean {
-  const grid = buildPathGrid(state);
+  const grid = buildPathGrid(state, building.owner);
   const taken = new Set<number>();
   for (const entity of state.entities) {
     if (!isUnit(entity)) continue;

@@ -54,12 +54,15 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/commands.ts` | Typerna `Command` och `CommandResult`, och `applyCommand` | 3, 4, 5 |
 | `src/sim/economy.ts` | Kostnader: vad som saknas, betala, återbetala | 5 |
 | `src/sim/systems/production.ts` | `produceUnits` (träning), `queueUnit`, `cancelQueuedUnit` | 5 |
-| `src/sim/systems/construction.ts` | `constructBuildings` (byggande), `canPlaceBuilding`, `placeBuilding`, `assistConstruction` | 6, 7 |
+| `src/sim/systems/construction.ts` | `constructBuildings` (byggande), `canPlaceBuilding`, `placeBuilding`, `assistConstruction`; för murar `planLine`, `placeLine`, `lineCost` | 6, 7 |
 | `src/data/upgrades.ts` | `UPGRADE_DEFS`: uppgraderingarna, vad de ändrar, för vilka enheter, och varje nivås pris, tid och tillägg | Efter MVP |
 | `src/sim/upgrades.ts` | En enhets värden med sidans uppgraderingar: `unitDamage`, `unitArmor`, `gatherSpeed` | Efter MVP |
 | `src/sim/systems/research.ts` | Forskningskön: `queueResearch`, `cancelResearch`, `researchUpgrades` | Efter MVP |
 | `src/sim/systems/shooting.ts` | Byggnader som skjuter, och allt som flyger: `shootFromBuildings`, `flyProjectiles`, `shootingTarget`, `shotDamage` | Efter MVP |
 | `src/sim/systems/projectiles.ts` | `launchProjectile`: lägger en projektil i luften, från ett torn eller en kastare | Efter MVP |
+| `src/sim/map/line.ts` | `lineTiles`: rutorna i en linje mellan två rutor, sida vid sida, för murar | Efter MVP |
+| `src/sim/pathfinding/reroute.ts` | Omledning när marken ändras: `rerouteBlockedUnits` (något står i vägen), `rerouteForOpening` (något i vägen är borta) | Efter MVP |
+| `src/sim/systems/breach.ts` | Att komma åt det som står bakom en mur: `canGetToAttack`, `wallInTheWay` | Efter MVP |
 | `src/render/effects/projectiles.ts` | En projektils bana på skärmen, träffens utseende och räckviddsringens mått, som rena funktioner | Efter MVP |
 | `src/render/views/ProjectileView.ts` | Ritar pilar och spjut i luften och splitterstjärnan där de landar | Efter MVP |
 | `src/sim/systems/repair.ts` | Lagning: `orderRepair`, `repairBuildings`, kostnad och takt, lediga platser runt en byggnad | Efter MVP |
@@ -75,8 +78,8 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/resources.ts` | Resurskällor på kartan: slå upp, ta från, startmängder | 4 |
 | `src/sim/systems/gathering.ts` | `gatherResources` (insamlingsloopen) och `startGathering` | 4 |
 | `src/sim/systems/movement.ts` | `moveUnits`: flyttar enheter längs deras väg | 3 |
-| `src/sim/pathfinding/astar.ts` | `findPath` (A*), `nearestReachable`, `reachableTiles`, `canStep`, typen `PathGrid` | 3, 4 |
-| `src/sim/pathfinding/passability.ts` | `buildPathGrid` (gångbara rutor just nu) och `nearestFreeTiles` | 3 |
+| `src/sim/pathfinding/astar.ts` | `findPath` (A*), `pathTowards`, `pathCost`, `nearestReachable`, `reachableTiles`, `canStep`, typen `PathGrid` | 3, 4 |
+| `src/sim/pathfinding/passability.ts` | `buildPathGrid` (gångbara rutor just nu, för en sida), `PathGrids` (ett rutnät per sida), `buildBreachGrid` och `nearestFreeTiles` | 3 |
 | `src/sim/testUtils.ts` | Små kartor från teckenrader, för enhetstester | 3 |
 | `src/sim/clock.ts` | Fast tidssteg: gör om bildrutetid till ett helt antal steg | 2 |
 | `src/sim/rng.ts` | Frösatt slumpgenerator (mulberry32) och `parseSeed` | 2 |
@@ -97,7 +100,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/render/views/visuals.ts` | Mått som ritning och klickträffar delar: figurers och byggnaders höjd, klickrutan för träd och bärsnår (`SCENERY_PICK`, `pickBoxOf`), och platshållarformerna som finns kvar som reserv | 3 |
 | `src/render/input/CameraController.ts` | Kamerapanorering med tangenter, skärmkant och mittenknapp; `panBy` för fingret | 1, 10 |
 | `src/render/input/SelectionController.ts` | Markering, dragruta och order (flytta, samla, anfalla, hjälpa till att bygga) med mus och tangentbord; `tapAt` och `selectBox` för fingret | 3, 4, 6, 7, 10 |
-| `src/render/input/PlacementController.ts` | Byggplacering: kontur som följer musen, klick placerar, högerklick och Esc avbryter. På pekskärm: tryck flyttar konturen, tryck på konturen bygger | 6, 10 |
+| `src/render/input/PlacementController.ts` | Byggplacering: kontur som följer musen, klick placerar, högerklick och Esc avbryter. På pekskärm: tryck flyttar konturen, tryck på konturen bygger. En mur dras ut i en linje: tryck, dra, släpp; på pekskärm tryck för start, tryck för slut, tryck på linjen | 6, 10 |
 | `src/render/input/TouchController.ts` | Ett finger på kartan: tryck, dra (kamera) eller håll och dra (dragruta) | 10 |
 | `src/render/input/touchGesture.ts` | Fingrets lägen som rena funktioner: väntar, hållet, panorerar, dragruta | 10 |
 | `src/render/input/selection.ts` | Markeringsregler som rena funktioner | 3 |
@@ -261,16 +264,41 @@ Så fördelas en grupp vid `move`:
 - Är målet ett hinder eller utanför kartan går vägen till närmaste nåbara
   ruta. Bland rutor lika nära målet väljs den med färst steg från starten,
   så en enhet som skickas mot ett träd stannar på sin egen sida av det.
-- Är målet fri mark som inte går att nå blir vägen tom och enheten står kvar.
-- `buildPathGrid(state)` räknar ut hindren: icke gångbar terräng och
-  byggnaders fotavtryck. En byggnad med `walkable` i `BUILDING_DEFS` (en
-  Odling) är inget hinder: enheter går över den. Vatten är alltid ett
-  hinder; det finns ingen vägsökning på vatten. Enheter blockerar inte (GDD avsnitt 10). Rutnätet
-  byggs om vid varje kommando och sparas inte.
-- Vägar räknas inte om när kartan ändras. Ett träd som försvinner gör bara
-  fler rutor gångbara, så befintliga vägar förblir giltiga. Nya byggnader
-  kan däremot blockera en väg; då räknas berörda enheters vägar om (se
-  Byggande).
+- Är målet fri mark som inte går att nå ger `findPath` en tom väg.
+  **`pathTowards(grid, from, to)`** går då i stället till den nåbara ruta
+  som ligger närmast målet (`nearestReachable`): en enhet som skickas
+  till en avstängd plats går så nära den kan. Flyttordern och omledningen
+  använder den; övriga uppgifter använder `findPath` som förut.
+- **`buildPathGrid(state, owner?)`** räknar ut hindren för en sidas
+  enheter: icke gångbar terräng och byggnaders fotavtryck. En byggnad med
+  `walkable` i `BUILDING_DEFS` (en Odling) är inget hinder: enheter går
+  över den. En port (`wall: 'gate'`) är inget hinder för sin ägare,
+  färdig eller inte, men för alla andra. Utan `owner` är alla portar
+  stängda. Vatten är alltid ett hinder; det finns ingen vägsökning på
+  vatten. Enheter blockerar inte (GDD avsnitt 10). Rutnätet byggs om vid
+  varje kommando och sparas inte.
+- **`PathGrids`** håller ett rutnät per sida, byggt första gången det
+  efterfrågas (`grids.for(owner)`), och töms med `invalidate()` när något
+  på marken ändras. Strid, samlande, kollision och omledning använder
+  den, så att varje enhet får sin egen sidas rutnät.
+- **`buildBreachGrid(state, owner)`** är rutnätet som det vore om den
+  andra sidan inte hade några murar: dess delar och portar är öppen mark.
+  En väg över det visar var en mur måste brytas igenom (se
+  Datormotståndaren).
+- **Omledning när marken ändras (`pathfinding/reroute.ts`).** Varje enhet
+  behåller sitt mål, sista rutan i vägen, och får en ny väg dit:
+  - `rerouteBlockedUnits(state)` anropas när något har ställts i vägen
+    (ett bygge eller en mur placeras). Bara enheter vars väg inte längre
+    går att gå (`isPathOpen`) får en ny, med `pathTowards`: runt hindret,
+    eller så nära målet det går.
+  - `rerouteForOpening(state)` anropas när något som stod i vägen är
+    borta (en byggnad rasar, eller en port sätts in i en mur). Varje
+    enhet på väg får den nya vägen om den är billigare än den den har
+    (`pathCost`, 10 per rakt steg och 14 per diagonalt).
+  - En enhet som redan har stannat har ingen väg och inget mål kvar; den
+    leds inte om.
+- Ett träd som försvinner gör bara fler rutor gångbara, så befintliga
+  vägar förblir giltiga; då räknas inget om.
 
 ### Förflyttning
 
@@ -556,6 +584,14 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
      `throwers.towerMargin` (7 + 2 rutor): beslut tas en gång i sekunden
      och den går 2 rutor på den tiden, så den hinner få ordern innan den
      är inne i tornets räckvidd.
+- **Genombrott.** I steg 7 prövas först om soldaten kan ta sig dit den
+  kan anfalla sitt mål från (`canGetToAttack` med sidans rutnät: en ruta
+  intill målet, eller för en kastare en ruta inom räckvidd). Kan den inte
+  det blir målet i stället den del av fiendens mur som står först i dess
+  väg (`wallInTheWay`: vägen över `buildBreachGrid`, och på den första
+  rutan som är stängd i det riktiga rutnätet). När delen har fallit ger
+  nästa beslut det ursprungliga målet igen, eller nästa del. Datorspelaren
+  bygger inga murar själv.
 - **Kastbana.** Har sidan en färdig kasern och ett förråd men ingen
   byggnad som tränar soldater med `ranged`, bygger den en vid basen så
   snart den har råd (`buildableRange`). Kasernen känns igen på att den
@@ -626,7 +662,27 @@ händelserna efter varje steg. Simuleringen själv använder dem inte.
   (`insufficientResources`). Annars dras kostnaden och ett bygge skapas med
   `complete: false` och 10 % av sina HP.
 - Bygget blockerar sina rutor direkt. Alla enheter vars väg inte längre går
-  att gå får en ny väg till samma mål (`rerouteBlockedUnits`).
+  att gå får en ny väg till samma mål (`rerouteBlockedUnits`, se
+  Vägsökning).
+- **Murar (`wall` i `BUILDING_DEFS`).** `'segment'` är en del av en
+  palissad, `'gate'` en port. Båda står på en ruta.
+  - **`placeLine`** (kommandot `buildLine`) placerar en mur mellan två
+    rutor. `planLine` ger linjens rutor (`lineTiles`, högst
+    `CONSTRUCTION_CONFIG.maxLineLength`, 30) med vad som hindrar en del
+    på var och en: `problem` (samma regler som för andra byggnader) eller
+    `standing` (en del av sidans egen mur står redan där). På övriga
+    rutor (`placeablePieces`) skapas ett bygge. Priset för alla
+    (`lineCost`) dras på en gång; räcker det inte placeras inget. Finns
+    ingen ruta att bygga på nekas ordern med den första rutans orsak.
+  - Byggarna skickas till den ände som ligger närmast den första av dem.
+    När en del av en mur blir klar går varje byggare vidare till närmaste
+    ofärdiga del av sin sidas mur inom `wallChainRadius` (30 rutor,
+    `nextWallPiece`).
+  - **`replaces`**: en byggnadstyp som får ställas där en av sidans egna
+    byggnader av en viss typ står. Porten ersätter en palissaddel:
+    `footprintProblem` räknar inte delen som hinder, och `placeBuilding`
+    tar bort den innan bygget skapas. Inget betalas tillbaka. Eftersom
+    porten öppnar en väg för sin sida anropas också `rerouteForOpening`.
 - `constructBuildings` räknar för varje bygge de arbetare som har
   bygguppgiften, står stilla och står intill. Takten är `1 + 0,5 · (n − 1)`
   arbetarsteg per steg. Ett Visthus kräver 400 arbetarsteg (20 s för en
@@ -1049,6 +1105,16 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
   `build` med de markerade byggarna och avslutar läget. Klick på ogiltig
   plats gör ingenting. Högerklick och Esc avbryter. Läget avbryts också om
   ingen markerad enhet längre kan bygga typen.
+  - **En mur dras ut.** För en byggnadstyp med `wall: 'segment'` är
+    placeringen en linje (`Placement.line`). Med mus: knappen ned sätter
+    början (`lineFrom`), linjen följer pekaren, och knappen upp skickar
+    `buildLine`. Före knapptrycket är linjen en enda del under pekaren.
+    På pekskärm: första trycket sätter början, ett tryck utanför linjen
+    sätter slutet (`lineTo`), och ett tryck på linjen bygger; innan
+    början är satt visas bara texten "Tryck där muren ska börja".
+    `planLine` räknas om varje bildruta. `PlacementView` ritar varje ruta
+    grön eller röd, en genomskinlig bild av varje del i rätt variant, och
+    under linjens slut antal delar och pris.
   - **Byggnadens bild** visas på fotavtrycket, 70 % täckande
     (`PLACEMENT_PREVIEW`): som den är där byggnaden får stå, och tonad
     röd där den inte får det. Byggnadstyper utan bild visar bara
@@ -1131,10 +1197,18 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
   `BUILDING_ART` ritas från sina atlaser. I dag gäller det Storide
   (`bear_main`), Krigshall (`bear_barracks`), Visthus (`bear_storage`),
   Odling (`bear_field`), Fiskehytta (`bear_fishery`), Ide (`bear_den`),
-  Vakttorn (`bear_tower`), Smedja (`bear_forge`) och Kastbana (`bear_range`), för båda sidorna. Alla byggnadstyper har därmed bilder; en typ utan
+  Vakttorn (`bear_tower`), Smedja (`bear_forge`), Kastbana (`bear_range`), Palissad (`bear_wall`) och Port (`bear_gate`), för båda sidorna. Alla byggnadstyper har därmed bilder; en typ utan
   bild ritas fortfarande som ett platshållarblock.
   - `BuildingLibrary` laddar atlaserna och gör en färgad kopia per
     spelare, på samma sätt som `CharacterLibrary`.
+  - **Varianter.** En atlas kan ha flera utseenden av samma byggnad
+    (`meta.variants`), med bilderna `<variant>_<stadium>` och
+    `<variant>_shadow` (`frameOf`). Muren använder det: `EntityView`
+    samlar varje bildruta var sidornas delar står (`wallOwners`), och
+    `wallVariant` väljer utseende efter om sidans egna delar står intill
+    längs x, längs y, båda eller ingen. En palissaddel i en rad är `x`
+    eller `y`, annars `block`; en port är `x` eller `y`. Bilden byts när
+    en granne byggs eller faller.
   - **Bild efter stadium** (`stageOf`): under halva bygget visas grund och
     stomme, från halva bygget väggarna med öppet tak, och när byggnaden är
     klar den färdiga. Byggnaden är alltid solid; den gamla genomskinlig-
@@ -1657,6 +1731,27 @@ kubb med en hammare på, ett vapenställ och en tunna. Två nya delar i
 `lib/structures.py`: `anvil` och `hearth`. Eldens och det blankslitna
 järnets färger står i `forge.toml`.
 
+**Varianter av en byggnad.** En byggnads konfig kan lista `variants`, och
+en del kan ha `variant` (ett namn eller en lista): den är då bara med i
+de utseendena. `build_structure` ger för varje del vilka varianter den
+hör till, `StructureStudio.show(stage, variant)` väljer delarna, och
+`export_building` renderar varje variant i varje stadium med sin egen
+skugga. Förhandsbilden `stages.png` får en rad per variant.
+
+Palissaden (`wall`, 1×1, ny storleksklass `wall`: minst 0,45 rutbredder,
+29 px, ungefär som en soldat; palissaden är 45 px) har tre varianter:
+`x` och `y` är en rad spetsade pålar tvärs över rutan med en list i
+lagfärg på den sida spelaren ser, och `block` är en fyrkant av högre
+pålar med ett plankgolv i, för hörn, korsningar och ensamma delar.
+Byggstadierna är några få pålar (eller utstakning), varannan påle, och
+alla. Delen `palisade` fick `gap` för glesare rader.
+
+Porten (`gate`, 1×1, klass `wall`, 48 px och 60 med vimpel) har
+varianterna `x` och `y`: två grova stolpar med en bjälke över, en list i
+lagfärg, två portblad av plank med järnband (ny del `gate_leaves`) och en
+liten vimpel. Byggstadierna är stolparna av färskt virke, och stolparna
+med bjälken.
+
 Kastbanan (`range`, 2×2, storleksklass `small`, taket 73 px) är ett högt
 skärmtak av skiffer med list i lagfärg, som lutar sig mot en timmervägg
 och bärs av tre stolpar framtill. Under taket står två spjutställ. På
@@ -1930,8 +2025,8 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getResourceBar()` | Texterna i resursraden: `food`, `wood`, `population` |
 | `getFlashing()` | Vilka av resursradens texter som blinkar rött just nu |
 | `getCommandPanel()` | Kommandopanelen: `visible`, `buttons` (`label`, `cost`, `info`, mittpunkt `x`/`y`, och `disabled` för en knapp som inget kan göra just nu), `tabs` (byggmenyns flikar: `label`, `active`, mittpunkt `x`/`y`; tom för paneler utan flikar), `queue` (`label`, mittpunkt `x`/`y`), `progress` |
-| `getPlacement()` | Byggnaden som placeras: `building`, `x`, `y`, `valid`, och när de finns `problem` (varför platsen inte går), `note` (texten under fotavtrycket) och `places` (arbetsplatserna runt byggnaden); `null` när ingen placering pågår |
-| `getPlacementPreview()` | Bilden av byggnaden som placeras: `texture` och `red` (sant när den visas röd); `null` utan placering eller utan bild |
+| `getPlacement()` | Byggnaden som placeras: `building`, `x`, `y`, `valid`, och när de finns `problem` (varför platsen inte går), `note` (texten under fotavtrycket), `places` (arbetsplatserna runt byggnaden), `variant` (portens utseende) och `line` (för en mur: varje ruta i linjen med `state` `place`, `blocked` eller `standing` och delens `variant`; `x` och `y` är då linjens slut); `null` när ingen placering pågår |
+| `getPlacementPreview()` | Bilden av byggnaden som placeras: `texture`, `red` (sant när den visas röd), `frame` (bildens namn i atlasen) och `pieces` (för en mur: hur många delar som visas); `null` utan placering eller utan bild |
 | `getOrderMarkerCount()` | Antal synliga orderringar |
 | `tileToScreen(x, y)` | Skärmposition för en punkt i rutkoordinater. Heltal är ruthörn; lägg till 0,5 för rutans mitt. Enheters `x`/`y` kan skickas som de är |
 | `centerCameraOnTile(x, y)` | Centrerar kameran på en punkt i rutkoordinater |

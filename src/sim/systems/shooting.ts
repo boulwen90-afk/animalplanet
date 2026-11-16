@@ -108,7 +108,7 @@ export function flyProjectiles(state: GameState): void {
       state.events.push({ type: 'buildingAttacked', buildingId: target.id, owner: target.owner });
       if (target.hp <= 0) collapse(state, target);
     } else if (target.hp <= 0) {
-      surrender(state, buildPathGrid(state), target);
+      surrender(state, buildPathGrid(state, target.owner), target);
     } else {
       provoke(state, target, projectile.sourceId);
     }

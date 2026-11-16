@@ -43,8 +43,12 @@ export interface AttackDef {
   projectile: ProjectileKind;
 }
 
-/** The tabs of the build menu. Every building belongs to one. */
-export const BUILD_MENUS = ['economy', 'defence'] as const;
+/**
+ * The tabs of the build menu. Every building belongs to one: what feeds and
+ * houses the side, what trains and equips its soldiers, and what stands and
+ * defends its ground.
+ */
+export const BUILD_MENUS = ['economy', 'army', 'defence'] as const;
 export type BuildMenu = (typeof BUILD_MENUS)[number];
 
 export interface BuildingDef {
@@ -86,6 +90,19 @@ export interface BuildingDef {
   attack?: AttackDef;
   /** The upgrades that can be worked out in the finished building, if any. */
   researches?: readonly UpgradeType[];
+  /**
+   * For a piece of a wall. `segment`: it stands in everybody's way, and is
+   * placed many at a time, drawn out in a line. `gate`: it stands in the
+   * way of the other side only; its own side's units walk through it,
+   * finished or not. Pieces that stand side by side are drawn joined up.
+   */
+  wall?: 'segment' | 'gate';
+  /**
+   * Building types of the side's own that this one may be placed on top
+   * of: the old building is taken away and this one is raised in its
+   * place. A gate is put into a wall this way.
+   */
+  replaces?: readonly BuildingType[];
 }
 
 /** Building types. See GDD section 8. */
@@ -121,7 +138,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
   },
   /** Barracks: trains soldiers. */
   krigshall: {
-    menu: 'defence',
+    menu: 'army',
     trains: ['ramkrigare'],
     hp: 700,
     sight: 6,
@@ -223,7 +240,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
    * of the side's units.
    */
   smedja: {
-    menu: 'defence',
+    menu: 'army',
     trains: [],
     hp: 600,
     sight: 5,
@@ -241,7 +258,7 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
    * It trains the soldiers that fight from a distance.
    */
   kastbana: {
-    menu: 'defence',
+    menu: 'army',
     trains: ['ramkastare'],
     hp: 500,
     sight: 5,
@@ -253,6 +270,44 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     housing: 0,
     walkable: false,
   },
+  /**
+   * A piece of palisade: a row of sharpened stakes on one tile. Nobody
+   * walks through it, of either side. It is drawn out in a line, a piece on
+   * each tile, and each piece costs and is built for itself.
+   */
+  palissad: {
+    menu: 'defence',
+    trains: [],
+    hp: 250,
+    sight: 2,
+    size: 1,
+    dropoff: false,
+    cost: { wood: 6 },
+    buildTime: 4,
+    armor: 0,
+    housing: 0,
+    walkable: false,
+    wall: 'segment',
+  },
+  /**
+   * A gate on one tile. Its own side's units walk through it; the other
+   * side's do not. It can be put where a piece of palisade stands.
+   */
+  port: {
+    menu: 'defence',
+    trains: [],
+    hp: 400,
+    sight: 3,
+    size: 1,
+    dropoff: false,
+    cost: { wood: 40 },
+    buildTime: 15,
+    armor: 0,
+    housing: 0,
+    walkable: false,
+    wall: 'gate',
+    replaces: ['palissad'],
+  },
 };
 
 export const CONSTRUCTION_CONFIG = {
@@ -262,4 +317,13 @@ export const CONSTRUCTION_CONFIG = {
   extraBuilderRate: 0.5,
   /** How far a building under construction sees, in tiles. */
   sight: 2,
+  /** The most pieces of wall that can be drawn out in one line. */
+  maxLineLength: 30,
+  /**
+   * A builder who has finished a piece of wall goes on to the nearest
+   * unfinished piece of its side within this many tiles, if there is one:
+   * as far as the longest line, so that a wall that was started in the
+   * middle is finished at both ends.
+   */
+  wallChainRadius: 30,
 } as const;

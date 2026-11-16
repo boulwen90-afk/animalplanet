@@ -3,6 +3,7 @@ import { CAVE_CONFIG } from '../../data/map';
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
 import type { CommandResult } from '../commands';
+import { RESOURCE_TYPES, type Cost } from '../../data/resources';
 import { missingResources, pay } from '../economy';
 import {
   buildingTiles,
@@ -11,13 +12,16 @@ import {
   isBuilding,
   isUnit,
   nearestBuildingTile,
+  removeEntity,
   tileGapToBuilding,
   unitTile,
 } from '../entities';
-import { inBounds, isWalkable, isWater } from '../map/grid';
+import { inBounds, isWalkable, isWater, tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
-import { canStep, findPath, type PathGrid } from '../pathfinding/astar';
+import { lineTiles } from '../map/line';
+import { findPath, type PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
+import { rerouteBlockedUnits, rerouteForOpening } from '../pathfinding/reroute';
 import type { Building, GameState, PlayerId, Unit } from '../state';
 import { plannedWorkTiles, startWorking } from './gathering';
 import { isTileExplored } from './visibility';
@@ -92,6 +96,9 @@ export function placementProblem(
  * buildings, resources and units, and not on or next to a cave. If `player`
  * is given, that side must also have explored every tile. A building that
  * needs the shore must have a tile of its footprint side by side with water.
+ *
+ * A building that may be put in the place of another of the side's own
+ * (`replaces`), as a gate in a wall, may stand where such a one stands.
  */
 export function footprintProblem(
   state: GameState,
@@ -138,6 +145,7 @@ export function footprintProblem(
   }
   for (const entity of state.entities) {
     if (isBuilding(entity)) {
+      if (isReplacedBy(entity, type, player)) continue;
       if (buildingTiles(entity).some((tile) => inFootprint(tile.x, tile.y))) return 'blocked';
     } else {
       const tile = unitTile(entity);
@@ -146,6 +154,38 @@ export function footprintProblem(
   }
   if (BUILDING_DEFS[type].shore && !touchesWater(state.map, x, y, size)) return 'needsShore';
   return undefined;
+}
+
+/** True if a building of `type` raised by `player` would take the place of this building. */
+function isReplacedBy(building: Building, type: BuildingType, player?: PlayerId): boolean {
+  return (
+    player !== undefined &&
+    building.owner === player &&
+    (BUILDING_DEFS[type].replaces?.includes(building.type) ?? false)
+  );
+}
+
+/**
+ * The buildings a new building of `type` with its corner on (x, y) would
+ * take the place of: the side's own ones of a kind it replaces that stand
+ * wholly inside its footprint.
+ */
+function replacedBuildings(
+  state: GameState,
+  type: BuildingType,
+  x: number,
+  y: number,
+  player: PlayerId,
+): Building[] {
+  const size = BUILDING_DEFS[type].size;
+  return state.entities.filter(
+    (entity): entity is Building =>
+      isBuilding(entity) &&
+      isReplacedBy(entity, type, player) &&
+      buildingTiles(entity).some(
+        (tile) => tile.x >= x && tile.y >= y && tile.x < x + size && tile.y < y + size,
+      ),
+  );
 }
 
 /** True if a tile of a square footprint lies side by side with water. */
@@ -188,15 +228,133 @@ export function placeBuilding(
   if (missing.length > 0) return { ok: false, reason: 'insufficientResources', missing };
 
   pay(stock, BUILDING_DEFS[type].cost);
+  // What the new building takes the place of goes first; nothing is paid back for it.
+  const replaced = replacedBuildings(state, type, x, y, player);
+  for (const old of replaced) removeEntity(state, old.id);
+  const building = raiseSite(state, type, player, x, y);
+
+  // The site blocks its tiles at once, so units walking through must find
+  // another way. A gate put into a wall opens a way for its own side instead.
+  rerouteBlockedUnits(state);
+  if (replaced.length > 0) rerouteForOpening(state);
+  sendBuilders(buildPathGrid(state, player), builders, building);
+  return { ok: true };
+}
+
+/** Puts a construction site on the map: a building with the life it starts with and no work done. */
+function raiseSite(
+  state: GameState,
+  type: BuildingType,
+  player: PlayerId,
+  x: number,
+  y: number,
+): Building {
   const building = createBuilding(state, type, player, x, y);
   building.complete = false;
   building.hp = Math.ceil(BUILDING_DEFS[type].hp * CONSTRUCTION_CONFIG.startHpFraction);
+  return building;
+}
 
-  // The site blocks its tiles at once, so units walking through must find another way.
-  const grid = buildPathGrid(state);
-  rerouteBlockedUnits(state, grid);
-  sendBuilders(grid, builders, building);
+/** One tile of a wall line and what, if anything, stops a piece from standing there. */
+export interface LinePiece {
+  x: number;
+  y: number;
+  /** Why no piece can be placed here; undefined where one can. */
+  problem?: PlacementProblem;
+  /** True where a piece of the side's own wall already stands: nothing is placed, and nothing is wrong. */
+  standing?: true;
+}
+
+/**
+ * The tiles a wall drawn from one tile to another would stand on, each with
+ * what stops a piece from being placed there. The line is cut off at the
+ * most pieces a line may have. Tiles where something is in the way, such as
+ * a tree or a unit, are left out of the wall: the rest is built around them.
+ */
+export function planLine(
+  state: GameState,
+  type: BuildingType,
+  from: Point,
+  to: Point,
+  player?: PlayerId,
+): LinePiece[] {
+  return lineTiles(from, to, CONSTRUCTION_CONFIG.maxLineLength).map((tile) => {
+    const standing = state.entities.some(
+      (entity) =>
+        isBuilding(entity) &&
+        entity.owner === player &&
+        BUILDING_DEFS[entity.type].wall !== undefined &&
+        entity.x === tile.x &&
+        entity.y === tile.y,
+    );
+    if (standing) return { ...tile, standing: true };
+    const problem = placementProblem(state, type, tile.x, tile.y, player);
+    return problem ? { ...tile, problem } : { ...tile };
+  });
+}
+
+/** The pieces of a planned line that would be placed. */
+export function placeablePieces(line: readonly LinePiece[]): LinePiece[] {
+  return line.filter((piece) => !piece.problem && !piece.standing);
+}
+
+/**
+ * Places a wall drawn out in a line from one tile to another: a
+ * construction site on every tile of the line where one can stand. The
+ * price of them all is taken at once, and if the side cannot pay for them
+ * all nothing is placed. The given units start on the piece nearest the
+ * first of them and go on along the wall as each piece is finished.
+ */
+export function placeLine(
+  state: GameState,
+  player: PlayerId,
+  unitIds: readonly number[],
+  type: BuildingType,
+  from: Point,
+  to: Point,
+): CommandResult {
+  const stock = state.players[player];
+  const def = BUILDING_DEFS[type];
+  const builders = buildersAmong(state, player, unitIds, type);
+  const whole = [from.x, from.y, to.x, to.y].every(Number.isInteger);
+  if (!stock || builders.length === 0 || def.wall !== 'segment' || !whole) {
+    return { ok: false, reason: 'invalid' };
+  }
+  const line = planLine(state, type, from, to, player);
+  const pieces = placeablePieces(line);
+  if (pieces.length === 0) {
+    const problem = line.find((piece) => piece.problem)?.problem ?? 'blocked';
+    return { ok: false, reason: 'invalidPlacement', problem };
+  }
+  const price = lineCost(type, pieces.length);
+  const missing = missingResources(stock, price);
+  if (missing.length > 0) return { ok: false, reason: 'insufficientResources', missing };
+
+  pay(stock, price);
+  const sites = pieces.map((piece) => raiseSite(state, type, player, piece.x, piece.y));
+  rerouteBlockedUnits(state);
+  // They start at the end of the wall that is nearer to the first of them.
+  const [lead] = builders as [Unit, ...Unit[]];
+  const first = sites[0] as Building;
+  const last = sites.at(-1) as Building;
+  const start =
+    tileDistance(lead.x, lead.y, last.x + 0.5, last.y + 0.5) <
+    tileDistance(lead.x, lead.y, first.x + 0.5, first.y + 0.5)
+      ? last
+      : first;
+  sendBuilders(buildPathGrid(state, player), builders, start);
   return { ok: true };
+}
+
+/** What a number of pieces of a wall cost together. */
+export function lineCost(type: BuildingType, pieces: number): Cost {
+  const each = BUILDING_DEFS[type].cost;
+  const total: Cost = {};
+  for (const resource of RESOURCE_TYPES) {
+    const amount = each[resource];
+    if (amount) total[resource] = amount * pieces;
+  }
+  return total;
 }
 
 /** Sends the given units to help finish a building that is under construction. */
@@ -213,7 +371,7 @@ export function assistConstruction(
   if (!building || building.complete) return { ok: false, reason: 'invalid' };
   const builders = buildersAmong(state, player, unitIds, building.type);
   if (builders.length === 0) return { ok: false, reason: 'invalid' };
-  sendBuilders(buildPathGrid(state), builders, building);
+  sendBuilders(buildPathGrid(state, player), builders, building);
   return { ok: true };
 }
 
@@ -247,27 +405,24 @@ function sendBuilders(grid: PathGrid, builders: readonly Unit[], building: Build
   }
 }
 
-/** Gives a new path to every unit whose current path no longer works. */
-function rerouteBlockedUnits(state: GameState, grid: PathGrid): void {
-  for (const unit of state.entities) {
-    if (!isUnit(unit) || unit.path.length === 0) continue;
-    if (isPathOpen(grid, unitTile(unit), unit.path)) continue;
-    const destination = unit.path.at(-1) as Point;
-    unit.path = findPath(grid, unitTile(unit), destination);
+/**
+ * The unfinished piece of wall of a unit's own side that is nearest to it,
+ * within the distance a builder goes on along a wall, if there is one.
+ */
+function nextWallPiece(state: GameState, unit: Unit): Building | undefined {
+  let nearest: Building | undefined;
+  let nearestDistance = Infinity;
+  for (const entity of state.entities) {
+    if (!isBuilding(entity) || entity.owner !== unit.owner || entity.complete) continue;
+    if (BUILDING_DEFS[entity.type].wall === undefined) continue;
+    if (!UNIT_DEFS[unit.type].builds.includes(entity.type)) continue;
+    const distance = tileDistance(unit.x, unit.y, entity.x + 0.5, entity.y + 0.5);
+    if (distance <= CONSTRUCTION_CONFIG.wallChainRadius && distance < nearestDistance) {
+      nearest = entity;
+      nearestDistance = distance;
+    }
   }
-}
-
-/** True if every step of a path can still be walked. */
-function isPathOpen(grid: PathGrid, from: Point, path: readonly Point[]): boolean {
-  let previous = from;
-  for (const tile of path) {
-    const dx = tile.x - previous.x;
-    const dy = tile.y - previous.y;
-    // A unit part-way between two tiles may have its own tile first in the path.
-    if ((dx !== 0 || dy !== 0) && !canStep(grid, previous.x, previous.y, dx, dy)) return false;
-    previous = tile;
-  }
-  return true;
+  return nearest;
 }
 
 /** Runs one simulation step of every construction site and every unit with a build task. */
@@ -312,8 +467,16 @@ export function constructBuildings(state: GameState): void {
       // Those who raised a building that can be worked, such as a field,
       // start working it at once, as many as it takes.
       if (BUILDING_DEFS[site.type].work) {
-        const grid = buildPathGrid(state);
+        const grid = buildPathGrid(state, site.owner);
         for (const unit of builders) startWorking(state, grid, unit, site);
+      }
+      // Those who raised a piece of a wall go on with the next piece of it.
+      if (BUILDING_DEFS[site.type].wall !== undefined) {
+        const grid = buildPathGrid(state, site.owner);
+        for (const unit of builders) {
+          const next = nextWallPiece(state, unit);
+          if (next) sendBuilders(grid, [unit], next);
+        }
       }
     }
   }

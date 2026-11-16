@@ -1,0 +1,192 @@
+# The bears' gate, the Port: two heavy posts with a beam across them, and
+# between them two leaves of planks with iron bands. Its own side walks
+# through it. It comes in two variants: "x" stands in a wall that runs
+# along the x axis, "y" in one that runs along the y axis.
+# Lengths are in tiles; see lib/structures.py for the frame.
+name = "gate"
+game_building = "port"
+size_class = "wall"
+footprint = 1
+variants = ["x", "y"]
+
+# --- In a wall along x. First the posts, of fresh timber; then the beam; then the leaves.
+[[part]]
+type = "beam"
+variant = "x"
+start = [-0.42, 0.0, 0.0]
+end = [-0.42, 0.0, 1.22]
+radius = 0.09
+sides = 6
+material = "timber_new"
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "beam"
+variant = "x"
+start = [0.42, 0.0, 0.0]
+end = [0.42, 0.0, 1.22]
+radius = 0.09
+sides = 6
+material = "timber_new"
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "beam"
+variant = "x"
+start = [-0.52, 0.0, 1.14]
+end = [0.52, 0.0, 1.14]
+radius = 0.075
+material = "timber_new"
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "planks"
+variant = "x"
+at = [0.0, -0.25]
+z = 0.0
+along = "x"
+length = 0.5
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "beam"
+variant = "x"
+start = [-0.42, 0.0, 0.0]
+end = [-0.42, 0.0, 1.22]
+radius = 0.09
+sides = 6
+
+[[part]]
+type = "beam"
+variant = "x"
+start = [0.42, 0.0, 0.0]
+end = [0.42, 0.0, 1.22]
+radius = 0.09
+sides = 6
+
+[[part]]
+type = "beam"
+variant = "x"
+start = [-0.52, 0.0, 1.14]
+end = [0.52, 0.0, 1.14]
+radius = 0.075
+
+[[part]]
+type = "beam"
+variant = "x"
+start = [-0.5, -0.09, 1.14]
+end = [0.5, -0.09, 1.14]
+radius = 0.035
+material = "team"
+
+[[part]]
+type = "gate_leaves"
+variant = "x"
+start = [-0.34, 0.0]
+end = [0.34, 0.0]
+z = 0.02
+height = 0.95
+
+[[part]]
+type = "pennant"
+variant = "x"
+at = [-0.42, 0.0]
+z = 1.2
+height = 0.34
+flag = [0.2, 0.14]
+face = "-y"
+
+# --- In a wall along y.
+[[part]]
+type = "beam"
+variant = "y"
+start = [0.0, -0.42, 0.0]
+end = [0.0, -0.42, 1.22]
+radius = 0.09
+sides = 6
+material = "timber_new"
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "beam"
+variant = "y"
+start = [0.0, 0.42, 0.0]
+end = [0.0, 0.42, 1.22]
+radius = 0.09
+sides = 6
+material = "timber_new"
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "beam"
+variant = "y"
+start = [0.0, -0.52, 1.14]
+end = [0.0, 0.52, 1.14]
+radius = 0.075
+material = "timber_new"
+from = "construction_2"
+until = "construction_2"
+
+[[part]]
+type = "planks"
+variant = "y"
+at = [0.25, 0.0]
+z = 0.0
+along = "y"
+length = 0.5
+from = "construction_1"
+until = "construction_2"
+
+[[part]]
+type = "beam"
+variant = "y"
+start = [0.0, -0.42, 0.0]
+end = [0.0, -0.42, 1.22]
+radius = 0.09
+sides = 6
+
+[[part]]
+type = "beam"
+variant = "y"
+start = [0.0, 0.42, 0.0]
+end = [0.0, 0.42, 1.22]
+radius = 0.09
+sides = 6
+
+[[part]]
+type = "beam"
+variant = "y"
+start = [0.0, -0.52, 1.14]
+end = [0.0, 0.52, 1.14]
+radius = 0.075
+
+[[part]]
+type = "beam"
+variant = "y"
+start = [0.09, -0.5, 1.14]
+end = [0.09, 0.5, 1.14]
+radius = 0.035
+material = "team"
+
+[[part]]
+type = "gate_leaves"
+variant = "y"
+start = [0.0, -0.34]
+end = [0.0, 0.34]
+z = 0.02
+height = 0.95
+
+[[part]]
+type = "pennant"
+variant = "y"
+at = [0.0, 0.42]
+z = 1.2
+height = 0.34
+flag = [0.2, 0.14]
+face = "+x"

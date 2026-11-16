@@ -168,7 +168,12 @@ test.describe('placing a fishing hut', () => {
       });
     await expect
       .poll(() => preview(page))
-      .toEqual({ texture: 'building-bear_fishery-player-0', red: true });
+      .toEqual({
+        texture: 'building-bear_fishery-player-0',
+        red: true,
+        frame: 'complete',
+        pieces: 0,
+      });
 
     await page.mouse.click(at.x, at.y);
     const state = await getState(page);
@@ -207,7 +212,12 @@ test.describe('placing a fishing hut', () => {
     );
     await expect
       .poll(() => preview(page))
-      .toEqual({ texture: 'building-bear_fishery-player-0', red: false });
+      .toEqual({
+        texture: 'building-bear_fishery-player-0',
+        red: false,
+        frame: 'complete',
+        pieces: 0,
+      });
 
     await page.mouse.click(at.x, at.y);
     const state = await getState(page);

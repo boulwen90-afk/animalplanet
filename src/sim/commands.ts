@@ -1,7 +1,7 @@
 import { hasSurrendered, isBuilding, isUnit, unitDestination, unitTile } from './entities';
 import { tileDistance } from './map/grid';
 import type { Point } from './map/iso';
-import { findPath, isPassable, nearestReachable, type PathGrid } from './pathfinding/astar';
+import { isPassable, nearestReachable, pathTowards, type PathGrid } from './pathfinding/astar';
 import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
 import { BUILDING_DEFS, type BuildingType } from '../data/buildings';
 import type { ResourceType } from '../data/resources';
@@ -10,7 +10,12 @@ import type { UpgradeType } from '../data/upgrades';
 import { resourceAt } from './resources';
 import type { Building, GameState, PlayerId, Unit } from './state';
 import { orderAttack } from './systems/combat';
-import { assistConstruction, placeBuilding, type PlacementProblem } from './systems/construction';
+import {
+  assistConstruction,
+  placeBuilding,
+  placeLine,
+  type PlacementProblem,
+} from './systems/construction';
 import { startGathering, startWorking } from './systems/gathering';
 import { cancelQueuedUnit, queueUnit } from './systems/production';
 import { orderRepair } from './systems/repair';
@@ -93,6 +98,24 @@ export interface BuildCommand {
   y: number;
 }
 
+/**
+ * Places a wall drawn out in a line between two tiles, a piece on each tile
+ * of it where one can stand, and sends the given units to build it. The
+ * price of every piece is taken at once.
+ */
+export interface BuildLineCommand {
+  type: 'buildLine';
+  player: PlayerId;
+  unitIds: number[];
+  /** A building type that is a piece of wall. */
+  building: BuildingType;
+  /** The tiles the line is drawn between. */
+  fromX: number;
+  fromY: number;
+  toX: number;
+  toY: number;
+}
+
 /** Sends the given units to help finish a building that is under construction. */
 export interface ConstructCommand {
   type: 'construct';
@@ -131,6 +154,7 @@ export type Command =
   | ResearchCommand
   | CancelResearchCommand
   | BuildCommand
+  | BuildLineCommand
   | ConstructCommand
   | RepairCommand
   | AttackCommand;
@@ -179,6 +203,15 @@ export function applyCommand(state: GameState, command: Command): CommandResult 
         command.x,
         command.y,
       );
+    case 'buildLine':
+      return placeLine(
+        state,
+        command.player,
+        command.unitIds,
+        command.building,
+        { x: command.fromX, y: command.fromY },
+        { x: command.toX, y: command.toY },
+      );
     case 'construct':
       return assistConstruction(state, command.player, command.unitIds, command.buildingId);
     case 'repair':
@@ -216,7 +249,7 @@ function applyWork(state: GameState, command: WorkCommand): CommandResult {
     return { ok: false, reason: 'invalid' };
   }
   if (!BUILDING_DEFS[building.type].work) return { ok: false, reason: 'invalid' };
-  const grid = buildPathGrid(state);
+  const grid = buildPathGrid(state, command.player);
   for (const unit of orderedUnits(state, command.player, command.unitIds)) {
     startWorking(state, grid, unit, building);
   }
@@ -228,7 +261,7 @@ function applyGather(state: GameState, command: GatherCommand): void {
   const y = Math.floor(command.y);
   const resource = resourceAt(state.map, x, y);
   if (!resource) return;
-  const grid = buildPathGrid(state);
+  const grid = buildPathGrid(state, command.player);
   for (const unit of orderedUnits(state, command.player, command.unitIds)) {
     startGathering(state, grid, unit, resource, { x, y });
   }
@@ -262,7 +295,7 @@ function applyMove(state: GameState, command: MoveCommand): void {
   const lead = ordered[0];
   if (!lead) return;
 
-  const grid = buildPathGrid(state);
+  const grid = buildPathGrid(state, command.player);
   const target = {
     x: Math.min(Math.max(Math.floor(command.x), 0), grid.width - 1),
     y: Math.min(Math.max(Math.floor(command.y), 0), grid.height - 1),
@@ -289,7 +322,8 @@ function applyMove(state: GameState, command: MoveCommand): void {
     const destination = takeNearest(free, unit) ?? anchor;
     // A move order ends whatever the unit was doing. It keeps what it carries.
     unit.task = { kind: 'idle' };
-    unit.path = findPath(grid, unitTile(unit), destination);
+    // A place that is walled off: as near to it as the unit can get.
+    unit.path = pathTowards(grid, unitTile(unit), destination);
   }
 }
 

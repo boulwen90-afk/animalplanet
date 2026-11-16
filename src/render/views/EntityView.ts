@@ -29,7 +29,7 @@ import type { BuildingLibrary, BuildingSheet } from '../buildings/BuildingLibrar
 import { damageLevel } from '../effects/damage';
 import { groundCircle } from '../effects/projectiles';
 import type { DamageInfo, DamageView } from './DamageView';
-import { SHADOW_FRAME, buildingCovers, stageOf } from '../buildings/stage';
+import { SHADOW_FRAME, buildingCovers, frameOf, stageOf, wallVariant } from '../buildings/stage';
 import type { CharacterLibrary, CharacterSheet } from '../characters/CharacterLibrary';
 import {
   BUILDING_COVER_SHARE,
@@ -156,6 +156,10 @@ export class EntityView {
   private ringed: number[] = [];
   /** What each building in sight covers on the screen this frame. */
   private covers: { corner: Point; side: number; heightTiles: number; depth: number }[] = [];
+  /** The owner of the piece of wall on each tile that has one in sight, by tile index. */
+  private readonly wallOwners = new Map<number, number>();
+  /** How many tiles wide the map is: what the tile indices above are counted with. */
+  private mapWidth = 0;
 
   /**
    * @param characters The characters to draw units as. Unit types without
@@ -225,6 +229,17 @@ export class EntityView {
 
     const byId = new Map<number, Entity>();
     for (const entity of state.entities) byId.set(entity.id, entity);
+
+    // Where the pieces of wall in sight stand, and whose they are: a piece
+    // is drawn joined up with those of its own side beside it.
+    this.wallOwners.clear();
+    for (const entity of state.entities) {
+      if (entity.kind !== 'building' || !BUILDING_DEFS[entity.type].wall || !isShown(entity)) {
+        continue;
+      }
+      this.wallOwners.set(entity.y * state.map.width + entity.x, entity.owner);
+    }
+    this.mapWidth = state.map.width;
 
     // What the buildings in sight cover on the screen, for units to check whether they stand behind one.
     this.covers = [];
@@ -618,8 +633,11 @@ export class EntityView {
     sheet: BuildingSheet,
     selected: boolean,
   ): void {
-    const stage = stageOf(building.complete, buildFraction(building));
+    const variant = this.variantOf(building, sheet);
+    const stage = frameOf(stageOf(building.complete, buildFraction(building)), variant);
     if (sprite.image.frame.name !== stage) sprite.image.setFrame(stage);
+    const shade = frameOf(SHADOW_FRAME, variant);
+    if (sprite.shadow && sprite.shadow.frame.name !== shade) sprite.shadow.setFrame(shade);
     // The shadow belongs to the finished building; a frame casts next to none.
     sprite.shadow?.setAlpha(building.complete ? 1 : 0.4);
 
@@ -656,6 +674,23 @@ export class EntityView {
         );
       }
     }
+  }
+
+  /**
+   * Which of its looks a building is drawn in, for one that has several: a
+   * piece of wall by the pieces of its own side that stand beside it.
+   * Undefined for a building with one look.
+   */
+  private variantOf(building: Building, sheet: BuildingSheet): string | undefined {
+    if (sheet.variants.length === 0) return undefined;
+    const kind = BUILDING_DEFS[building.type].wall;
+    if (!kind) return sheet.variants[0];
+    const mine = (dx: number, dy: number) =>
+      this.wallOwners.get((building.y + dy) * this.mapWidth + building.x + dx) === building.owner;
+    // Not across the edge of the map, where the next row of tiles begins.
+    const alongX =
+      (building.x > 0 && mine(-1, 0)) || (building.x < this.mapWidth - 1 && mine(1, 0));
+    return wallVariant(kind, alongX, mine(0, -1) || mine(0, 1));
   }
 
   /**
@@ -807,7 +842,8 @@ export class EntityView {
       const centre = buildingCentre(building);
       const ground = tileToWorld(centre.x, centre.y, this.size);
       const texture = sheet.textureKey(building.owner);
-      const stage = stageOf(building.complete, buildFraction(building));
+      const variant = this.variantOf(building, sheet);
+      const stage = frameOf(stageOf(building.complete, buildFraction(building)), variant);
       // A building that units walk on is part of the ground under them.
       const flat = BUILDING_DEFS[building.type].walkable;
       const image = this.scene.add
@@ -815,7 +851,7 @@ export class EntityView {
         .setScale(sheet.displayScale)
         .setDepth(flat ? FLAT_BUILDING_DEPTH : ground.y);
       const shadow = this.scene.add
-        .image(ground.x, ground.y, texture, SHADOW_FRAME)
+        .image(ground.x, ground.y, texture, frameOf(SHADOW_FRAME, variant))
         .setScale(sheet.displayScale)
         .setDepth(flat ? FLAT_SHADOW_DEPTH : SHADOW_DEPTH);
       return { image, shadow, kind: 'building', flashing: false, building: sheet };

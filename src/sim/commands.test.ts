@@ -195,13 +195,18 @@ describe('move command', () => {
     expect(unitTile(unit)).toEqual({ x: 4, y: 4 });
   });
 
-  it('does not move when the target is open ground that cannot be reached', () => {
+  it('goes as near as it can when the target is open ground that cannot be reached', () => {
+    // Until there were walls a unit stood where it was. Now that a player can
+    // shut ground off, it walks up to what is in the way.
     const state = stateFromRows(['..W..', '..W..', '..W..']);
     const unit = createUnit(state, 'samlare', 0, 0, 1);
     applyCommand(state, { type: 'move', player: 0, unitIds: [unit.id], x: 4, y: 1 });
-    expect(unit.path).toEqual([]);
+    expect(unit.path).toEqual([{ x: 1, y: 1 }]);
     advance(state, 50);
-    expect(unitTile(unit)).toEqual({ x: 0, y: 1 });
+    expect(unitTile(unit)).toEqual({ x: 1, y: 1 });
+    // From there it can get no nearer.
+    applyCommand(state, { type: 'move', player: 0, unitIds: [unit.id], x: 4, y: 1 });
+    expect(unit.path).toEqual([]);
   });
 
   it('clamps a target outside the map to the map edge', () => {

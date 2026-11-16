@@ -66,6 +66,30 @@ export function findPath(grid: PathGrid, from: Point, to: Point): Point[] {
 }
 
 /**
+ * A path from `from` to `to`, or, if there is no way there, to the tile
+ * closest to it that can be reached: a unit sent to a place that is walled
+ * off goes as near as it can. Empty only if the unit is as near as it gets.
+ */
+export function pathTowards(grid: PathGrid, from: Point, to: Point): Point[] {
+  const path = findPath(grid, from, to);
+  if (path.length > 0 || (from.x === to.x && from.y === to.y)) return path;
+  const near = nearestReachable(grid, from, to);
+  return near ? findPath(grid, from, near) : [];
+}
+
+/** What it costs to walk a path that starts at `from`: 10 for a step to the side, 14 for a diagonal one. */
+export function pathCost(from: Point, path: readonly Point[]): number {
+  let cost = 0;
+  let previous = from;
+  for (const tile of path) {
+    const steps = Math.abs(tile.x - previous.x) + Math.abs(tile.y - previous.y);
+    cost += steps === 0 ? 0 : steps === 1 ? STRAIGHT : DIAGONAL;
+    previous = tile;
+  }
+  return cost;
+}
+
+/**
  * The tile reachable from `from` that lies closest to `target` in a straight
  * line; `from` itself counts. Among tiles equally close to the target, the
  * one fewest steps from `from` wins, so a unit sent to an obstacle stops on

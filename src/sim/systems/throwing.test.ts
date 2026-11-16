@@ -45,7 +45,7 @@ describe('the data', () => {
   it('a Ramkastare is trained at a Kastbana, which a Samlare builds for wood', () => {
     expect(BUILDING_DEFS.kastbana.trains).toEqual(['ramkastare']);
     expect(BUILDING_DEFS.kastbana.cost).toEqual({ wood: 130 });
-    expect(BUILDING_DEFS.kastbana.menu).toBe('defence');
+    expect(BUILDING_DEFS.kastbana.menu).toBe('army');
     expect(UNIT_DEFS.samlare.builds).toContain('kastbana');
     expect(BUILDING_DEFS.krigshall.trains).not.toContain('ramkastare');
   });
