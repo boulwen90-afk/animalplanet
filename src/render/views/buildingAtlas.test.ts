@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
 import { MAP_CONFIG } from '../../data/map';
+import { SHADOW_FRAME, frameOf, wallVariant } from '../buildings/stage';
 
 interface Atlas {
   frames: Record<
@@ -61,6 +62,66 @@ describe.each(BUILDINGS)('the $name atlas', ({ name, building, sizeClass, tileWi
     }
     const anchors = new Set(Object.values(atlas.frames).map((f) => `${f.anchor.x},${f.anchor.y}`));
     expect(anchors.size).toBe(1);
+  });
+});
+
+/** The pieces of wall: each comes in variants, with a set of pictures for each. */
+const WALLS: { name: string; building: BuildingType; variants: string[] }[] = [
+  { name: 'bear_wall', building: 'palissad', variants: ['x', 'y', 'block'] },
+  { name: 'bear_gate', building: 'port', variants: ['x', 'y'] },
+];
+
+describe.each(WALLS)('the $name atlas', ({ name, building, variants }) => {
+  const atlas = read(name) as Atlas & { meta: { variants: string[] } };
+
+  it('is built for the piece of wall in the game, on one tile', () => {
+    expect(atlas.meta.building.gameBuilding).toBe(building);
+    expect(atlas.meta.building.footprint).toBe(1);
+    expect(BUILDING_DEFS[building].size).toBe(1);
+    expect(BUILDING_DEFS[building].wall).toBeDefined();
+  });
+
+  it('follows the size standard: a piece of wall is at least 0.45 tile widths tall', () => {
+    expect(atlas.meta.building.sizeClass).toBe('wall');
+    expect(atlas.meta.building.minRoofHeight / MAP_CONFIG.tileWidth).toBeCloseTo(0.45, 2);
+    expect(atlas.meta.building.roofHeight).toBeGreaterThanOrEqual(
+      atlas.meta.building.minRoofHeight,
+    );
+  });
+
+  it('has a picture of each stage and a shadow for every variant the game asks for', () => {
+    expect(atlas.meta.variants).toEqual(variants);
+    for (const variant of variants) {
+      for (const stage of [...atlas.meta.stages, SHADOW_FRAME] as const) {
+        const frame = frameOf(stage as Parameters<typeof frameOf>[0], variant);
+        expect(atlas.frames[frame], frame).toBeDefined();
+      }
+    }
+    expect(Object.keys(atlas.frames)).toHaveLength(variants.length * 4);
+    const anchors = new Set(Object.values(atlas.frames).map((f) => `${f.anchor.x},${f.anchor.y}`));
+    expect(anchors.size).toBe(1);
+  });
+
+  it('has every variant the game can pick for it', () => {
+    const kind = BUILDING_DEFS[building].wall!;
+    for (const alongX of [true, false]) {
+      for (const alongY of [true, false]) {
+        expect(variants).toContain(wallVariant(kind, alongX, alongY));
+      }
+    }
+  });
+});
+
+describe('the walls against the rest', () => {
+  const roof = (name: string) => read(name).meta.building.roofHeight;
+
+  it('a palisade is taller than a soldier and lower than the smallest house; a gate stands above the wall', () => {
+    const soldier = JSON.parse(
+      readFileSync('assets/characters/bear_warrior/bear_warrior.json', 'utf8'),
+    ).meta.figure.height as number;
+    expect(roof('bear_wall')).toBeGreaterThan(soldier);
+    expect(roof('bear_wall')).toBeLessThan(roof('bear_den'));
+    expect(roof('bear_gate')).toBeGreaterThan(roof('bear_wall'));
   });
 });
 
