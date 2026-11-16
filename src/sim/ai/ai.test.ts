@@ -620,9 +620,11 @@ describe('upgrades', () => {
       expect(built, `seed ${seed}`).toBe(true);
       for (const side of [0, 1]) {
         if (buildingsOf(state, side, 'smedja').length === 0) continue;
-        expect(buildingsOf(state, side, 'krigshall'), `seed ${seed}`).toMatchObject([
-          { complete: true },
-        ]);
+        // A finished one: from ten minutes on it may have started on a second.
+        expect(
+          buildingsOf(state, side, 'krigshall').some((b) => b.complete),
+          `seed ${seed}`,
+        ).toBe(true);
         // One is enough.
         expect(buildingsOf(state, side, 'smedja'), `seed ${seed}`).toHaveLength(1);
       }

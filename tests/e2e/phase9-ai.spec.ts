@@ -27,7 +27,13 @@ test.describe('phase 9: the computer opponent', () => {
     const state = await getState(page);
 
     expect(state.players[0]!.ai).toBeNull();
-    expect(state.players[1]!.ai).toEqual({ attackers: [], waveTicks: [], towersPlaced: 0 });
+    expect(state.players[1]!.ai).toEqual({
+      level: 'medium',
+      attackers: [],
+      waveTicks: [],
+      towersPlaced: 0,
+      woodSurplus: false,
+    });
     expect(errors).toEqual([]);
   });
 

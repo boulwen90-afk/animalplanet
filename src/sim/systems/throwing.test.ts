@@ -71,6 +71,17 @@ describe('the data', () => {
     expect(THROWER.speed).toBeLessThan(WARRIOR.speed);
   });
 
+  it('costs a little less food than a Ramkrigare and no more wood', () => {
+    expect(THROWER.cost).toEqual({ food: 45, wood: 25 });
+    expect(THROWER.cost.food!).toBeLessThan(WARRIOR.cost.food!);
+    expect(THROWER.cost.wood!).toBeLessThanOrEqual(WARRIOR.cost.wood!);
+  });
+
+  it('throws faster than it strikes at close quarters', () => {
+    expect(RANGED.cooldown).toBe(1.4);
+    expect(THROWER.attackCooldown).toBe(1.8);
+  });
+
   it('is the only unit that fights from a distance', () => {
     const ranged = Object.entries(UNIT_DEFS).filter(([, def]) => def.ranged !== undefined);
     expect(ranged.map(([type]) => type)).toEqual(['ramkastare']);
@@ -100,7 +111,7 @@ describe('how far a throw is', () => {
 });
 
 describe('throwing', () => {
-  it('throws at once at an enemy within range, without taking a step, then every 1.8 seconds', () => {
+  it('throws at once at an enemy within range, without taking a step, then every 1.4 seconds', () => {
     const state = openState(30, 30);
     const thrower = createUnit(state, 'ramkastare', 0, 5, 10);
     // A Samlare stands where it is: it does not fight on its own.
@@ -112,8 +123,8 @@ describe('throwing', () => {
       tick(state);
       if (shots(state.events).length > 0) thrownAt.push(state.tick);
     }
-    expect(throwTicks(thrower)).toBe(36);
-    expect(thrownAt).toEqual([1, 37, 73, 109]);
+    expect(throwTicks(thrower)).toBe(28);
+    expect(thrownAt).toEqual([1, 29, 57, 85]);
     expect(unitTile(thrower)).toEqual({ x: 5, y: 10 });
   });
 
@@ -467,8 +478,8 @@ describe('rock, paper, scissors', () => {
     ).toBe(true);
     for (const thrower of throwers) expect(thrower.hp).toBe(THROWER.hp);
     const seconds = (fell! - first!) / SECOND;
-    expect(seconds).toBeGreaterThan(25);
-    expect(seconds).toBeLessThan(35);
+    expect(seconds).toBeGreaterThan(18);
+    expect(seconds).toBeLessThan(26);
   });
 
   it('a Ramkrigare beats a Ramkastare: it takes two javelins on its way up and wins with most of its life', () => {
@@ -495,8 +506,8 @@ describe('rock, paper, scissors', () => {
     expect(warrior.hp).toBeLessThan(WARRIOR.hp);
   });
 
-  it('for the same price in resources, Ramkrigare beat Ramkastare in the open', () => {
-    // Three of each: 180 food and 75 wood against 150 food and 120 wood.
+  it('man for man, Ramkrigare beat Ramkastare in the open', () => {
+    // Three of each: 180 food and 75 wood against 135 food and 75 wood.
     const state = openState(40, 30);
     addCave(state, 0, 1, 1);
     addCave(state, 0, 1, 28);

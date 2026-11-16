@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { AI_CONFIG } from '../data/ai';
+import { AI_CONFIG, AI_LEVELS, type AiConfig } from '../data/ai';
 import { BUILDING_DEFS } from '../data/buildings';
 import { SIM_CONFIG } from '../data/sim';
 import { buildingFrontTile, createUnit, hasSurrendered } from './entities';
@@ -84,6 +84,44 @@ describe('balance', () => {
       expect(soldiersOf(state, 1).length, `seed ${seed}`).toBeGreaterThanOrEqual(6);
     }
   });
+
+  it('the computer player does not fade: against a side that holds out, its waves grow', () => {
+    // Side 0 builds up like the middle level but never attacks: a stand-in
+    // for a player who has survived the first waves and sits behind a strong
+    // defence. Until 2026-11-16 the attacker's waves shrank to between 4 and
+    // 8 soldiers here, while its unused wood grew past 1 900 by 24 minutes.
+    const levels = AI_LEVELS as Record<string, AiConfig>;
+    const easy = levels.easy!;
+    levels.easy = { ...AI_CONFIG, waves: [{ earliest: 1e9, latest: 1e9, size: 1 }] };
+    try {
+      const state = createGame(1, undefined, undefined, { ai: [0, 1] });
+      state.players[0]!.ai!.level = 'easy';
+      const memory = state.players[1]!.ai!;
+      const sizes: number[] = [];
+      while (state.winner === null && state.tick < 24 * MINUTE) {
+        advance(state, 1);
+        if (memory.waveTicks.length > sizes.length) sizes.push(memory.attackers.length);
+      }
+      expect(state.winner).toBeNull();
+      // The three listed waves, and then one every other minute.
+      expect(sizes.slice(0, 3)).toEqual([4, 6, 8]);
+      expect(sizes.length).toBeGreaterThanOrEqual(9);
+      const gaps = memory.waveTicks.slice(1).map((at, i) => at - memory.waveTicks[i]!);
+      expect(Math.max(...gaps)).toBeLessThanOrEqual(3.5 * MINUTE);
+      // No wave after the listed ones is smaller than six, and the largest
+      // is twice the size of the third.
+      expect(Math.min(...sizes.slice(3))).toBeGreaterThanOrEqual(6);
+      expect(Math.max(...sizes.slice(3))).toBeGreaterThanOrEqual(16);
+      // It has grown, and uses what it gathers.
+      const workers = state.entities.filter(
+        (e) => e.kind === 'unit' && e.owner === 1 && e.type === 'samlare' && !hasSurrendered(e),
+      );
+      expect(workers.length).toBeGreaterThanOrEqual(18);
+      expect(state.players[1]!.resources.wood).toBeLessThan(800);
+    } finally {
+      levels.easy = easy;
+    }
+  }, 300_000);
 
   it('the computer player uses what it gathers: no great heap of wood after ten minutes', () => {
     for (const seed of SEEDS) {

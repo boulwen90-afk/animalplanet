@@ -163,7 +163,7 @@ test.describe('the throwing range', () => {
     expect([button?.cost, button?.info]).toEqual(['130 trä', 'Tränar Ramkastare']);
   });
 
-  test('is built from its pictures, and trains a Ramkastare for 50 food and 40 wood in 20 seconds', async ({
+  test('is built from its pictures, and trains a Ramkastare for 45 food and 25 wood in 20 seconds', async ({
     page,
   }) => {
     const errors = trackConsoleErrors(page);
@@ -180,13 +180,13 @@ test.describe('the throwing range', () => {
     await expect.poll(async () => (await commandPanel(page)).visible).toBe(true);
     const panel = await commandPanel(page);
     expect(panel.buttons.map((b) => [b.label, b.cost, b.info])).toEqual([
-      ['Träna Ramkastare', '50 mat, 40 trä', 'Kastar spjut på avstånd'],
+      ['Träna Ramkastare', '45 mat, 25 trä', 'Kastar spjut på avstånd'],
     ]);
     const before = (await getState(page)).players[0]!.resources;
     await page.mouse.click(panel.buttons[0]!.x, panel.buttons[0]!.y);
     await expect.poll(async () => rangeOf(await getState(page)).queue).toEqual(['ramkastare']);
     const paid = (await getState(page)).players[0]!.resources;
-    expect([before.food - paid.food, before.wood - paid.wood]).toEqual([50, 40]);
+    expect([before.food - paid.food, before.wood - paid.wood]).toEqual([45, 25]);
 
     await advance(page, THROWER.trainTime * SECOND + 2);
     const state = await getState(page);

@@ -124,7 +124,9 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
    * only a weak thrust at close quarters.
    */
   ramkastare: {
-    cost: { food: 50, wood: 40 },
+    // No more wood than a soldier: at 40 wood a side that trained throwers
+    // lost 15 matches of 16 to one that did not.
+    cost: { food: 45, wood: 25 },
     population: 1,
     trainTime: 20,
     hp: 60,
@@ -135,7 +137,7 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     builds: [],
     repairs: false,
     damage: 3,
-    ranged: { damage: 8, range: 7, cooldown: 1.8, projectileSpeed: 10, projectile: 'javelin' },
+    ranged: { damage: 8, range: 7, cooldown: 1.4, projectileSpeed: 10, projectile: 'javelin' },
     armor: 0,
     attackCooldown: 1.8,
     aggroRadius: 7,

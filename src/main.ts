@@ -1,8 +1,9 @@
 import { AUTO, Game, Scale } from 'phaser';
+import { DEFAULT_DIFFICULTY } from './data/ai';
 import { MAP_GEN_CONFIG } from './data/map';
 import { GameScene } from './render/scenes/GameScene';
 import { UiScene } from './render/scenes/UiScene';
-import { takeRestartRequest } from './render/session';
+import { rememberedLevel, takeRestartRequest, toDifficulty } from './render/session';
 import { parseSeed } from './sim/rng';
 import { installLoadingProbe } from './testing/testHooks';
 
@@ -19,6 +20,14 @@ const fog = !(testMode && params.get('fog') === '0');
 // Likewise the computer opponent: ?ai=0 leaves the other side standing still.
 const ai = !(testMode && params.get('ai') === '0');
 
+// How hard the computer plays: what the player chose last in this tab, and
+// what the start screen offers first. ?level=easy, medium or hard sets it in
+// test mode.
+const difficulty =
+  (testMode ? toDifficulty(params.get('level')) : undefined) ??
+  rememberedLevel() ??
+  DEFAULT_DIFFICULTY;
+
 // The start screen is skipped after "play again", and with ?start=0 in test mode.
 const restarted = takeRestartRequest();
 const startScreen = !restarted && !(testMode && params.get('start') === '0');
@@ -29,7 +38,7 @@ const startScreen = !restarted && !(testMode && params.get('start') === '0');
 const stress = Math.min(STRESS_MAX, Math.max(0, Math.floor(Number(params.get('stress')) || 0)));
 const debug = params.get('debug') === '1' || stress > 0;
 
-const gameScene = new GameScene({ testMode, seed, fog, ai, startScreen, stress });
+const gameScene = new GameScene({ testMode, seed, fog, ai, difficulty, startScreen, stress });
 const uiScene = new UiScene(gameScene, { debug });
 if (testMode) installLoadingProbe(() => uiScene.getLoadingDisplay());
 

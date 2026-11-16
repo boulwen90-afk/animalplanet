@@ -55,6 +55,67 @@ describe('startScreenLayout', () => {
     expect(layout.button.width).toBeGreaterThanOrEqual(44);
     expect(layout.button.height).toBeGreaterThanOrEqual(44);
   });
+
+  it.each([
+    [1280, 720, 120],
+    [390, 844, 260],
+    [320, 568, 180],
+  ])(
+    'puts the three levels side by side between the text and the button on a %i×%i screen',
+    (width, height, bodyHeight) => {
+      const layout = startScreenLayout(width, height, bodyHeight);
+      expect(layout.levels).toHaveLength(3);
+      const [first, second, third] = layout.levels;
+      // The heading is below the text and above the levels.
+      expect(layout.levelTitle.x).toBe(width / 2);
+      expect(layout.button.y + layout.button.height).toBeLessThanOrEqual(height);
+      expect(layout.levelTitle.y).toBeGreaterThan(layout.body.y + bodyHeight);
+      expect(layout.levelTitle.y).toBeLessThan(first!.y);
+      for (const rect of layout.levels) {
+        expect(rect.y).toBe(first!.y);
+        expect(rect.width).toBeGreaterThanOrEqual(44);
+        expect(rect.height).toBeGreaterThanOrEqual(44);
+        expect(rect.x).toBeGreaterThanOrEqual(16);
+        expect(rect.x + rect.width).toBeLessThanOrEqual(width - 16);
+        expect(rect.y + rect.height).toBeLessThanOrEqual(layout.button.y);
+      }
+      // No two overlap, and the row is centred.
+      expect(second!.x).toBeGreaterThanOrEqual(first!.x + first!.width + 8);
+      expect(third!.x).toBeGreaterThanOrEqual(second!.x + second!.width + 8);
+      const middle = (first!.x + third!.x + third!.width) / 2;
+      expect(Math.abs(middle - width / 2)).toBeLessThanOrEqual(1);
+    },
+  );
+
+  it('narrows the levels on a screen too narrow for their full width', () => {
+    expect(startScreenLayout(1280, 720, 120).levels[0]!.width).toBe(112);
+    expect(startScreenLayout(320, 568, 180).levels[0]!.width).toBe(90);
+  });
+
+  it('puts the start button beside the levels on a screen too low to stack them', () => {
+    // A phone held sideways, where the text takes 180 of the 390 pixels.
+    const layout = startScreenLayout(844, 390, 180);
+    const [first, , third] = layout.levels;
+    expect(layout.button.x).toBeGreaterThanOrEqual(third!.x + third!.width + 8);
+    expect(layout.button.x + layout.button.width).toBeLessThanOrEqual(844 - 16);
+    // The levels are centred on the button's row, and the heading on the levels.
+    for (const rect of layout.levels) {
+      expect(rect.y + rect.height / 2).toBe(layout.button.y + layout.button.height / 2);
+    }
+    expect(layout.levelTitle.x).toBe((first!.x + third!.x + third!.width) / 2);
+    expect(layout.levelTitle.y).toBeLessThan(first!.y);
+    expect(layout.levelTitle.y).toBeGreaterThan(layout.body.y + 180);
+    // Levels and button together are centred, and all of it is on the screen.
+    expect((first!.x + layout.button.x + layout.button.width) / 2).toBe(422);
+    expect(layout.title.y - layout.title.size / 2).toBeGreaterThanOrEqual(0);
+    expect(layout.button.y + layout.button.height).toBeLessThanOrEqual(390);
+  });
+
+  it('stacks them again where there is height for it', () => {
+    const layout = startScreenLayout(844, 600, 180);
+    expect(layout.button.y).toBeGreaterThanOrEqual(layout.levels[0]!.y + 44);
+    expect(layout.button.x).toBe(322);
+  });
 });
 
 describe('loadingLayout', () => {

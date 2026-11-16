@@ -342,3 +342,19 @@ kostnad och beskrivning, tester gröna, inga konsolfel, skärmdumpar, och
 | 3 | **Smedja.** Uppgraderingar som köps en gång och gäller alla enheter: vapen, rustning, snabbare samlande, två nivåer var; kö och förlopp på byggnaden; datorspelaren forskar | Klart 2026-11-15, se `progress.md` |
 | 4 | **Skyttebana och distansenhet.** Ny byggnad och ny figur med egna animationer; svag i närstrid, stark på avstånd; sten-sax-påse mot Ramkrigaren och tornet. Blev **Kastbana** och **Ramkastare** | Klart 2026-11-16, se `progress.md` |
 | 5 | **Palissad och port.** Dras ut i linje; egna enheter går genom porten; vägsökningen klarar murar som byggs och rivs under förflyttning; datorspelaren anfaller murar | Klart 2026-11-16, se `progress.md` |
+
+### Balansen mot datorspelaren (beslutat av användaren 2026-11-16)
+
+Uppskjuten till efter steg 5. Användarens beställning, efter mätningarna:
+
+| Punkt | Innehåll | Status |
+|---|---|---|
+| 1 | **Ramkastaren:** 45 mat och 25 trä i stället för 50 och 40; 1,4 s mellan kasten i stället för 1,8 | Klart 2026-11-16 |
+| 2 | **Datorspelaren ska inte mattas av.** Den var lagom i början, blev sedan lättare och lättare och slutade till slut anfalla | Klart 2026-11-16: grundorsaken (matekonomin) rättad, och den växer under matchen |
+| 3 | **Tre svårighetsgrader:** Nybörjare, Medel och Proffs, där Medel är den dåvarande datorspelaren | Klart 2026-11-16; värdena är förslag |
+| 4 | Långa matcher ska **inte** kortas | Inget gjort, som beställt |
+
+**Test:** enhetstester för nivåerna och för att vågorna växer mot en sida
+som håller ut (`levels.test.ts`, `balance.test.ts`), webbläsartester för
+valet på startskärmen (`difficulty.spec.ts`), och matcher utan webbläsare
+där nivåerna möter varandra. Se `progress.md`.

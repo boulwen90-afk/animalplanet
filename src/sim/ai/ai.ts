@@ -1,4 +1,4 @@
-import { AI_CONFIG } from '../../data/ai';
+import { AI_CONFIG, AI_LEVELS, type AiConfig, type AiSize, type AiWave } from '../../data/ai';
 import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
 import { POPULATION_CONFIG } from '../../data/population';
 import type { ResourceType } from '../../data/resources';
@@ -35,17 +35,19 @@ import { upgradeLevel } from '../upgrades';
  *
  * Once a second it goes through a fixed list: train workers, build, repair,
  * put idle workers to work, train soldiers, work out upgrades, defend the
- * base, send attack waves.
+ * base, send attack waves. How hard it plays is in its level's settings:
+ * see AI_LEVELS.
  */
 export function runAi(state: GameState): void {
-  const interval = Math.max(1, Math.round(AI_CONFIG.decisionInterval * SIM_CONFIG.ticksPerSecond));
-  if (state.tick % interval !== 0) return;
   state.players.forEach((side, index) => {
-    if (side.ai) decide(state, index as PlayerId, side.ai);
+    if (!side.ai) return;
+    const config = AI_LEVELS[side.ai.level];
+    const interval = Math.max(1, Math.round(config.decisionInterval * SIM_CONFIG.ticksPerSecond));
+    if (state.tick % interval === 0) decide(state, index as PlayerId, side.ai, config);
   });
 }
 
-function decide(state: GameState, player: PlayerId, memory: AiState): void {
+function decide(state: GameState, player: PlayerId, memory: AiState, config: AiConfig): void {
   const base = mainBuilding(state, player);
   if (!base) return;
   const mine = state.entities.filter((entity) => entity.owner === player);
@@ -53,21 +55,64 @@ function decide(state: GameState, player: PlayerId, memory: AiState): void {
   const buildings = mine.filter(isBuilding);
   const workers = units.filter((unit) => UNIT_DEFS[unit.type].carryCapacity > 0);
   const soldiers = units.filter((unit) => UNIT_DEFS[unit.type].aggroRadius > 0);
+  const size = sizeWanted(config, state.tick / SIM_CONFIG.ticksPerSecond);
+  const onWood = woodWorkersWanted(state, player, memory, config, workers.length);
 
-  trainWorkers(state, player, base, workers.length);
-  build(state, player, memory, base, buildings, workers);
-  repair(state, player, base, buildings, workers);
-  assignIdleWorkers(state, player, base, workers);
+  trainWorkers(state, player, base, workers.length, size.targetWorkers);
+  build(state, player, memory, config, base, buildings, workers, {
+    foodWorkers: workers.length - onWood,
+    barracks: size.barracks,
+  });
+  repair(state, player, config, base, buildings, workers);
+  assignIdleWorkers(state, player, config, base, workers, onWood);
   // An upgrade it is saving for comes before more soldiers.
-  const saving = research(state, player, buildings, soldiers.length);
-  if (!saving) trainSoldiers(state, player, buildings, soldiers);
+  const saving = research(state, player, config, buildings, soldiers.length);
+  if (!saving) trainSoldiers(state, player, config, buildings, soldiers, size.maxSoldiers);
 
   // Soldiers that are gone no longer belong to a wave.
   memory.attackers = memory.attackers.filter((id) => soldiers.some((s) => s.id === id));
   const home = soldiers.filter((soldier) => !memory.attackers.includes(soldier.id));
-  defend(state, player, base, home);
-  sendWave(state, player, memory, home);
-  driveAttackers(state, player, memory, soldiers);
+  defend(state, player, config, base, home);
+  sendWave(state, player, memory, config, home);
+  driveAttackers(state, player, memory, config, soldiers);
+}
+
+/**
+ * How many workers a side wants and how many soldiers at most, a number of
+ * seconds into the match: what it starts with, or the latest step of its
+ * growth that has come. See AiConfig.growth.
+ */
+export function sizeWanted(config: AiConfig, seconds: number): AiSize {
+  let wanted: AiSize = {
+    after: 0,
+    targetWorkers: config.targetWorkers,
+    maxSoldiers: config.maxSoldiers,
+    barracks: config.barracks,
+  };
+  for (const step of config.growth) {
+    if (seconds >= step.after) wanted = step;
+  }
+  return wanted;
+}
+
+/**
+ * How many of a side's workers should be on wood: the usual share, or the
+ * smaller one while it has more wood in stock than it uses. It remembers
+ * which, so that the number does not flip back and forth between the two
+ * amounts of wood. See AiConfig.surplus.
+ */
+function woodWorkersWanted(
+  state: GameState,
+  player: PlayerId,
+  memory: AiState,
+  config: AiConfig,
+  workers: number,
+): number {
+  const wood = state.players[player]?.resources.wood ?? 0;
+  if (wood >= config.surplus.above) memory.woodSurplus = true;
+  else if (wood <= config.surplus.below) memory.woodSurplus = false;
+  const share = memory.woodSurplus ? config.surplus.woodShare : config.woodShare;
+  return Math.round(workers * share);
 }
 
 function mainBuilding(state: GameState, player: PlayerId): Building | undefined {
@@ -95,23 +140,31 @@ function canAfford(
 }
 
 /** Trains workers, one at a time, up to the target number. */
-function trainWorkers(state: GameState, player: PlayerId, base: Building, workers: number): void {
+function trainWorkers(
+  state: GameState,
+  player: PlayerId,
+  base: Building,
+  workers: number,
+  target: number,
+): void {
   const [type] = BUILDING_DEFS[base.type].trains;
   if (!type || base.queue.length > 0) return;
-  if (workers >= AI_CONFIG.targetWorkers) return;
+  if (workers >= target) return;
   applyCommand(state, { type: 'train', player, buildingId: base.id, unit: type });
 }
 
 /**
  * Trains soldiers, one at a time, in every finished building that can.
  * Soldiers that fight from a distance are kept to their share: one for
- * every few that fight hand to hand. See AI_CONFIG.throwers.
+ * every few that fight hand to hand. See AiConfig.throwers.
  */
 function trainSoldiers(
   state: GameState,
   player: PlayerId,
+  config: AiConfig,
   buildings: readonly Building[],
   soldiers: readonly Unit[],
+  maxSoldiers: number,
 ): void {
   const isThrower = (type: Unit['type']) => UNIT_DEFS[type].ranged !== undefined;
   // What it has and what it has ordered, of each kind.
@@ -128,9 +181,9 @@ function trainSoldiers(
     if (!building.complete) continue;
     for (const type of BUILDING_DEFS[building.type].trains) {
       if (UNIT_DEFS[type].aggroRadius <= 0) continue;
-      if (building.queue.length > 0 || planned >= AI_CONFIG.maxSoldiers) continue;
+      if (building.queue.length > 0 || planned >= maxSoldiers) continue;
       const others = planned - throwers;
-      if (isThrower(type) && (throwers + 1) * AI_CONFIG.throwers.soldiersEach > others) continue;
+      if (isThrower(type) && (throwers + 1) * config.throwers.soldiersEach > others) continue;
       const result = applyCommand(state, {
         type: 'train',
         player,
@@ -152,9 +205,11 @@ function build(
   state: GameState,
   player: PlayerId,
   memory: AiState,
+  config: AiConfig,
   base: Building,
   buildings: readonly Building[],
   workers: readonly Unit[],
+  wants: { foodWorkers: number; barracks: number },
 ): void {
   // Someone must be working on every construction site.
   for (const site of buildings) {
@@ -178,7 +233,7 @@ function build(
   // Housing comes first: without room it can train nothing else. It builds
   // the next house while there is still a little room left.
   const housing = buildableHousing();
-  if (housing && needsHousing(state, player, buildings)) {
+  if (housing && needsHousing(state, player, config, buildings)) {
     wanted.push({ type: housing, near: centre });
   }
   const hasBarracks = buildings.some(
@@ -196,21 +251,24 @@ function build(
     const range = buildableRange();
     if (range && !buildings.some((b) => b.type === range)) {
       wanted.push({ type: range, near: centre });
+    } else if (barracks && buildings.filter((b) => b.type === barracks).length < wants.barracks) {
+      // And then more barracks, as it grows. See AiConfig.growth.
+      wanted.push({ type: barracks, near: centre });
     }
   }
 
   // Food without end last: it is for when the berries run low, not instead
   // of the rest. A fishing hut if there is water within reach, since fish
   // comes faster; otherwise, and after it, fields.
-  if (placesWanted(state, centre, workers.length) > workPlacesOf(buildings, 'food')) {
+  if (placesWanted(state, config, centre, wants.foodWorkers) > workPlacesOf(buildings, 'food')) {
     const hut = buildableWorkplace('food', true);
     const huts = buildings.filter((b) => b.type === hut).length;
     const shore =
-      hut && huts < AI_CONFIG.fishing.max
-        ? findBuildSite(state, player, hut, centre, AI_CONFIG.fishing.reach)
+      hut && huts < config.fishing.max
+        ? findBuildSite(state, player, config, hut, centre, config.fishing.reach)
         : undefined;
     const field = buildableWorkplace('food', false);
-    if (hut && shore) wanted.push({ type: hut, near: centre, within: AI_CONFIG.fishing.reach });
+    if (hut && shore) wanted.push({ type: hut, near: centre, within: config.fishing.reach });
     else if (field) wanted.push({ type: field, near: centre });
   }
 
@@ -220,10 +278,10 @@ function build(
   if (
     tower &&
     hasBarracks &&
-    towers < AI_CONFIG.towers.max &&
-    (state.players[player]?.resources.wood ?? 0) >= AI_CONFIG.towers.whenWood
+    towers < config.towers.max &&
+    (state.players[player]?.resources.wood ?? 0) >= config.towers.whenWood
   ) {
-    wanted.push({ type: tower, near: towerSpot(state, player, centre, towers) });
+    wanted.push({ type: tower, near: towerSpot(state, player, config, centre, towers) });
   }
 
   // A smithy, once: for when there is wood to spare after all that.
@@ -232,14 +290,14 @@ function build(
     forge &&
     hasBarracks &&
     !buildings.some((b) => b.type === forge) &&
-    (state.players[player]?.resources.wood ?? 0) >= AI_CONFIG.research.whenWood
+    (state.players[player]?.resources.wood ?? 0) >= config.research.whenWood
   ) {
     wanted.push({ type: forge, near: centre });
   }
 
   for (const { type, near, within } of wanted) {
     if (!canAfford(state, player, BUILDING_DEFS[type].cost)) continue;
-    const site = findBuildSite(state, player, type, near, within);
+    const site = findBuildSite(state, player, config, type, near, within);
     const builder = site && nearestWorker(workers, site, isFreeToBuild);
     if (!site || !builder) continue;
     const placed = applyCommand(state, {
@@ -265,7 +323,7 @@ function buildableForge(): BuildingType | undefined {
 /**
  * Works out upgrades in the side's idle smithies: the next one in the
  * configured order that it has the fewest levels of, as soon as it can pay
- * for it. See AI_CONFIG.research.
+ * for it. See AiConfig.research.
  *
  * @returns True if it wants an upgrade it cannot pay for yet and has
  * soldiers enough to wait: it is saving, and should train no more soldiers
@@ -274,12 +332,13 @@ function buildableForge(): BuildingType | undefined {
 function research(
   state: GameState,
   player: PlayerId,
+  config: AiConfig,
   buildings: readonly Building[],
   soldiers: number,
 ): boolean {
   const stock = state.players[player];
   if (!stock) return false;
-  const { order, saveAbove } = AI_CONFIG.research;
+  const { order, saveAbove } = config.research;
   let saving = false;
   for (const building of buildings) {
     const offered = BUILDING_DEFS[building.type].researches;
@@ -317,8 +376,14 @@ function buildableTower(): BuildingType | undefined {
  * the middle of its main building towards the enemy's, the towers fanned
  * out to either side of that line.
  */
-function towerSpot(state: GameState, player: PlayerId, centre: Point, index: number): Point {
-  const { max, distance, spread } = AI_CONFIG.towers;
+function towerSpot(
+  state: GameState,
+  player: PlayerId,
+  config: AiConfig,
+  centre: Point,
+  index: number,
+): Point {
+  const { max, distance, spread } = config.towers;
   const enemy = enemyMainBuilding(state, player);
   const towards = enemy
     ? buildingCentre(enemy)
@@ -338,23 +403,24 @@ function isFreeToBuild(worker: Unit): boolean {
 
 /**
  * Mends damaged buildings while the base is left in peace. See
- * AI_CONFIG.repair. A repairer is taken off the work by a move order to
+ * AiConfig.repair. A repairer is taken off the work by a move order to
  * where it stands, which leaves it idle for the next step to put to work.
  */
 function repair(
   state: GameState,
   player: PlayerId,
+  config: AiConfig,
   base: Building,
   buildings: readonly Building[],
   workers: readonly Unit[],
 ): void {
-  const { below, workers: crewSize, minWood } = AI_CONFIG.repair;
+  const { below, workers: crewSize, minWood } = config.repair;
   const stop = (worker: Unit) => {
     const here = unitTile(worker);
     applyCommand(state, { type: 'move', player, unitIds: [worker.id], x: here.x, y: here.y });
   };
   const repairers = workers.filter((worker) => worker.task.kind === 'repair');
-  if (intrudersNear(state, player, base).length > 0) {
+  if (intrudersNear(state, player, config, base).length > 0) {
     repairers.forEach(stop);
     return;
   }
@@ -410,11 +476,16 @@ function buildableHousing(): BuildingType | undefined {
  * under construction, it has no more than the margin left, and it has not
  * reached the most room a side can have.
  */
-function needsHousing(state: GameState, player: PlayerId, buildings: readonly Building[]): boolean {
+function needsHousing(
+  state: GameState,
+  player: PlayerId,
+  config: AiConfig,
+  buildings: readonly Building[],
+): boolean {
   let room = 0;
   for (const building of buildings) room += BUILDING_DEFS[building.type].housing;
   if (room >= POPULATION_CONFIG.hardCap) return false;
-  return room - reservedPopulation(state, player) <= AI_CONFIG.housingMargin;
+  return room - reservedPopulation(state, player) <= config.housingMargin;
 }
 
 /**
@@ -442,9 +513,8 @@ function workPlacesOf(buildings: readonly Building[], resource: ResourceType): n
 }
 
 /** How much food is left in the berry bushes within reach of a point. */
-function berriesLeft(state: GameState, centre: Point): number {
+function berriesLeft(state: GameState, centre: Point, radius: number): number {
   const { map } = state;
-  const radius = AI_CONFIG.fields.berryRadius;
   let left = 0;
   for (let y = Math.floor(centre.y - radius); y <= centre.y + radius; y++) {
     for (let x = Math.floor(centre.x - radius); x <= centre.x + radius; x++) {
@@ -459,15 +529,19 @@ function berriesLeft(state: GameState, centre: Point): number {
 /**
  * How many places to work for food without end the side should have by now,
  * where a field is one: none while there are plenty of berries near its
- * base, then more the lower they run, and never more than it has workers
- * for food.
+ * base, then for a larger share of its food workers the lower the berries
+ * run, and for all of them once the berries are gone.
  */
-function placesWanted(state: GameState, centre: Point, workers: number): number {
-  const { startWhenFoodLeft, foodPerField, max } = AI_CONFIG.fields;
-  const short = startWhenFoodLeft - berriesLeft(state, centre);
+function placesWanted(
+  state: GameState,
+  config: AiConfig,
+  centre: Point,
+  foodWorkers: number,
+): number {
+  const { startWhenFoodLeft, berryRadius, max } = config.fields;
+  const short = startWhenFoodLeft - berriesLeft(state, centre, berryRadius);
   if (short <= 0) return 0;
-  const onFood = workers - Math.round(workers * AI_CONFIG.woodShare);
-  return Math.min(Math.ceil(short / foodPerField), max, onFood);
+  return Math.min(Math.ceil((foodWorkers * short) / startWhenFoodLeft), max);
 }
 
 /** The building type that trains soldiers who fight hand to hand. */
@@ -527,11 +601,12 @@ function nearestWorker(
 function findBuildSite(
   state: GameState,
   player: PlayerId,
+  config: AiConfig,
   type: BuildingType,
   near: Point,
   within?: number,
 ): Point | undefined {
-  const radius = Math.ceil(within ?? AI_CONFIG.buildSearchRadius);
+  const radius = Math.ceil(within ?? config.buildSearchRadius);
   const size = BUILDING_DEFS[type].size;
   const waterAllowed = BUILDING_DEFS[type].shore === true;
   const work = BUILDING_DEFS[type].work;
@@ -554,13 +629,16 @@ function findBuildSite(
   const centreY = Math.floor(near.y);
   let best: Point | undefined;
   let bestDistance = Infinity;
+  // The tiles with a building on them: made when the first place is tried.
+  let occupied: Set<number> | undefined;
 
   for (let y = centreY - radius; y <= centreY + radius; y++) {
     for (let x = centreX - radius; x <= centreX + radius; x++) {
       const distance = tileDistance(x + size / 2, y + size / 2, near.x, near.y);
       if (distance >= bestDistance || (within !== undefined && distance > within)) continue;
       if (!canPlaceBuilding(state, type, x, y, player)) continue;
-      if (!hasOpenBorder(state, x, y, size, waterAllowed)) continue;
+      occupied ??= buildingTiles(state);
+      if (!hasOpenBorder(state, occupied, x, y, size, waterAllowed)) continue;
       if (!reachable(x, y)) continue;
       // A hut is worth building only where all its fishers get a place on
       // the shore that they can walk to.
@@ -594,17 +672,8 @@ function reachFromBase(state: GameState, grid: PathGrid, player: PlayerId): Uint
   return reachableTiles(grid, from);
 }
 
-/**
- * True if every tile in the ring around a footprint is open, walkable ground
- * without a building, or, where that is allowed, water.
- */
-function hasOpenBorder(
-  state: GameState,
-  x: number,
-  y: number,
-  size: number,
-  waterAllowed: boolean,
-): boolean {
+/** The tiles that have a building on them, as indexes into the map. */
+function buildingTiles(state: GameState): Set<number> {
   const occupied = new Set<number>();
   for (const entity of state.entities) {
     if (!isBuilding(entity)) continue;
@@ -613,6 +682,21 @@ function hasOpenBorder(
       for (let tx = entity.x; tx < entity.x + side; tx++) occupied.add(ty * state.map.width + tx);
     }
   }
+  return occupied;
+}
+
+/**
+ * True if every tile in the ring around a footprint is open, walkable ground
+ * without a building, or, where that is allowed, water.
+ */
+function hasOpenBorder(
+  state: GameState,
+  occupied: ReadonlySet<number>,
+  x: number,
+  y: number,
+  size: number,
+  waterAllowed: boolean,
+): boolean {
   for (let ty = y - 1; ty <= y + size; ty++) {
     for (let tx = x - 1; tx <= x + size; tx++) {
       const inside = tx >= x && ty >= y && tx < x + size && ty < y + size;
@@ -644,17 +728,19 @@ function nearestSource(state: GameState, resource: ResourceType, to: Point): Poi
 }
 
 /**
- * Sends idle workers to gather, keeping the configured share of the workers
- * on wood and the rest on food.
+ * Sends idle workers to gather, keeping the wanted number of the workers on
+ * wood and the rest on food, and moves workers from one to the other when
+ * that number has changed.
  */
 function assignIdleWorkers(
   state: GameState,
   player: PlayerId,
+  config: AiConfig,
   base: Building,
   workers: readonly Unit[],
+  wantedOnWood: number,
 ): void {
   let onWood = workers.filter((worker) => gatheredResource(worker) === 'wood').length;
-  const wantedOnWood = Math.round(workers.length * AI_CONFIG.woodShare);
   const centre = buildingCentre(base);
 
   for (const worker of workers) {
@@ -664,7 +750,7 @@ function assignIdleWorkers(
     // Berries near the base come first: they give food faster than a field.
     const near =
       source !== undefined &&
-      tileDistance(source.x, source.y, centre.x, centre.y) <= AI_CONFIG.fields.berryRadius;
+      tileDistance(source.x, source.y, centre.x, centre.y) <= config.fields.berryRadius;
     if (source && (resource === 'wood' || near)) gather(state, player, worker, source);
     // With none near, or none with a place free, it fishes or works a
     // field: where the food comes fastest first.
@@ -678,13 +764,39 @@ function assignIdleWorkers(
     if (gatheredResource(worker) === 'wood') onWood++;
   }
 
+  // More on wood than it wants: the last of them move to food, as places
+  // for them come free. This is what uses up a heap of wood: fields are
+  // built for them, and the food they bring in becomes soldiers.
+  for (let i = workers.length - 1; i >= 0 && onWood > wantedOnWood; i--) {
+    const worker = workers[i]!;
+    if (gatheredResource(worker) !== 'wood') continue;
+    const berries = nearestSource(state, 'food', centre);
+    const near =
+      berries !== undefined &&
+      tileDistance(berries.x, berries.y, centre.x, centre.y) <= config.fields.berryRadius;
+    if (berries && near) gather(state, player, worker, berries);
+    if (gatheredResource(worker) === 'wood') workForFood(state, player, worker);
+    if (gatheredResource(worker) !== 'wood') onWood--;
+  }
+
+  // Fewer on wood than it wants, also counting those who are building or
+  // mending and will be back: the last of the food workers move to wood.
+  const away = workers.filter((worker) => worker.task.kind !== 'gather').length;
+  const forest = nearestSource(state, 'wood', centre);
+  for (let i = workers.length - 1; i >= 0 && forest && onWood + away < wantedOnWood; i--) {
+    const worker = workers[i]!;
+    if (gatheredResource(worker) !== 'food') continue;
+    gather(state, player, worker, forest);
+    if (gatheredResource(worker) === 'wood') onWood++;
+  }
+
   // A worker picking berries far from the base moves to a hut or a field as
   // soon as one has a place free: the walk home with each load is long.
   for (const worker of workers) {
     const task = worker.task;
     if (task.kind !== 'gather' || task.resource !== 'food' || task.siteId !== null) continue;
     const far =
-      tileDistance(task.node.x, task.node.y, centre.x, centre.y) > AI_CONFIG.fields.berryRadius;
+      tileDistance(task.node.x, task.node.y, centre.x, centre.y) > config.fields.berryRadius;
     if (far) workForFood(state, player, worker);
   }
 }
@@ -729,8 +841,14 @@ function gatheredResource(unit: Unit): ResourceType | undefined {
 }
 
 /** Sends the soldiers at home against enemy units that come near the main building. */
-function defend(state: GameState, player: PlayerId, base: Building, home: readonly Unit[]): void {
-  const intruders = intrudersNear(state, player, base);
+function defend(
+  state: GameState,
+  player: PlayerId,
+  config: AiConfig,
+  base: Building,
+  home: readonly Unit[],
+): void {
+  const intruders = intrudersNear(state, player, config, base);
   if (intruders.length === 0) return;
 
   for (const soldier of home) {
@@ -748,7 +866,12 @@ function defend(state: GameState, player: PlayerId, base: Building, home: readon
 }
 
 /** The enemy units near a side's main building: while there are any, the base is under attack. */
-function intrudersNear(state: GameState, player: PlayerId, base: Building): Unit[] {
+function intrudersNear(
+  state: GameState,
+  player: PlayerId,
+  config: AiConfig,
+  base: Building,
+): Unit[] {
   const centre = buildingCentre(base);
   return state.entities
     .filter(isUnit)
@@ -756,7 +879,7 @@ function intrudersNear(state: GameState, player: PlayerId, base: Building): Unit
       (unit) =>
         unit.owner !== player &&
         !hasSurrendered(unit) &&
-        tileDistance(unit.x, unit.y, centre.x, centre.y) <= AI_CONFIG.defendRadius,
+        tileDistance(unit.x, unit.y, centre.x, centre.y) <= config.defendRadius,
     );
 }
 
@@ -773,17 +896,22 @@ function nearestTo(units: readonly Unit[], to: Unit): Unit | undefined {
   return best;
 }
 
-/** The time window and size of the wave with the given number, counting from 0. */
-export function waveAt(index: number): { earliest: number; latest: number; size: number } {
-  const listed = AI_CONFIG.waves[index];
+/**
+ * The time window and size of the wave with the given number, counting from
+ * 0, on a level: the listed waves first, then waves at an even spacing that
+ * grow from one to the next. See AiConfig.repeat.
+ */
+export function waveAt(index: number, config: AiConfig = AI_CONFIG): AiWave {
+  const listed = config.waves[index];
   if (listed) return listed;
-  const last = AI_CONFIG.waves[AI_CONFIG.waves.length - 1];
-  const extra = index - AI_CONFIG.waves.length + 1;
-  const earliest = (last?.earliest ?? 0) + extra * AI_CONFIG.repeat.interval;
+  const last = config.waves[config.waves.length - 1];
+  const extra = index - config.waves.length;
+  const { interval, window, size, grow, maxSize } = config.repeat;
+  const earliest = (last?.earliest ?? 0) + (extra + 1) * interval;
   return {
     earliest,
-    latest: earliest + AI_CONFIG.repeat.window,
-    size: AI_CONFIG.repeat.size,
+    latest: earliest + window,
+    size: Math.min(size + extra * grow, maxSize),
   };
 }
 
@@ -792,11 +920,12 @@ function sendWave(
   state: GameState,
   player: PlayerId,
   memory: AiState,
+  config: AiConfig,
   home: readonly Unit[],
 ): void {
   const target = enemyMainBuilding(state, player);
   if (!target || home.length === 0) return;
-  const wave = waveAt(memory.waveTicks.length);
+  const wave = waveAt(memory.waveTicks.length, config);
   const seconds = state.tick / SIM_CONFIG.ticksPerSecond;
   if (seconds < wave.earliest) return;
   // Before the latest time it waits for the full number; after it, it goes with what it has.
@@ -829,6 +958,7 @@ function driveAttackers(
   state: GameState,
   player: PlayerId,
   memory: AiState,
+  config: AiConfig,
   soldiers: readonly Unit[],
 ): void {
   const target = enemyMainBuilding(state, player);
@@ -860,7 +990,7 @@ function driveAttackers(
     // A tower that has the soldier within its range, or that the soldier
     // will soon have within its own: the nearest such one.
     const ownRange = UNIT_DEFS[soldier.type].ranged?.range;
-    const notices = ownRange === undefined ? 0 : ownRange + AI_CONFIG.throwers.towerMargin;
+    const notices = ownRange === undefined ? 0 : ownRange + config.throwers.towerMargin;
     let tower: Building | undefined;
     let towerDistance = Infinity;
     for (const candidate of enemyTowers) {
