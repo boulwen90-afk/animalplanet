@@ -839,6 +839,210 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
 
 ## Efter MVP:n
 
+### Björnrasen komplett, steg 5: Palissad och port (2026-11-16)
+
+Steg 4, Kastbana och Ramkastare (pull request 22), mergades först, efter
+grönt CI. Användaren svarade "Ja på allt" på tre frågor: att merga, att
+datorspelaren får ha 10 Samlare tills vidare, och att gå vidare med steg
+5. De fem övriga värdena som tillkom i steg 4 (stötens tid, spjutets
+fart, upptäcktsradien, kollisionsradien, Kastbanans synfält) nämndes
+inte i frågan; min tolkning är att de fortfarande är förslag.
+
+Det här är det sista av de fem stegen. Balansen mot datorspelaren, som
+användaren sköt upp till efter steg 5, är inte gjord.
+
+**Skärmdumpar:** `docs/screenshots/palissad-dras.png` (en palissad dras
+ut med musen: åtta gröna rutor med delarna genomskinliga, texten "8
+delar · 48 trä", och menyn med tre flikar), `palissad-bygge.png` (en
+Samlare bygger delarna en i taget: tre står, resten är pålar),
+`palissad-klar.png` (tre murar som möts i två hörn),
+`port-placering.png` (porten på väg att sättas in i muren: grön ruta,
+porten vänd som muren), `port-egna-fiender.png` (spelarens Ramkrigare går
+genom porten; fiendens två har stannat utanför hörnet),
+`palissad-anfall.png` (en fiende hugger på en del som brinner, med
+livstapel), `palissad-telefon.png` (fliken Försvar på en 390 px bred
+telefon: tre flikar på en rad och fyra knappar på två),
+`palissad-pipeline.png` och `port-pipeline.png` (pipelinens bilder av
+varje variant i tre stadier).
+
+**Värden (förslag, väntar på godkännande)** i `BUILDING_DEFS.palissad`,
+`BUILDING_DEFS.port` och `CONSTRUCTION_CONFIG`
+
+| Värde | Förslag | Varför |
+|---|---|---|
+| Palissad, pris | 6 trä per del | En mur på 20 delar kostar 120 trä, som ett Vakttorn |
+| Byggtid | 4 s per del | 20 delar tar en Samlare 80 s |
+| Liv | 250 per del | Tre Ramkrigare som når samma del river den på 10 s |
+| Synfält | 2 rutor | Muren ser bara det som står intill |
+| Port, pris | 40 trä | Som sju delar |
+| Byggtid / liv | 15 s / 400 | Starkare än en del, svagare än ett torn (500) |
+| Synfält | 3 rutor | |
+| Längsta linje | 30 delar | Så att ett felsläpp inte kostar hela lagret |
+| Byggare går vidare inom | 30 rutor | Lika långt som längsta linjen |
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| Dras ut i linje vid placering | Klar | Mus: tryck, dra, släpp. Pekskärm: tre tryck |
+| Egna enheter går genom porten, fiender inte | Klar | Också medan porten byggs |
+| Vägsökningen hanterar murar | Klar | Ett rutnät per sida, eftersom porten är öppen för den ena |
+| ... när en mur byggs under pågående förflyttning | Klar | Enheten leds om runt muren, eller går så nära den kan |
+| ... när en mur rivs under pågående förflyttning | Klar | Enheter på väg tar öppningen om den är kortare |
+| Testa detta särskilt | Klar | Elva enhetstester om just det, och ett i webbläsaren; se nedan |
+| Datorspelaren kan anfalla murar | Klar | |
+| ... och ska inte fastna bakom dem | Klar | Den bryter igenom där muren står i vägen: mot en inmurad spelare vinner den 20 s senare än utan mur |
+| Byggmenyn visar kostnad och beskrivning | Klar | "Bygg Palissad / 6 trä per del / Dras ut i en linje", "Bygg Port / 40 trä / Bara egna går igenom" |
+| Alla värden i datafilerna | Klar | |
+| Grafik via pipelinen enligt skalstandarden | Klar | Ny klass `wall`: minst 29 px; palissaden är 45 px, porten 48 |
+
+**Testerna av vägsökningen** (`walls.test.ts`, "finding the way when
+walls are built and torn down")
+
+- En mur byggs tvärs över en gående enhets väg, öppen i båda ändar: den
+  går runt, står aldrig på en murruta och kommer fram.
+- En mur byggs från kant till kant: enheten går så nära målet den kan
+  och stannar där.
+- En mur reses på just den ruta enheten är på väg in på: den viker av.
+- En del rivs medan en enhet går den långa vägen runt: den tar
+  öppningen och är framme på under en tredjedel av tiden.
+- En öppning som inte hjälper ändrar inte enhetens väg.
+- En port sätts in i muren: den egna enheten tar porten, fiendens går
+  fortfarande runt.
+- En enhet skickas in i, och ut ur, en sluten ring: den går så nära det
+  går och stannar utanför respektive innanför.
+- Tjugo enheter korsar marken där en mur dras: alla kommer runt, ingen
+  står någonsin på en murruta, och samma körning ger samma resultat.
+- Samlare vars väg hem stängs av en mur fortsätter leverera genom sin
+  egen port.
+- En soldat vars mål stängs in ger upp, och når det när muren har fallit
+  och den får en ny order.
+- En ny enhet kommer ut på rätt sida om en mur intill byggnaden.
+
+**Vad som gjordes**
+
+- **Data:** `palissad` och `port` med `BuildingDef.wall` (`segment` eller
+  `gate`) och `replaces`; fliken `army`; `CONSTRUCTION_CONFIG.maxLineLength`
+  och `wallChainRadius`.
+- **Vägsökning:** `buildPathGrid(state, owner)` och `PathGrids` (ett
+  rutnät per sida), `pathTowards`, `pathCost`, och omledningen i
+  `pathfinding/reroute.ts`.
+- **Byggande:** `lineTiles`, `planLine`, `placeLine` (kommandot
+  `buildLine`), porten som ersätter en del, och byggare som går vidare
+  längs muren.
+- **Datorspelaren:** `systems/breach.ts` (`canGetToAttack`,
+  `wallInTheWay`), använt av vågornas soldater.
+- **Grafik:** varianter i byggnadspipelinen; `buildings/bear/wall.toml`
+  (tre varianter) och `gate.toml` (två), delen `gate_leaves`, och
+  storleksklassen `wall`.
+- **Spelet:** delarna ritas i den variant som passar grannarna;
+  `PlacementController` och `PlacementView` drar ut och visar linjen.
+
+**Saknas eller avviker**
+
+- **Värdena är förslag.** Inget av dem är godkänt.
+- **Byggmenyn har fått en tredje flik, "Armé".** Krigshall, Smedja och
+  Kastbana ligger där nu; under Försvar ligger Vakttorn, Palissad och
+  Port. Det stod inte i uppdraget. Frågan om en tredje flik eller mindre
+  knappar stod öppen sedan steg 2, och det här är min rekommendation; den
+  är inte godkänd. Med två flikar hade Försvar fått sju knappar.
+- **En enhet som inte kan nå sitt mål går nu så nära den kan.** Förut
+  stod den kvar där den var. Det gäller flyttorder till all avstängd
+  mark, också bakom vatten och träd, inte bara bakom murar. Ett äldre
+  test väntade sig det gamla och är ändrat.
+- **En enhet som har stannat vid en mur går inte vidare när muren
+  faller.** Den minns inte vart den skulle. Bara enheter som är på väg
+  leds om.
+- **En del kan inte placeras där en enhet står**, egen eller fiendens.
+  Rutan blir röd och hoppas över, och muren får ett hål där. Också den
+  Samlare som ska bygga kan stå i vägen.
+- **Hela linjen eller ingenting.** Räcker träet inte till alla delar
+  placeras ingen.
+- **En sned linje blir en trappa** och kostar fler delar än en rak: 13
+  delar för sju rutor snett.
+- **Spelaren kan inte riva sina egna murar.** Det finns inget kommando
+  för att riva något. Den som murar in sig får sätta in en port.
+- **Porten ger inget tillbaka för delen den ersätter**, och delen tas
+  bort genast, innan porten är färdig. Bygget stänger för fienden under
+  tiden.
+- **Porten ser alltid stängd ut.** Den öppnas inte när någon går
+  igenom; enheten ritas halvgenomskinlig, som bakom andra byggnader.
+- **Murar stoppar inte pilar och spjut.** Torn och Ramkastare skjuter
+  och kastar över dem. Närstrid når inte över.
+- **Spelarens enheter bryter inte igenom av sig själva.** En attackorder
+  mot något bakom en mur ger upp, som förut när målet inte går att nå.
+  Spelaren får peka ut muren.
+- **Datorspelaren bygger inga murar**, och bara soldater i en anfallsvåg
+  bryter igenom. Hemmavarande soldater som ska försvara basen, och
+  Samlare som stängs ute från skog eller bär, gör det inte.
+- **Varje soldat väljer sin egen del att bryta igenom**, den som står
+  först i just dess väg. En våg kan alltså hugga på flera delar på en
+  gång i stället för att samlas på en.
+- **Varje del är en egen byggnad:** egen livstapel, egen rök, och ett
+  klick markerar en del. "Laga" lagar en del i taget.
+- **Hörn är fyrkanter.** En del med grannar åt två håll, eller ingen,
+  ritas som en fyrkant av pålar; en sned mur blir en rad fyrkanter.
+  Delar ritas inte ihop med träd, andra byggnader eller fiendens mur.
+- **Pekflödet är bara prövat i emulering**, inte på en riktig telefon.
+- **Inte mätt:** bilder per sekund med hundratals delar. Varje bildruta
+  räknas linjen om medan den dras, och varje del väljer bild efter sina
+  grannar.
+- **Övriga byggnaders atlaser är inte byggda om** efter ändringen i
+  `buildings.py`. `assets/previews/overview.png` är byggd om.
+- **Inget ljud**, som i resten av spelet.
+
+**Testresultat**
+
+- Vitest: 888 av 888 tester gröna (42 filer). 58 är nya: 43 om murar,
+  portar, vägsökning och genombrott (`walls.test.ts`), och resten om
+  bildvalet och atlaserna
+- Playwright: 171 av 171 gröna i normal fart (5,1 min). 11 är nya
+  (`walls.spec.ts`). Med processorn strypt åtta gånger gick 169 av 171
+  igenom i hela körningen (16,3 min); de två som föll var Fiskehyttans
+  placeringstester, som jämförde förhandsbildens uppgifter exakt och
+  inte kände till de två nya fälten. Efter rättelsen går den filen
+  igenom i strypt fart (5 av 5), men hela den strypta sviten är inte
+  körd om
+- Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
+  testerna eller när skärmdumparna togs.
+- Matcher mellan två datorspelare, frö 1–6: 11,7, 18,6, 18,7, 16,5, 19,3
+  och 13,1 minuter, samma som efter steg 4. Datorspelaren bygger inga
+  murar, och omledningen ändrade inget utfall
+- Mot en spelare som bara har en sluten ring av palissad runt Storidet:
+  datorspelaren vinner efter 5,7, 5,5 och 5,6 minuter på frö 1–3, mot
+  5,3, 5,2 och 5,3 utan mur. En del faller efter 4,7–4,9 minuter, och
+  muren fördröjer den alltså med ungefär 20 sekunder
+
+**Äldre tester som ändrades, och varför**
+
+- **`commands.test.ts`:** "står kvar när målet inte går att nå" är nu
+  "går så nära den kan". Det är den ändrade regeln ovan.
+- **`population.test.ts`:** ett Ide är fortfarande billigast av husen,
+  men palissaddelen, som köps i mängd, är undantagen.
+- **Byggmenyns tester** (`commandPanel.test.ts`,
+  `phase6-building.spec.ts`, `phase10-touch-start.spec.ts`,
+  `forge.spec.ts`, `thrower.spec.ts`, `research.test.ts`,
+  `throwing.test.ts`) väntar sig tre flikar, och Krigshall, Smedja och
+  Kastbana under Armé.
+- Inget test är avstängt, och ingen tidsgräns är höjd.
+
+**Beslut och lärdomar**
+
+- **Ett rutnät per sida.** Porten är det första i spelet som är hinder
+  för den ena sidan och inte för den andra. Rutnätet tar därför en
+  ägare, och allt som söker väg åt en enhet frågar efter dess sidas.
+- **"Byggs" fanns till hälften, "rivs" inte alls.** Enheter leddes redan
+  om när ett bygge ställdes i deras väg, men stannade tvärt om vägen
+  stängdes helt, och ingenting hände när ett hinder försvann.
+- **En byggare som bara ser fyra rutor lämnar halva muren.** Började den
+  mitt på, vid porten, byggde den åt ena hållet och hade sedan för långt
+  till resten. Den ser nu lika långt som en linje kan bli.
+- **Jag skyllde ett fallande test på webbläsaren innan jag hade mätt.**
+  Pektestet för muren föll, och jag antog att ett tryck också gav en
+  musrörelse och ändrade spelets kod efter det. Loggning visade att
+  testet saknade pekskärmsinställningen (`hasTouch`) som de andra
+  pektesterna har. Ändringen i spelet togs tillbaka.
+
 ### Björnrasen komplett, steg 4: Kastbana och Ramkastare (2026-11-16)
 
 Steg 3, Smedjan (pull request 21), mergades först, efter grönt CI.
