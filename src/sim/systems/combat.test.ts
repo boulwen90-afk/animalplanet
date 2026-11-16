@@ -42,10 +42,10 @@ describe('damage', () => {
     const soldier = createUnit(state, 'ramkrigare', 0, 1, 1);
     const worker = createUnit(state, 'samlare', 1, 2, 1);
     const enemySoldier = createUnit(state, 'ramkrigare', 1, 3, 1);
-    expect(strikeDamage(soldier, worker)).toBe(SOLDIER.damage - WORKER.armor);
-    expect(strikeDamage(soldier, worker)).toBe(10);
-    expect(strikeDamage(soldier, enemySoldier)).toBe(9);
-    expect(strikeDamage(worker, soldier)).toBe(2);
+    expect(strikeDamage(state, soldier, worker)).toBe(SOLDIER.damage - WORKER.armor);
+    expect(strikeDamage(state, soldier, worker)).toBe(10);
+    expect(strikeDamage(state, soldier, enemySoldier)).toBe(9);
+    expect(strikeDamage(state, worker, soldier)).toBe(2);
   });
 
   it('is at least 1 however thick the armour', () => {
@@ -55,7 +55,7 @@ describe('damage', () => {
     const original = SOLDIER.armor;
     (UNIT_DEFS.ramkrigare as { armor: number }).armor = 50;
     try {
-      expect(strikeDamage(worker, armoured)).toBe(1);
+      expect(strikeDamage(state, worker, armoured)).toBe(1);
     } finally {
       (UNIT_DEFS.ramkrigare as { armor: number }).armor = original;
     }
@@ -65,7 +65,9 @@ describe('damage', () => {
     const state = openState(10, 10);
     const soldier = createUnit(state, 'ramkrigare', 0, 1, 1);
     const storide = createBuilding(state, 'storide', 1, 4, 4);
-    expect(strikeDamage(soldier, storide)).toBe(SOLDIER.damage - BUILDING_DEFS.storide.armor);
+    expect(strikeDamage(state, soldier, storide)).toBe(
+      SOLDIER.damage - BUILDING_DEFS.storide.armor,
+    );
   });
 });
 

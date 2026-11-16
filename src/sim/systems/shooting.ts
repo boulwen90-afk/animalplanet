@@ -1,11 +1,11 @@
 import { BUILDING_DEFS } from '../../data/buildings';
 import { SIM_CONFIG } from '../../data/sim';
-import { UNIT_DEFS } from '../../data/units';
 import { buildingCentre, hasSurrendered, isBuilding, isUnit } from '../entities';
 import { tileDistance } from '../map/grid';
 import { buildPathGrid } from '../pathfinding/passability';
 import type { Building, GameState, Projectile, Unit } from '../state';
 import { isAttackable } from './combat';
+import { unitArmor } from '../upgrades';
 import { surrender } from './surrender';
 
 /** Simulation steps between two shots by a building that shoots. */
@@ -14,9 +14,12 @@ export function shotTicks(building: Building): number {
   return attack ? Math.max(1, Math.round(attack.cooldown * SIM_CONFIG.ticksPerSecond)) : 0;
 }
 
-/** Life a shot with the given damage takes from a unit: damage minus armour, at least 1. */
-export function shotDamage(damage: number, target: Unit): number {
-  return Math.max(1, damage - UNIT_DEFS[target.type].armor);
+/**
+ * Life a shot with the given damage takes from a unit: damage minus the
+ * unit's armour, with its side's upgrades, and at least 1.
+ */
+export function shotDamage(state: GameState, damage: number, target: Unit): number {
+  return Math.max(1, damage - unitArmor(state, target));
 }
 
 /**
@@ -108,7 +111,7 @@ export function flyProjectiles(state: GameState): void {
       continue;
     }
 
-    const damage = shotDamage(projectile.damage, target);
+    const damage = shotDamage(state, projectile.damage, target);
     target.hp -= damage;
     state.events.push({
       type: 'projectileHit',

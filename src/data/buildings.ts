@@ -1,5 +1,6 @@
 import type { Cost, LoadKind, ResourceType } from './resources';
 import type { BuildingType, UnitType } from './types';
+import type { UpgradeType } from './upgrades';
 
 export type { BuildingType } from './types';
 
@@ -81,6 +82,8 @@ export interface BuildingDef {
   repairPrice?: Cost;
   /** How the finished building shoots at enemy units that come near, if it does. */
   attack?: AttackDef;
+  /** The upgrades that can be worked out in the finished building, if any. */
+  researches?: readonly UpgradeType[];
 }
 
 /** Building types. See GDD section 8. */
@@ -212,6 +215,24 @@ export const BUILDING_DEFS: Record<BuildingType, BuildingDef> = {
     housing: 0,
     walkable: false,
     attack: { damage: 9, range: 6, cooldown: 1.5, projectileSpeed: 12 },
+  },
+  /**
+   * A smithy. Upgrades are worked out here: bought once, they hold for all
+   * of the side's units.
+   */
+  smedja: {
+    menu: 'defence',
+    trains: [],
+    hp: 600,
+    sight: 5,
+    size: 2,
+    dropoff: false,
+    cost: { wood: 150 },
+    buildTime: 35,
+    armor: 0,
+    housing: 0,
+    walkable: false,
+    researches: ['weapons', 'armor', 'gathering'],
   },
 };
 

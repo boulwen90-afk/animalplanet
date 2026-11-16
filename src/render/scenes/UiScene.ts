@@ -46,6 +46,8 @@ export interface HudButton {
 export interface HudSource {
   /** Text for the selection panel, or undefined when nothing is selected. */
   getSelectionInfo(): SelectionInfo | undefined;
+  /** The third line of the selection panel: what the selected unit can do. Undefined when there is none to show. */
+  getSelectionStats(): string | undefined;
   /** The player's stock and population, or undefined before the game has started. */
   getResourceBarInfo(): ResourceBarInfo | undefined;
   /** The command panel for the selected building, or undefined when it should not show. */
@@ -185,6 +187,8 @@ const SLOT_FILLED_COLOR = 0x3b7de0;
 const PROGRESS_COLOR = 0x35e06a;
 const TEXT_COLOR = '#ffffff';
 const FLASH_COLOR = '#ff5a5a';
+/** The line that says what a unit can do: a little greener than the line above it. */
+const STATS_COLOR = '#9ae6b4';
 const ALERT_COLOR = '#ffd166';
 const BAR_TEXT_SPACING = 130;
 
@@ -197,6 +201,9 @@ export class UiScene extends Scene {
   private panel!: GameObjects.Graphics;
   private title!: GameObjects.Text;
   private detail!: GameObjects.Text;
+  /** The third line of the selection panel, and what it shows. */
+  private stats!: GameObjects.Text;
+  private statsShown = '';
   private shown: HudDisplay = { visible: false, title: '', detail: '' };
 
   private bar!: GameObjects.Graphics;
@@ -289,6 +296,11 @@ export class UiScene extends Scene {
       fontFamily: 'sans-serif',
       fontSize: '14px',
       color: '#cbd5e0',
+    });
+    this.stats = this.add.text(0, 0, '', {
+      fontFamily: 'sans-serif',
+      fontSize: '13px',
+      color: STATS_COLOR,
     });
 
     this.command = this.add.graphics();
@@ -432,6 +444,12 @@ export class UiScene extends Scene {
     this.updateHudButtons();
     this.updateAlert();
     this.updateOutcome();
+
+    const stats = (this.source.getSelectionInfo() && this.source.getSelectionStats()) ?? '';
+    if (stats !== this.statsShown) {
+      this.statsShown = stats;
+      this.stats.setText(stats).setVisible(stats !== '');
+    }
 
     const info = this.source.getSelectionInfo();
     const next: HudDisplay = info
@@ -764,6 +782,16 @@ export class UiScene extends Scene {
     }
   }
 
+  /** Shows a short message under the resource bar for a few seconds: news, not a refusal. */
+  showMessage(text: string): void {
+    this.showNotice(text);
+  }
+
+  /** What the third line of the selection panel says right now; empty when it shows nothing. */
+  getStatsDisplay(): string {
+    return this.statsShown;
+  }
+
   /** Tells the player that a repair stands still for lack of wood: the wood number turns red under a message. */
   showRepairPaused(): void {
     this.flashPending.wood = UI_CONFIG.noticeMs;
@@ -973,6 +1001,7 @@ export class UiScene extends Scene {
     this.panel.strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 6);
     this.title.setPosition(rect.x + 12, rect.y + 10);
     this.detail.setPosition(rect.x + 12, rect.y + 36);
+    this.stats.setPosition(rect.x + 12, rect.y + 58);
 
     this.alert.setPosition(this.scale.width / 2, alertTop(this.scale.width));
     // Under the warning, so that both can show at once.

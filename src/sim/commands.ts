@@ -6,6 +6,7 @@ import { buildPathGrid, nearestFreeTiles } from './pathfinding/passability';
 import { BUILDING_DEFS, type BuildingType } from '../data/buildings';
 import type { ResourceType } from '../data/resources';
 import { COLLISION_CONFIG, type UnitType } from '../data/units';
+import type { UpgradeType } from '../data/upgrades';
 import { resourceAt } from './resources';
 import type { Building, GameState, PlayerId, Unit } from './state';
 import { orderAttack } from './systems/combat';
@@ -13,6 +14,7 @@ import { assistConstruction, placeBuilding, type PlacementProblem } from './syst
 import { startGathering, startWorking } from './systems/gathering';
 import { cancelQueuedUnit, queueUnit } from './systems/production';
 import { orderRepair } from './systems/repair';
+import { cancelResearch, queueResearch } from './systems/research';
 
 /** Orders the given units to walk to a tile. */
 export interface MoveCommand {
@@ -59,6 +61,23 @@ export interface CancelTrainCommand {
   player: PlayerId;
   buildingId: number;
   /** Position in the queue; 0 is the unit being trained. */
+  index: number;
+}
+
+/** Adds the next level of an upgrade to a building's queue. Its price is taken at once. */
+export interface ResearchCommand {
+  type: 'research';
+  player: PlayerId;
+  buildingId: number;
+  upgrade: UpgradeType;
+}
+
+/** Removes an upgrade from a building's queue and gives its price back. */
+export interface CancelResearchCommand {
+  type: 'cancelResearch';
+  player: PlayerId;
+  buildingId: number;
+  /** Position in the queue; 0 is the upgrade being worked out. */
   index: number;
 }
 
@@ -109,6 +128,8 @@ export type Command =
   | WorkCommand
   | TrainCommand
   | CancelTrainCommand
+  | ResearchCommand
+  | CancelResearchCommand
   | BuildCommand
   | ConstructCommand
   | RepairCommand
@@ -145,6 +166,10 @@ export function applyCommand(state: GameState, command: Command): CommandResult 
       return queueUnit(state, command.player, command.buildingId, command.unit);
     case 'cancelTrain':
       return cancelQueuedUnit(state, command.player, command.buildingId, command.index);
+    case 'research':
+      return queueResearch(state, command.player, command.buildingId, command.upgrade);
+    case 'cancelResearch':
+      return cancelResearch(state, command.player, command.buildingId, command.index);
     case 'build':
       return placeBuilding(
         state,

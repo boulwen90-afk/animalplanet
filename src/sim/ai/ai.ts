@@ -24,6 +24,8 @@ import { buildPathGrid } from '../pathfinding/passability';
 import { canPlaceBuilding } from '../systems/construction';
 import { plannedWorkTiles } from '../systems/gathering';
 import { needsRepair } from '../systems/repair';
+import { isBeingResearched, nextUpgradeLevel } from '../systems/research';
+import { upgradeLevel } from '../upgrades';
 
 /**
  * The computer opponent. It plays by the same rules as a person: everything
@@ -31,7 +33,8 @@ import { needsRepair } from '../systems/repair';
  * one advantage is that the fog of war does not hide anything from it.
  *
  * Once a second it goes through a fixed list: train workers, build, repair,
- * put idle workers to work, train soldiers, defend the base, send attack waves.
+ * put idle workers to work, train soldiers, work out upgrades, defend the
+ * base, send attack waves.
  */
 export function runAi(state: GameState): void {
   const interval = Math.max(1, Math.round(AI_CONFIG.decisionInterval * SIM_CONFIG.ticksPerSecond));
@@ -54,7 +57,9 @@ function decide(state: GameState, player: PlayerId, memory: AiState): void {
   build(state, player, memory, base, buildings, workers);
   repair(state, player, base, buildings, workers);
   assignIdleWorkers(state, player, base, workers);
-  trainSoldiers(state, player, buildings, soldiers.length);
+  // An upgrade it is saving for comes before more soldiers.
+  const saving = research(state, player, buildings, soldiers.length);
+  if (!saving) trainSoldiers(state, player, buildings, soldiers.length);
 
   // Soldiers that are gone no longer belong to a wave.
   memory.attackers = memory.attackers.filter((id) => soldiers.some((s) => s.id === id));
@@ -199,6 +204,17 @@ function build(
     wanted.push({ type: tower, near: towerSpot(state, player, centre, towers) });
   }
 
+  // A smithy, once: for when there is wood to spare after all that.
+  const forge = buildableForge();
+  if (
+    forge &&
+    hasBarracks &&
+    !buildings.some((b) => b.type === forge) &&
+    (state.players[player]?.resources.wood ?? 0) >= AI_CONFIG.research.whenWood
+  ) {
+    wanted.push({ type: forge, near: centre });
+  }
+
   for (const { type, near, within } of wanted) {
     if (!canAfford(state, player, BUILDING_DEFS[type].cost)) continue;
     const site = findBuildSite(state, player, type, near, within);
@@ -215,6 +231,56 @@ function build(
     if (placed.ok && type === tower) memory.towersPlaced++;
     return;
   }
+}
+
+/** The building type where upgrades are worked out. */
+function buildableForge(): BuildingType | undefined {
+  return (Object.keys(BUILDING_DEFS) as BuildingType[]).find(
+    (type) => BUILDING_DEFS[type].buildTime > 0 && BUILDING_DEFS[type].researches !== undefined,
+  );
+}
+
+/**
+ * Works out upgrades in the side's idle smithies: the next one in the
+ * configured order that it has the fewest levels of, as soon as it can pay
+ * for it. See AI_CONFIG.research.
+ *
+ * @returns True if it wants an upgrade it cannot pay for yet and has
+ * soldiers enough to wait: it is saving, and should train no more soldiers
+ * this time.
+ */
+function research(
+  state: GameState,
+  player: PlayerId,
+  buildings: readonly Building[],
+  soldiers: number,
+): boolean {
+  const stock = state.players[player];
+  if (!stock) return false;
+  const { order, saveAbove } = AI_CONFIG.research;
+  let saving = false;
+  for (const building of buildings) {
+    const offered = BUILDING_DEFS[building.type].researches;
+    if (!offered || !building.complete || building.research.length > 0) continue;
+    const candidates = order
+      .filter((upgrade) => offered.includes(upgrade))
+      .filter((upgrade) => nextUpgradeLevel(state, player, upgrade) !== undefined)
+      .filter((upgrade) => !isBeingResearched(state, player, upgrade))
+      .sort(
+        (a, b) =>
+          upgradeLevel(state, player, a) - upgradeLevel(state, player, b) ||
+          order.indexOf(a) - order.indexOf(b),
+      );
+    const [next] = candidates;
+    const level = next && nextUpgradeLevel(state, player, next);
+    if (!next || !level) continue;
+    if (canAfford(state, player, level.cost)) {
+      applyCommand(state, { type: 'research', player, buildingId: building.id, upgrade: next });
+    } else if (soldiers >= saveAbove) {
+      saving = true;
+    }
+  }
+  return saving;
 }
 
 /** The building type that shoots at enemies by itself. */

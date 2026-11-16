@@ -65,6 +65,8 @@ export interface TestApiSource {
   getUnitSprite(id: number): UnitSpriteInfo | null;
   getBuildingSprite(id: number): BuildingSpriteInfo | null;
   getBuildingDamage(id: number): DamageInfo;
+  getBuildingProgress(id: number): number | null;
+  getHudStats(): string;
   getProjectiles(): ProjectileInfo;
   getRangeRings(): number[];
   getPointer(): PointerInfo;
@@ -137,6 +139,13 @@ export interface TestApi {
   setLife(id: number, life: number): void;
   /** The damage drawn on a building: whether it smokes or burns, and how many puffs and fires show. */
   getBuildingDamage(id: number): DamageInfo;
+  /**
+   * How far the progress bar drawn over a building has come, from 0 to 1:
+   * the upgrade it is working out. Null when no bar is drawn over it.
+   */
+  getBuildingProgress(id: number): number | null;
+  /** The third line of the selection panel: what the selected unit can do, with upgrades. Empty when it shows nothing. */
+  getHudStats(): string;
   /**
    * What is in the air as it is drawn: each projectile the player can see
    * with its place in world pixels and the way it points, and the bursts
@@ -227,6 +236,8 @@ export function installTestApi(source: TestApiSource): TestApi {
     getUnitSprite: (id) => source.getUnitSprite(id),
     getBuildingSprite: (id) => source.getBuildingSprite(id),
     getBuildingDamage: (id) => source.getBuildingDamage(id),
+    getBuildingProgress: (id) => source.getBuildingProgress(id),
+    getHudStats: () => source.getHudStats(),
     getProjectiles: () => source.getProjectiles(),
     getRangeRings: () => source.getRangeRings(),
     setLife: (id, life) => source.setLife(id, life),

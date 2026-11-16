@@ -1,7 +1,8 @@
 import { BUILDING_DEFS } from '../../data/buildings';
 import { STRINGS } from '../../data/strings';
 import { UNIT_DEFS } from '../../data/units';
-import type { Entity, PlayerId } from '../../sim/state';
+import type { Entity, GameState, PlayerId } from '../../sim/state';
+import { gatherSpeed, unitArmor, unitDamage } from '../../sim/upgrades';
 import { buildFraction } from '../../sim/systems/construction';
 
 /** The two lines of text shown in the selection panel. */
@@ -55,6 +56,44 @@ export function describeSelection(
     title: STRINGS.hud.unitsSelected(chosen.length),
     detail: [...counts].map(([name, count]) => STRINGS.hud.countOfType(name, count)).join(', '),
   };
+}
+
+/** A number as it is written in Swedish, with one decimal at most: 1,2. */
+function decimal(value: number): string {
+  return String(Math.round(value * 10) / 10).replace('.', ',');
+}
+
+/**
+ * What a single selected unit of the player's own can do, with its side's
+ * upgrades counted in: a fighter's damage and armour, or a gatherer's pace
+ * and armour. A value an upgrade has raised is followed by how much, such
+ * as "Skada 14 (+4)". Undefined for anything else that is selected.
+ */
+export function describeStats(
+  state: GameState,
+  selected: ReadonlySet<number>,
+  player: PlayerId,
+): string | undefined {
+  if (selected.size !== 1) return undefined;
+  const unit = state.entities.find((entity) => selected.has(entity.id));
+  if (!unit || unit.kind !== 'unit' || unit.owner !== player || unit.task.kind === 'flee') {
+    return undefined;
+  }
+  const def = UNIT_DEFS[unit.type];
+  const bonus = (amount: number, text: string) => (amount > 0 ? STRINGS.hud.statBonus(text) : '');
+  const armorBonus = unitArmor(state, unit) - def.armor;
+  const armor = STRINGS.hud.statArmor(unitArmor(state, unit)) + bonus(armorBonus, `${armorBonus}`);
+  if (def.carryCapacity > 0) {
+    const speed = gatherSpeed(state, unit);
+    const faster = Math.round((speed - 1) * 100);
+    const pace =
+      STRINGS.hud.statGather(decimal(def.gatherRate * speed)) + bonus(faster, `${faster} %`);
+    return `${pace} · ${armor}`;
+  }
+  const damageBonus = unitDamage(state, unit) - def.damage;
+  const damage =
+    STRINGS.hud.statDamage(unitDamage(state, unit)) + bonus(damageBonus, `${damageBonus}`);
+  return `${damage} · ${armor}`;
 }
 
 /** What a unit or building is doing, or undefined if it is nothing worth mentioning. */

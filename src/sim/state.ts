@@ -1,6 +1,7 @@
 import type { BuildingType } from '../data/buildings';
 import type { LoadKind, ResourceType } from '../data/resources';
 import type { UnitType } from '../data/units';
+import type { UpgradeType } from '../data/upgrades';
 import type { GameMap } from './map/grid';
 import type { Point } from './map/iso';
 import type { RngState } from './rng';
@@ -92,6 +93,8 @@ export type SimEvent =
   | { type: 'buildingAttacked'; buildingId: number; owner: PlayerId }
   /** The repair of a building has stopped because its side ran out of wood. */
   | { type: 'repairPaused'; buildingId: number; owner: PlayerId }
+  /** A side has worked out a level of an upgrade. */
+  | { type: 'upgradeDone'; owner: PlayerId; upgrade: UpgradeType; level: number }
   /** A building has shot at a unit. */
   | { type: 'shot'; sourceId: number; targetId: number; projectileId: number }
   /** What a building shot has landed on its target, at a place in tiles. */
@@ -113,6 +116,8 @@ export interface PlayerState {
    * Same indexing as the map's terrain.
    */
   visibility: number[];
+  /** The level the side has reached of each upgrade; 0 for one it has not bought. */
+  upgrades: Record<UpgradeType, number>;
   /** The computer opponent's memory, for a side it plays; null for a side played by a person. */
   ai: AiState | null;
 }
@@ -171,6 +176,10 @@ export interface Building {
   queue: UnitType[];
   /** Simulation steps spent training the first unit in the queue. */
   trainTicks: number;
+  /** Upgrades waiting to be worked out here; the first one is being worked on. Already paid for. */
+  research: UpgradeType[];
+  /** Simulation steps spent on the first upgrade in that queue. */
+  researchTicks: number;
   /** Simulation steps until the building may shoot again, for one that shoots. */
   attackCooldown: number;
   /**

@@ -77,7 +77,7 @@ En match ska ta ungefär 10–20 minuter.
   kommandopanel (bygg-/träningsknappar med kostnad, produktionskö).
 - **Byggmenyn har två flikar** (beslutat av användaren 2026-11-15, när
   menyn hade vuxit till sju knappar): **Ekonomi** (Visthus, Ide, Odling,
-  Fiskehytta) och **Försvar** (Krigshall, Vakttorn). Menyn öppnas på
+  Fiskehytta) och **Försvar** (Krigshall, Vakttorn, Smedja). Menyn öppnas på
   Ekonomi. Den flik man valde ligger kvar när man markerar om. Knappen
   "Laga" finns sist under båda flikarna. Vilken flik en byggnad hör till
   står i `BUILDING_DEFS` (`menu`). En flik är 108×40 px, stor nog att
@@ -195,15 +195,15 @@ Stridsregler:
 
 ## 8. Byggnader (MVP)
 
-| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) | Fiskehytta | Vakttorn |
-|---|---|---|---|---|---|---|---|
-| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare | Fiske vid vatten, upp till 3 Samlare; avlämningsplats för fisk | Skjuter på fiender, ser långt |
-| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä | 100 trä | 120 trä |
-| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s | 25 s | 30 s |
-| Liv | 1500 | 400 | 700 | 300 | 200 | 350 | 500 |
-| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor | 2×2 rutor | 1×1 ruta |
-| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor | 5 rutor | 8 rutor |
-| Befolkningsplats | 5 | 0 | 0 | 5 | 0 | 0 | 0 |
+| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) | Fiskehytta | Vakttorn | Smedja |
+|---|---|---|---|---|---|---|---|---|
+| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare | Fiske vid vatten, upp till 3 Samlare; avlämningsplats för fisk | Skjuter på fiender, ser långt | Uppgraderingar |
+| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä | 100 trä | 120 trä | 150 trä |
+| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s | 25 s | 30 s | 35 s |
+| Liv | 1500 | 400 | 700 | 300 | 200 | 350 | 500 | 600 |
+| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor | 2×2 rutor | 1×1 ruta | 2×2 rutor |
+| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor | 5 rutor | 8 rutor | 5 rutor |
+| Befolkningsplats | 5 | 0 | 0 | 5 | 0 | 0 | 0 | 0 |
 
 Bostaden heter olika för varje ras; björnarnas är Idet. Det byggs av
 Samlare. Det är en låg timmerstuga under ett djupt halmtak, med ljus i
@@ -273,6 +273,40 @@ byggs av Samlare:
 - **Räckvidden visas** som en gul ring på marken när tornet placeras och
   när ett eget färdigt torn är markerat. Markeringspanelen visar "Skada 9
   · Räckvidd 6".
+
+**Smedjan** (infört 2026-11-15 på användarens begäran; värdena är förslag
+som väntar på godkännande och ligger i `src/data/upgrades.ts` och
+`BUILDING_DEFS.smedja`) byggs av Samlare och ligger under fliken Försvar:
+- En timmerverkstad med bred stenskorsten. Framför den står härden, som
+  glöder, under ett skärmtak, och på gården ett städ med en hammare, ett
+  vapenställ och en tunna att härda i.
+- **Uppgraderingar köps en gång och gäller sedan alla sidans enheter** av
+  de slag de avser, både de som finns och de som tränas senare:
+
+  | Uppgradering | Gäller | Nivå I | Nivå II |
+  |---|---|---|---|
+  | **Vapen** | Ramkrigare | +2 skada (10 → 12): 100 mat, 50 trä, 40 s | +2 till (14): 175 mat, 100 trä, 60 s |
+  | **Rustning** | Alla enheter | +1 rustning: 75 mat, 75 trä, 40 s | +1 till: 150 mat, 150 trä, 60 s |
+  | **Verktyg** | Samlare | +20 % fart i allt samlande: 100 mat, 50 trä, 40 s | +20 % till: 175 mat, 100 trä, 60 s |
+
+  Rustning dras från varje slag och varje pil, som förut; ett slag tar
+  alltid minst 1. Verktyg gäller bär, trä, Odling och Fiskehytta.
+- **Kö:** uppgraderingar beställs med knappar i Smedjans panel och ställs
+  i kö, den första arbetas fram. Priset dras vid beställningen. En nivå
+  av samma uppgradering åt gången: knappen är nedtonad med texten "Pågår"
+  medan den arbetas fram, och "Fullt utvecklad" när båda nivåerna finns.
+  Ett tryck på en plats i kön avbryter den uppgraderingen och ger hela
+  priset tillbaka; arbetet som var gjort går förlorat.
+- **Förloppet syns på byggnaden:** en blå stapel över Smedjan visar hur
+  långt den första i kön har kommit, med en prick för varje som väntar.
+  Bara ägaren ser den. Panelen visar samma sak med kö och stapel.
+- **När en uppgradering är klar** visas "Vapen I är klar" i 2,5 s.
+- **Rivs Smedjan** går det den arbetade på förlorat utan återbetalning.
+  Det sidan redan har köpt behåller den.
+- **Värdena syns på enheten:** markeringspanelen har en tredje rad för en
+  egen enhet. En Ramkrigare visar "Skada 10 · Rustning 1", en Samlare
+  "Samlar 1/s · Rustning 0". Ett värde som en uppgradering har höjt följs
+  av hur mycket: "Skada 14 (+4) · Rustning 2 (+1)".
 
 Byggregler:
 - Spelaren väljer byggnad i kommandopanelen och placerar en "spökbild" på
@@ -383,6 +417,12 @@ som spelaren (inget fusk med resurser):
    lager: 6 rutor från Storidets mitt, på sidan mot fienden. Högst ett
    torn per match; ett torn som faller ersätts inte. Värdena ligger i
    `AI_CONFIG.towers`.
+   **Bygger en Smedja** när den har en Krigshall och minst 200 trä i
+   lager, och **forskar när den har råd**: Vapen, Rustning, Verktyg, den
+   första nivån av varje före den andra av någon, en åt gången. Har den
+   6 Ramkrigare eller fler tränar den inga nya förrän nästa uppgradering
+   är betald; annars äter soldaterna upp maten först varje gång. Värdena
+   ligger i `AI_CONFIG.research`.
 5. Tränar Ramkrigare kontinuerligt.
 6. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
    ligger i en datafil (t.ex. våg 1: 4 krigare tidigast vid 4 min, därefter
@@ -425,6 +465,8 @@ krigsdimman. En svårighetsgrad.
 | Torn skjuter | En pil med fjädrar i lagfärg lämnar tornets plattform (72 px över marken), flyger i en båge som är 4 px högre per ruta den ska flyga, pekar åt det håll den flyger, och landar i brösthöjd (14 px) på målet |
 | Pil träffar | Målet blinkar vitt i 80 ms; en splitterstjärna visas på målet i 220 ms medan den växer från 70 % till 160 % och tonas bort |
 | Torn markerat eller placeras | Gul ring på marken med tornets räckvidd (6 rutor) |
+| Smedjan arbetar | Blå stapel, 44×4 px, över byggnaden; en prick efter den för varje uppgradering som väntar |
+| Uppgradering klar | "Vapen I är klar" under resursraden i 2,5 s |
 | Byggnad förstörs | Skärmen skakar 150 ms med 4 px amplitud om byggnaden är i bild |
 | Egen bas anfalls | Texten "Din bas anfalls!" i överkant i 3 s, högst en gång per 10 s |
 | Ogiltig byggplats | Spökbilden är röd; klick gör ingenting |

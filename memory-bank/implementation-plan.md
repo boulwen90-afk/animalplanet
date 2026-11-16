@@ -339,6 +339,6 @@ kostnad och beskrivning, tester gröna, inga konsolfel, skärmdumpar, och
 |---|---|---|
 | 1 | **Lagning.** Samlare lagar skadade egna byggnader för trä; rök under 50 % liv, eld under 25 %; datorspelaren lagar när basen är i fred | Klart 2026-11-15, se `progress.md` |
 | 2 | **Vakttorn.** Skjuter på närmaste fiende inom räckvidd, ger sikt, synlig projektil med träffeffekt, kan lagas; datorspelaren bygger torn vid basen | Klart 2026-11-15, se `progress.md` |
-| 3 | **Smedja.** Uppgraderingar som köps en gång och gäller alla enheter: vapen, rustning, snabbare samlande, två nivåer var; kö och förlopp på byggnaden; datorspelaren forskar | Inte påbörjat |
+| 3 | **Smedja.** Uppgraderingar som köps en gång och gäller alla enheter: vapen, rustning, snabbare samlande, två nivåer var; kö och förlopp på byggnaden; datorspelaren forskar | Klart 2026-11-15, se `progress.md` |
 | 4 | **Skyttebana och distansenhet.** Ny byggnad och ny figur med egna animationer; svag i närstrid, stark på avstånd; sten-sax-påse mot Ramkrigaren och tornet | Inte påbörjat |
 | 5 | **Palissad och port.** Dras ut i linje; egna enheter går genom porten; vägsökningen klarar murar som byggs och rivs under förflyttning; datorspelaren anfaller murar | Inte påbörjat |

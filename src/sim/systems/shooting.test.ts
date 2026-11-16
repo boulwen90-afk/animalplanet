@@ -145,9 +145,11 @@ describe('how a watchtower shoots', () => {
     const { state } = setup();
     const worker = createUnit(state, 'samlare', 1, 1, 1);
     const soldier = createUnit(state, 'ramkrigare', 1, 2, 1);
-    expect(shotDamage(ATTACK.damage, worker)).toBe(ATTACK.damage - UNIT_DEFS.samlare.armor);
-    expect(shotDamage(ATTACK.damage, soldier)).toBe(ATTACK.damage - UNIT_DEFS.ramkrigare.armor);
-    expect(shotDamage(0, soldier)).toBe(1);
+    expect(shotDamage(state, ATTACK.damage, worker)).toBe(ATTACK.damage - UNIT_DEFS.samlare.armor);
+    expect(shotDamage(state, ATTACK.damage, soldier)).toBe(
+      ATTACK.damage - UNIT_DEFS.ramkrigare.armor,
+    );
+    expect(shotDamage(state, 0, soldier)).toBe(1);
   });
 
   it('follows a target that moves, and still lands on it', () => {

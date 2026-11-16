@@ -8,7 +8,8 @@ export interface ScreenRect {
 }
 
 const MARGIN = 12;
-const SELECTION_PANEL = { width: 280, height: 64 };
+/** Room for three lines: the name, the life and what the unit is doing, and what it can do. */
+const SELECTION_PANEL = { width: 280, height: 84 };
 
 /** The selection panel sits in the bottom-left corner. */
 export function selectionPanelRect(viewWidth: number, viewHeight: number): ScreenRect {

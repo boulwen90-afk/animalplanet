@@ -45,7 +45,7 @@ import {
   type CommandPanelInfo,
 } from '../ui/commandPanel';
 import { hudButtonRects, rectContains, resourceBarRect, selectionPanelRect } from '../ui/layout';
-import { describeSelection, type SelectionInfo } from '../ui/selectionInfo';
+import { describeSelection, describeStats, type SelectionInfo } from '../ui/selectionInfo';
 import { CaveView } from '../views/CaveView';
 import { DamageView } from '../views/DamageView';
 import { EntityView } from '../views/EntityView';
@@ -163,6 +163,7 @@ export class GameScene extends Scene implements HudSource {
       new CharacterLibrary(this, PLAYER_COLORS),
       buildingArt,
       new DamageView(this, MAP_CONFIG, scenery.textureKey()),
+      LOCAL_PLAYER,
     );
     this.repairPointer = scenery.pointer(
       this,
@@ -327,6 +328,12 @@ export class GameScene extends Scene implements HudSource {
           this.projectileView.showHit(event.x, event.y);
         }
         break;
+      case 'upgradeDone':
+        if (event.owner === LOCAL_PLAYER) {
+          const name = STRINGS.hud.upgradeLevel(STRINGS.upgrades[event.upgrade], event.level);
+          (this.scene.get('Ui') as UiScene).showMessage(STRINGS.hud.upgradeReady(name));
+        }
+        break;
       case 'repairPaused':
         if (event.owner === LOCAL_PLAYER) {
           (this.scene.get('Ui') as UiScene).showRepairPaused();
@@ -471,7 +478,13 @@ export class GameScene extends Scene implements HudSource {
       this.selectionController.selection,
       LOCAL_PLAYER,
       this.buildMenu,
+      this.state.players[LOCAL_PLAYER]?.upgrades,
     );
+  }
+
+  getSelectionStats(): string | undefined {
+    if (!this.state) return undefined;
+    return describeStats(this.state, this.selectionController.selection, LOCAL_PLAYER);
   }
 
   selectCommandTab(index: number): void {
@@ -492,6 +505,16 @@ export class GameScene extends Scene implements HudSource {
         player: LOCAL_PLAYER,
         buildingId: info.buildingId,
         unit: action.unit,
+      });
+    }
+
+    if (action.kind === 'research') {
+      if (info.buildingId === undefined) return { ok: false, reason: 'invalid' };
+      return applyCommand(this.state, {
+        type: 'research',
+        player: LOCAL_PLAYER,
+        buildingId: info.buildingId,
+        upgrade: action.upgrade,
       });
     }
 
@@ -529,7 +552,8 @@ export class GameScene extends Scene implements HudSource {
     const info = this.getCommandPanelInfo();
     if (!this.state || info?.buildingId === undefined) return { ok: false, reason: 'invalid' };
     return applyCommand(this.state, {
-      type: 'cancelTrain',
+      // The same press cancels a unit in a queue of units and an upgrade in a queue of upgrades.
+      type: info.queueOf === 'upgrades' ? 'cancelResearch' : 'cancelTrain',
       player: LOCAL_PLAYER,
       buildingId: info.buildingId,
       index,
@@ -626,6 +650,8 @@ export class GameScene extends Scene implements HudSource {
       getUnitSprite: (id) => this.entityView.describeUnit(id) ?? null,
       getBuildingSprite: (id) => this.entityView.describeBuilding(id) ?? null,
       getBuildingDamage: (id) => this.entityView.describeDamage(id),
+      getBuildingProgress: (id) => this.entityView.describeProgress(id) ?? null,
+      getHudStats: () => (this.scene.get('Ui') as UiScene).getStatsDisplay(),
       getProjectiles: () => this.projectileView.describe(),
       getRangeRings: () => this.entityView.describeRangeRings(),
       getPointer: () => ({

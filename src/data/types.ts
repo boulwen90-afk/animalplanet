@@ -6,4 +6,4 @@
 export type UnitType = 'samlare' | 'ramkrigare';
 
 export type BuildingType =
-  'storide' | 'visthus' | 'krigshall' | 'ide' | 'odling' | 'fiskehytta' | 'vakttorn';
+  'storide' | 'visthus' | 'krigshall' | 'ide' | 'odling' | 'fiskehytta' | 'vakttorn' | 'smedja';

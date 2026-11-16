@@ -55,6 +55,9 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/economy.ts` | Kostnader: vad som saknas, betala, återbetala | 5 |
 | `src/sim/systems/production.ts` | `produceUnits` (träning), `queueUnit`, `cancelQueuedUnit` | 5 |
 | `src/sim/systems/construction.ts` | `constructBuildings` (byggande), `canPlaceBuilding`, `placeBuilding`, `assistConstruction` | 6, 7 |
+| `src/data/upgrades.ts` | `UPGRADE_DEFS`: uppgraderingarna, vad de ändrar, för vilka enheter, och varje nivås pris, tid och tillägg | Efter MVP |
+| `src/sim/upgrades.ts` | En enhets värden med sidans uppgraderingar: `unitDamage`, `unitArmor`, `gatherSpeed` | Efter MVP |
+| `src/sim/systems/research.ts` | Forskningskön: `queueResearch`, `cancelResearch`, `researchUpgrades` | Efter MVP |
 | `src/sim/systems/shooting.ts` | Byggnader som skjuter: `shootFromBuildings`, `flyProjectiles`, `shootingTarget` | Efter MVP |
 | `src/render/effects/projectiles.ts` | En projektils bana på skärmen, träffens utseende och räckviddsringens mått, som rena funktioner | Efter MVP |
 | `src/render/views/ProjectileView.ts` | Ritar pilar i luften och splitterstjärnan där de landar | Efter MVP |
@@ -230,6 +233,8 @@ som fattas), `populationCap`, `queueFull`, `invalidPlacement` (med
 | `cancelTrain` | `player`, `buildingId`, `index` (plats i kön) | Tar bort enheten ur kön och återbetalar hela kostnaden |
 | `build` | `player`, `unitIds`, `building`, `x`, `y` (fotavtryckets lägsta hörn) | Placerar ett bygge, drar kostnaden och skickar enheterna att bygga |
 | `construct` | `player`, `unitIds`, `buildingId` | Skickar enheterna att hjälpa till med ett pågående bygge |
+| `research` | `player`, `buildingId`, `upgrade` | Lägger nästa nivå av uppgraderingen i byggnadens kö och drar priset direkt. `invalid` om byggnaden inte är en egen färdig byggnad som arbetar fram den uppgraderingen, om en nivå av den redan väntar eller arbetas fram någonstans, eller om sidan har alla nivåer |
+| `cancelResearch` | `player`, `buildingId`, `index` (plats i kön) | Tar bort uppgraderingen ur kön och återbetalar hela priset |
 | `repair` | `player`, `unitIds`, `buildingId` | Skickar enheterna att laga en egen färdig byggnad som har förlorat liv. `invalid` om byggnaden inte är egen, inte färdig eller hel, eller om ingen av enheterna kan laga. En enhet som inte får plats intill byggnaden behåller sin uppgift |
 | `attack` | `player`, `unitIds`, `targetId` | Enheterna anfaller en fientlig enhet eller byggnad tills den är besegrad |
 
@@ -334,6 +339,33 @@ motsvarande längre tid.
 - En byggnad vars liv når 0 rasar: den tas bort och rutorna blir fria. Är
   det huvudbyggnaden (`START_CONFIG.building`) sätts `winner` till andra
   sidan.
+
+### Uppgraderingar (`upgrades.ts`, `systems/research.ts`)
+
+- **Data.** `UPGRADE_DEFS` har för varje uppgradering vad den ändrar
+  (`stat`: `damage`, `armor` eller `gatherSpeed`), vilka enhetstyper den
+  gäller (`units`) och nivåerna i ordning (`cost`, `time`, `bonus`). En
+  byggnadstyp med `researches` i `BUILDING_DEFS` arbetar fram dem
+  (Smedjan).
+- **Sidans nivåer** står i `PlayerState.upgrades`, ett tal per
+  uppgradering. Uppgraderingarna hör alltså till sidan, inte till
+  byggnaden eller enheten: de gäller enheter som tränas senare och ligger
+  kvar om Smedjan rivs.
+- **Verkan räknas ut vid användningen**, inte genom att ändra enheterna:
+  `upgradeBonus(state, player, unitType, stat)` summerar tilläggen för de
+  nivåer sidan har. `unitDamage` och `unitArmor` används av
+  `strikeDamage` och `shotDamage`; `gatherSpeed` delar tiden per
+  resursenhet i `ticksPerUnit`, både vid källor på kartan och vid
+  byggnader som ger arbete. De tre funktionerna tar därför `state`.
+- **Kön.** `Building.research` är byggnadens kö och `researchTicks` hur
+  långt den första har kommit. `queueResearch` drar priset för sidans
+  nästa nivå (`nextUpgradeLevel`) och nekar om en nivå av samma
+  uppgradering redan väntar eller arbetas fram i någon av sidans
+  byggnader (`isBeingResearched`): då är "nästa nivå" alltid entydig, och
+  `cancelResearch` kan ge tillbaka rätt pris. `researchUpgrades` körs
+  varje steg efter träningen; när tiden är inne höjs sidans nivå och
+  händelsen `upgradeDone` läggs.
+- En byggnad som rivs tar sin kö med sig; inget betalas tillbaka.
 
 ### Byggnader som skjuter (`systems/shooting.ts`)
 
@@ -476,6 +508,13 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
   7. **Soldater i en våg** anfaller fiendesoldater inom sin upptäcktsradie,
      därefter ett fientligt torn som har dem inom sin räckvidd (det
      närmaste), och annars huvudbyggnaden.
+- **Smedja och forskning.** Efter tornet: har sidan en färdig kasern,
+  ingen Smedja och minst `AI_CONFIG.research.whenWood` (200) trä bygger
+  den en vid basen. `research` körs före soldatträningen: i en ledig
+  Smedja beställs den uppgradering i `order` som sidan har lägst nivå av,
+  så snart den har råd. Har den inte råd och minst `saveAbove` (6)
+  soldater svarar funktionen att sidan sparar, och då tränas inga
+  soldater det beslutet.
 - **Torn:** sist bland byggena. Har sidan en färdig kasern, färre än
   `AI_CONFIG.towers.max` (1) torn placerade under matchen
   (`AiState.towersPlaced`; ett torn som faller ersätts inte) och minst
@@ -518,8 +557,9 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
 `state.events` talar om för renderingen vad som hände i det senaste steget:
 `hit`, `surrender`, `enterCave`, `vanish`, `buildingCollapsed`,
 `buildingAttacked`, `repairPaused` (en lagning har stannat för att
-träet tog slut), `shot` (en byggnad har skjutit) och `projectileHit` (det
-som sköts har landat på sitt mål, med plats och skada). `GameScene` kör därför ett steg i taget och läser
+träet tog slut), `shot` (en byggnad har skjutit), `projectileHit` (det
+som sköts har landat på sitt mål, med plats och skada) och `upgradeDone`
+(en sida har arbetat fram en nivå av en uppgradering). `GameScene` kör därför ett steg i taget och läser
 händelserna efter varje steg. Simuleringen själv använder dem inte.
 
 ### Byggande
@@ -856,6 +896,25 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
   ovanför, t.ex. `3/12`. Grottan ritas
   när spelaren har utforskat dess ruta. Antalet visas alltid för egna
   grottor, och för andras bara medan de är i sikte.
+- **Smedjan i gränssnittet.**
+  - `describeCommandPanel(..., menu, levels)` ger för en färdig egen
+    byggnad med `researches` en knapp per uppgradering
+    (`researchPanel`): nästa nivå med pris och vad den ger, nedtonad med
+    "Pågår" medan en nivå av den ligger i någon av sidans köer och med
+    "Fullt utvecklad" efter sista nivån. Kön visas som för träning, med
+    två bokstäver per uppgradering ("Va", "Ru", "Ve"), och `queueOf`
+    säger om kön håller enheter eller uppgraderingar, så att ett tryck på
+    en plats ger `cancelTrain` eller `cancelResearch`.
+  - `EntityView` ritar en stapel över en byggnad som arbetar fram något
+    (`WORK_BAR`: 44×4 px, 8 px över livstapelns plats), med en prick per
+    uppgradering som väntar. Bara byggnader som tillhör betraktaren får
+    stapeln.
+  - Markeringspanelen har en tredje rad (`describeStats`): en egen
+    enhets skada och rustning, eller en Samlares fart och rustning, med
+    uppgraderingarna inräknade och tillägget inom parentes. Panelen är
+    därför 84 px hög i stället för 64.
+  - Händelsen `upgradeDone` för spelarens sida ger meddelandet "Vapen I
+    är klar" (`UiScene.showMessage`).
 - **`ProjectileView`** ritar `state.projectiles` med bilden `arrow` ur
   miljöns atlas, i skyttens lagfärg (fjädrarna är maskade). Banan räknas
   av rena funktioner i `effects/projectiles.ts`:
@@ -1012,8 +1071,8 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
 - **Byggnader i spelet (`render/buildings/`).** Byggnadstyper som finns i
   `BUILDING_ART` ritas från sina atlaser. I dag gäller det Storide
   (`bear_main`), Krigshall (`bear_barracks`), Visthus (`bear_storage`),
-  Odling (`bear_field`), Fiskehytta (`bear_fishery`), Ide (`bear_den`) och
-  Vakttorn (`bear_tower`), för båda sidorna. Alla byggnadstyper har därmed bilder; en typ utan
+  Odling (`bear_field`), Fiskehytta (`bear_fishery`), Ide (`bear_den`),
+  Vakttorn (`bear_tower`) och Smedja (`bear_forge`), för båda sidorna. Alla byggnadstyper har därmed bilder; en typ utan
   bild ritas fortfarande som ett platshållarblock.
   - `BuildingLibrary` laddar atlaserna och gör en färgad kopia per
     spelare, på samma sätt som `CharacterLibrary`.
@@ -1505,9 +1564,17 @@ lagfärgsmask som figurerna (`buildings.py`).
 | `fishery` | Fiskehytta | 2×2 | `small` | 64 px | 69 px |
 | `den` | Ide | 2×2 | `small` | 64 px | 75 px |
 | `storage` | Visthus | 2×2 | `small` | 64 px | 79 px |
+| `forge` | Smedja | 2×2 | `small` | 64 px | 74 px |
 | `barracks` | Krigshall | 3×3 | `large` | 90 px | 112 px |
 | `tower` | Vakttorn | 1×1 | `tower` | 96 px | 120 px |
 | `main` | Storide | 3×3 | `main` | 115 px | 137 px |
+
+Smedjan (`forge`, 2×2, storleksklass `small`) är en timmerverkstad under
+skiffertak med en bred stenskorsten. Framför den står härden under ett
+skärmtak, med glödande öppning mot gården, och i det fria ett städ på en
+kubb med en hammare på, ett vapenställ och en tunna. Två nya delar i
+`lib/structures.py`: `anvil` och `hearth`. Eldens och det blankslitna
+järnets färger står i `forge.toml`.
 
 Vakttornet (`tower`, 1×1, storleksklass `tower`) är ett smalt timmertorn
 på stenfot: ett skaft av stockar, en plattform som kragar ut över skaftet
@@ -1698,12 +1765,13 @@ bara kontrollerat på samma maskin och samma Blender-version.
 | `terrain.ts` | Terrängtyper, gångbarhet och vilken resurs de ger |
 | `types.ts` | Vilka enhets- och byggnadstyper som finns |
 | `units.ts` | Enheters kostnad, träningstid, HP, fart, bärförmåga, insamlingstakt, vad de kan bygga och om de kan laga |
-| `buildings.ts` | Vilken flik i byggmenyn en byggnad ligger under (`menu`), vilka enheter den tränar, dess HP, storlek, kostnad, byggtid och om den är avlämningsplats; `repairPrice` för en byggnad utan pris; `attack` (skada, räckvidd, tid mellan skott, projektilens fart) för en som skjuter. Start-HP för byggen och extra arbetares takt |
+| `buildings.ts` | Vilken flik i byggmenyn en byggnad ligger under (`menu`), vilka enheter den tränar, dess HP, storlek, kostnad, byggtid och om den är avlämningsplats; `repairPrice` för en byggnad utan pris; `attack` (skada, räckvidd, tid mellan skott, projektilens fart) för en som skjuter; `researches` för en som arbetar fram uppgraderingar. Start-HP för byggen och extra arbetares takt |
+| `upgrades.ts` | Uppgraderingarna: vad varje ändrar, för vilka enheter, och varje nivås pris, tid och tillägg |
 | `repair.ts` | Lagning: andel av priset för en full lagning, liv per sekund, och hur mycket varje ytterligare arbetare ger |
 | `resources.ts` | Mängd per källa, vilken last källan ger (`load`), sökradie när en källa tar slut |
 | `setup.ts` | Startbyggnad, startenheter, startresurser och befolkningstak |
 | `ui.ts` | Dragtröskel, orderringens livslängd och storlek, blinktid vid nekad order, träffblink, utfall, skakning, varningstid, samt för pekskärm: hur långt ett finger får röra sig och ändå räknas som ett tryck (10 px), hålltid för dragruta (300 ms) och ringens radie. `damage`: under vilken andel liv en byggnad ryker och brinner, och rökens och eldens mått och takt. `projectile`: pilens båge, träffhöjd och träffeffektens tid och storlek. `rangeRing`: räckviddsringens färg |
-| `ai.ts` | Datormotståndarens beslutstakt, antal arbetare, andel arbetare på trä, flest soldater, försvarsradie, anfallsvågor, lagning (`repair`) och torn (`towers`) |
+| `ai.ts` | Datormotståndarens beslutstakt, antal arbetare, andel arbetare på trä, flest soldater, försvarsradie, anfallsvågor, lagning (`repair`), torn (`towers`) och forskning (`research`) |
 | `production.ts` | Längsta produktionskö |
 | `strings.ts` | All speltext (svenska) |
 
@@ -1756,6 +1824,8 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getDebug()` | Vad räknaren från `?debug=1` visar: `visible`, `text` och `fps` |
 | `getNotice()` | Meddelandet som förklarar en nekad order, eller en tom sträng |
 | `getBuildingSprite(id)` | Hur en byggnad som ritas från bilder ser ut just nu: `frame` (`construction_1`, `construction_2` eller `complete`) och `texture`. `null` för platshållarblock |
+| `getBuildingProgress(id)` | Hur långt stapeln över en byggnad har kommit, 0–1: uppgraderingen den arbetar fram. `null` när ingen stapel ritas |
+| `getHudStats()` | Markeringspanelens tredje rad: vad den markerade enheten kan, med uppgraderingar. Tom när inget visas |
 | `getProjectiles()` | Det som är i luften så som det ritas: `projectiles` (varje pil spelaren ser, med `id`, plats i världspixlar, `rotation` i radianer och `texture`), `bursts` (antal splitterstjärnor som visas nu) och `burstsShown` (antal som har visats sedan start) |
 | `getRangeRings()` | Id på de byggnader som har en räckviddsring ritad runt sig: markerade egna torn |
 | `getBuildingDamage(id)` | Skadan som ritas på en byggnad: `level` (`none`, `smoke` eller `fire`) och antalet rökpuffar (`puffs`) och eldar (`flames`) |

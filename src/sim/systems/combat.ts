@@ -17,6 +17,7 @@ import { approachPath } from '../pathfinding/approach';
 import type { PathGrid } from '../pathfinding/astar';
 import { buildPathGrid } from '../pathfinding/passability';
 import type { Building, Entity, GameState, PlayerId, Unit } from '../state';
+import { unitArmor, unitDamage } from '../upgrades';
 import { surrender } from './surrender';
 import { isEntityVisibleTo } from './visibility';
 
@@ -25,10 +26,13 @@ export function strikeTicks(unit: Unit): number {
   return Math.max(1, Math.round(UNIT_DEFS[unit.type].attackCooldown * SIM_CONFIG.ticksPerSecond));
 }
 
-/** Life a strike by `attacker` takes from `target`: damage minus armour, at least 1. */
-export function strikeDamage(attacker: Unit, target: Entity): number {
-  const armor = isUnit(target) ? UNIT_DEFS[target.type].armor : BUILDING_DEFS[target.type].armor;
-  return Math.max(1, UNIT_DEFS[attacker.type].damage - armor);
+/**
+ * Life a strike by `attacker` takes from `target`: damage minus armour, at
+ * least 1. Both count the upgrades their sides have.
+ */
+export function strikeDamage(state: GameState, attacker: Unit, target: Entity): number {
+  const armor = isUnit(target) ? unitArmor(state, target) : BUILDING_DEFS[target.type].armor;
+  return Math.max(1, unitDamage(state, attacker) - armor);
 }
 
 /**
@@ -179,7 +183,7 @@ function pursueOrStrike(state: GameState, unit: Unit, grids: GridCache): void {
 }
 
 function strike(state: GameState, attacker: Unit, target: Entity, grids: GridCache): void {
-  const damage = strikeDamage(attacker, target);
+  const damage = strikeDamage(state, attacker, target);
   target.hp -= damage;
   attacker.attackCooldown = strikeTicks(attacker);
   state.events.push({ type: 'hit', attackerId: attacker.id, targetId: target.id, damage });

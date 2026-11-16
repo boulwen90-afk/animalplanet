@@ -598,6 +598,104 @@ describe('watchtowers', () => {
   });
 });
 
+describe('upgrades', () => {
+  const bothSides = (seed: number) => createGame(seed, undefined, undefined, { ai: [0, 1] });
+  /** A game where the computer has a finished Smedja by its base, and whatever stock the test gives it. */
+  const withForge = (food: number, wood: number) => {
+    const state = againstNobody(1);
+    const base = buildingsOf(state, 1, 'storide')[0]!;
+    const forge = createBuilding(state, 'smedja', 1, base.x - 4, base.y - 4);
+    state.players[1]!.resources = { food, wood };
+    return { state, base, forge };
+  };
+
+  it('builds a Smedja once it has a Krigshall and wood to spare', () => {
+    for (const seed of SEEDS) {
+      const state = bothSides(seed);
+      let built = false;
+      for (let i = 0; i < 14 * MINUTE && !built; i++) {
+        tick(state);
+        built = [0, 1].some((side) => buildingsOf(state, side, 'smedja').some((b) => b.complete));
+      }
+      expect(built, `seed ${seed}`).toBe(true);
+      for (const side of [0, 1]) {
+        if (buildingsOf(state, side, 'smedja').length === 0) continue;
+        expect(buildingsOf(state, side, 'krigshall'), `seed ${seed}`).toMatchObject([
+          { complete: true },
+        ]);
+        // One is enough.
+        expect(buildingsOf(state, side, 'smedja'), `seed ${seed}`).toHaveLength(1);
+      }
+    }
+  });
+
+  it('works out the upgrades in the order of the data file, the first level of each first', () => {
+    const { state, forge } = withForge(5000, 5000);
+    const done: string[] = [];
+    for (let i = 0; i < 6 * MINUTE && done.length < 6; i++) {
+      tick(state);
+      // Keep it in funds: this is about the order, not about what it can pay.
+      state.players[1]!.resources = { food: 5000, wood: 5000 };
+      for (const event of state.events) {
+        if (event.type === 'upgradeDone' && event.owner === 1) {
+          done.push(`${event.upgrade} ${event.level}`);
+        }
+      }
+    }
+    expect(done).toEqual([
+      'weapons 1',
+      'armor 1',
+      'gathering 1',
+      'weapons 2',
+      'armor 2',
+      'gathering 2',
+    ]);
+    // With everything worked out it orders nothing more.
+    advance(state, 5 * SECOND);
+    expect(forge.research).toEqual([]);
+  });
+
+  it('pays for what it works out', () => {
+    const { state, forge } = withForge(300, 300);
+    // Before it has a barracks it trains no soldiers, so the stock only goes to the upgrade.
+    const workers = unitsOf(state, 1, 'samlare').length;
+    advance(state, SECOND + 1);
+    expect(forge.research).toEqual(['weapons']);
+    const spent = (unitsOf(state, 1, 'samlare').length - workers) * UNIT_DEFS.samlare.cost.food!;
+    expect(state.players[1]!.resources.food).toBeLessThanOrEqual(300 - 100 - spent);
+    expect(state.players[1]!.resources.wood).toBeLessThanOrEqual(300 - 50);
+  });
+
+  it('with soldiers enough at home it saves for the next upgrade instead of training more', () => {
+    const train = (soldiers: number) => {
+      const { state, base } = withForge(0, 400);
+      const hall = createBuilding(state, 'krigshall', 1, base.x - 4, base.y + 4);
+      // Room for them all, and for one more.
+      for (let i = 0; i < 3; i++) createBuilding(state, 'ide', 1, base.x - 8, base.y - 4 + i * 3);
+      for (let i = 0; i < soldiers; i++) createUnit(state, 'ramkrigare', 1, base.x + 4 + i, base.y);
+      // It trains a Samlare first, as always. What is left is enough for a
+      // soldier and too little for the upgrade.
+      state.players[1]!.resources.food = UNIT_DEFS.samlare.cost.food! + 90;
+      advance(state, SECOND + 1);
+      return hall.queue;
+    };
+    expect(train(AI_CONFIG.research.saveAbove)).toEqual([]);
+    expect(train(AI_CONFIG.research.saveAbove - 1)).toEqual(['ramkrigare']);
+  });
+
+  it('works out an upgrade by itself in a long match', () => {
+    for (const seed of SEEDS) {
+      const state = bothSides(seed);
+      let done = 0;
+      for (let i = 0; i < 20 * MINUTE && state.winner === null; i++) {
+        tick(state);
+        done += state.events.filter((event) => event.type === 'upgradeDone').length;
+      }
+      expect(done, `seed ${seed}`).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
 describe('computer against computer', () => {
   const play = (seed: number) => {
     const state = createGame(seed, undefined, undefined, { ai: [0, 1] });

@@ -6,6 +6,7 @@ import { gatherResources } from './systems/gathering';
 import { moveUnits } from './systems/movement';
 import { produceUnits } from './systems/production';
 import { repairBuildings } from './systems/repair';
+import { researchUpgrades } from './systems/research';
 import { separateUnits, settleUnits } from './systems/separation';
 import { flyProjectiles, shootFromBuildings } from './systems/shooting';
 import { resolveSurrenders } from './systems/surrender';
@@ -20,6 +21,7 @@ export function tick(state: GameState): void {
   state.events = [];
   runAi(state);
   produceUnits(state);
+  researchUpgrades(state);
   constructBuildings(state);
   repairBuildings(state);
   gatherResources(state);

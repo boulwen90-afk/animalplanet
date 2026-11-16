@@ -8,7 +8,10 @@ import { PRODUCTION_CONFIG } from '../../data/production';
 import { RESOURCE_TYPES, type Cost } from '../../data/resources';
 import { STRINGS } from '../../data/strings';
 import { UNIT_DEFS, type UnitType } from '../../data/units';
-import type { Entity, PlayerId } from '../../sim/state';
+import { SIM_CONFIG } from '../../data/sim';
+import { UPGRADE_DEFS, type UpgradeType } from '../../data/upgrades';
+import type { Building, Entity, PlayerId } from '../../sim/state';
+import { noUpgrades } from '../../sim/upgrades';
 import { trainTicksFor } from '../../sim/systems/production';
 import { costToMend, nearestDamaged } from '../../sim/systems/repair';
 import { rectContains, selectionPanelRect, type ScreenRect } from './layout';
@@ -16,6 +19,8 @@ import { rectContains, selectionPanelRect, type ScreenRect } from './layout';
 /** What pressing a button in the command panel does. */
 export type CommandAction =
   | { kind: 'train'; unit: UnitType }
+  /** Work out the next level of an upgrade in the selected building. */
+  | { kind: 'research'; upgrade: UpgradeType }
   | { kind: 'build'; building: BuildingType }
   /** Send the selected workers to mend the building; with none damaged the button does nothing. */
   | { kind: 'repair'; buildingId?: number };
@@ -43,11 +48,14 @@ export interface CommandPanelInfo {
    */
   tabs?: { menu: BuildMenu; label: string; active: boolean }[];
   /**
-   * The production queue; the first unit is the one in training. Undefined
-   * for panels without a queue, such as the build menu.
+   * The building's queue; the first in it is the one being worked on: units
+   * in training, or upgrades being worked out. Undefined for panels without
+   * a queue, such as the build menu.
    */
-  queue?: { unit: UnitType; label: string }[];
-  /** How far the unit in training has come, from 0 to 1. */
+  queue?: { label: string }[];
+  /** What the queue holds, for a panel that has one: it decides what cancelling a place in it means. */
+  queueOf?: 'units' | 'upgrades';
+  /** How far the first in the queue has come, from 0 to 1. */
   progress: number;
 }
 
@@ -61,7 +69,11 @@ export function formatCost(cost: Cost): string {
 /**
  * The command panel for the current selection, or undefined if it should not
  * show. One finished building of the player's that can train units gives
- * train buttons and its queue. A selection of the player's own units gives a
+ * train buttons and its queue, and one where upgrades are worked out gives
+ * a button for each upgrade and the queue of those ordered: a button names
+ * the level that would be bought next, its price and what it gives, and is
+ * dimmed while that upgrade is being worked out and when it has no more
+ * levels. A selection of the player's own units gives a
  * build menu with what any of them can build under the tab `menu`, and last
  * a button to repair if any of them can: it names the damaged building
  * nearest the first of them and what mending it will cost. The menu has a
@@ -73,12 +85,17 @@ export function describeCommandPanel(
   selected: ReadonlySet<number>,
   player: PlayerId,
   menu: BuildMenu = BUILD_MENUS[0],
+  levels: Readonly<Record<UpgradeType, number>> = noUpgrades(),
 ): CommandPanelInfo | undefined {
   const chosen = entities.filter((entity) => selected.has(entity.id));
   const [first] = chosen;
   if (!first || chosen.some((entity) => entity.owner !== player)) return undefined;
 
   if (chosen.length === 1 && first.kind === 'building') {
+    const researches = BUILDING_DEFS[first.type].researches;
+    if (first.complete && researches) {
+      return researchPanel(entities, first, researches, player, levels);
+    }
     const trains = BUILDING_DEFS[first.type].trains;
     if (!first.complete || trains.length === 0) return undefined;
     const inTraining = first.queue[0];
@@ -90,7 +107,8 @@ export function describeCommandPanel(
         cost: formatCost(UNIT_DEFS[unit].cost),
         info: STRINGS.unitInfo[unit],
       })),
-      queue: first.queue.map((unit) => ({ unit, label: STRINGS.units[unit].charAt(0) })),
+      queue: first.queue.map((unit) => ({ label: STRINGS.units[unit].charAt(0) })),
+      queueOf: 'units',
       progress: inTraining ? Math.min(first.trainTicks / trainTicksFor(inTraining), 1) : 0,
     };
   }
@@ -130,6 +148,62 @@ export function describeCommandPanel(
       label: STRINGS.menus[name],
       active: name === active,
     })),
+  };
+}
+
+/**
+ * The panel of a building where upgrades are worked out: a button for each
+ * upgrade, the queue of those ordered there, and how far the first has come.
+ */
+function researchPanel(
+  entities: readonly Entity[],
+  building: Building,
+  researches: readonly UpgradeType[],
+  player: PlayerId,
+  levels: Readonly<Record<UpgradeType, number>>,
+): CommandPanelInfo {
+  // An upgrade is worked out in one place at a time, whichever building it was ordered in.
+  const ordered = new Set<UpgradeType>();
+  for (const entity of entities) {
+    if (entity.kind !== 'building' || entity.owner !== player) continue;
+    for (const upgrade of entity.research) ordered.add(upgrade);
+  }
+  const buttons: CommandButton[] = researches.map((upgrade) => {
+    const all = UPGRADE_DEFS[upgrade].levels;
+    const reached = levels[upgrade];
+    const next = all[reached];
+    const action: CommandAction = { kind: 'research', upgrade };
+    const name = STRINGS.upgrades[upgrade];
+    if (!next) {
+      return {
+        action,
+        label: STRINGS.hud.upgradeLevel(name, all.length),
+        cost: '',
+        info: STRINGS.hud.upgradeDone,
+        disabled: true,
+      };
+    }
+    const label = STRINGS.hud.upgradeLevel(name, reached + 1);
+    if (ordered.has(upgrade)) {
+      return { action, label, cost: '', info: STRINGS.hud.upgradeInProgress, disabled: true };
+    }
+    return {
+      action,
+      label,
+      cost: formatCost(next.cost),
+      info: STRINGS.upgradeInfo[upgrade](next.bonus),
+    };
+  });
+  const [current] = building.research;
+  const level = current ? UPGRADE_DEFS[current].levels[levels[current]] : undefined;
+  const total = level ? Math.round(level.time * SIM_CONFIG.ticksPerSecond) : 0;
+  return {
+    buildingId: building.id,
+    buttons,
+    // Two letters: "Vapen" and "Verktyg" begin alike.
+    queue: building.research.map((upgrade) => ({ label: STRINGS.upgrades[upgrade].slice(0, 2) })),
+    queueOf: 'upgrades',
+    progress: total > 0 ? Math.min(building.researchTicks / total, 1) : 0,
   };
 }
 

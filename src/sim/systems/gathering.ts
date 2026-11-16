@@ -9,6 +9,7 @@ import { findPath, isPassable, reachableTiles, type PathGrid } from '../pathfind
 import { buildPathGrid } from '../pathfinding/passability';
 import { resourceAt, takeFromSource } from '../resources';
 import type { Building, GameState, GatherTask, Unit } from '../state';
+import { gatherSpeed } from '../upgrades';
 
 /**
  * The eight tiles around a tile. A source's work places are the first open
@@ -384,7 +385,7 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
     case 'gathering': {
       if (!sourceLeft) return retarget(state, grids.get(), unit, task);
       task.workTicks++;
-      if (task.workTicks >= ticksPerUnit(unit, site)) {
+      if (task.workTicks >= ticksPerUnit(state, unit, site)) {
         task.workTicks = 0;
         if (site) {
           // A building never runs out.
@@ -429,11 +430,12 @@ function stepGatherer(state: GameState, unit: Unit, grids: GridCache): boolean {
 /**
  * Simulation steps a unit works for each unit of resource: at a building,
  * what the building says; at a source on the map, the unit's own pace.
+ * Either way its side's upgrades make it faster.
  */
-export function ticksPerUnit(unit: Unit, site?: Building): number {
+export function ticksPerUnit(state: GameState, unit: Unit, site?: Building): number {
   const work = site && BUILDING_DEFS[site.type].work;
-  if (work) return Math.max(1, Math.round(SIM_CONFIG.ticksPerSecond * work.secondsPerUnit));
-  return Math.max(1, Math.round(SIM_CONFIG.ticksPerSecond / UNIT_DEFS[unit.type].gatherRate));
+  const seconds = work ? work.secondsPerUnit : 1 / UNIT_DEFS[unit.type].gatherRate;
+  return Math.max(1, Math.round((SIM_CONFIG.ticksPerSecond * seconds) / gatherSpeed(state, unit)));
 }
 
 /** True if the unit stands on the work place it has taken. */

@@ -4,7 +4,7 @@ import { openState, stateFromRows } from '../../sim/testUtils';
 import { applyCommand } from '../../sim/commands';
 import { advance } from '../../sim/tick';
 import { outcomeLayout, rectContains, resourceBarRect, selectionPanelRect } from './layout';
-import { describeSelection } from './selectionInfo';
+import { describeSelection, describeStats } from './selectionInfo';
 
 describe('describeSelection', () => {
   it('is undefined when nothing is selected', () => {
@@ -208,6 +208,55 @@ describe('describeSelection for a building that shoots', () => {
       title: 'Vakttorn (Fiende)',
       detail: 'Liv 500/500',
     });
+  });
+});
+
+describe('describeStats', () => {
+  const stats = (state: ReturnType<typeof openState>, id: number) =>
+    describeStats(state, new Set([id]), 0);
+
+  it('shows what a fighter does: its damage and its armour', () => {
+    const state = openState(8, 8);
+    const soldier = createUnit(state, 'ramkrigare', 0, 2, 2);
+    expect(stats(state, soldier.id)).toBe('Skada 10 · Rustning 1');
+  });
+
+  it('shows what a gatherer does: its pace and its armour', () => {
+    const state = openState(8, 8);
+    const worker = createUnit(state, 'samlare', 0, 2, 2);
+    expect(stats(state, worker.id)).toBe('Samlar 1/s · Rustning 0');
+  });
+
+  it('counts the upgrades in, and says how much each has added', () => {
+    const state = openState(8, 8);
+    const soldier = createUnit(state, 'ramkrigare', 0, 2, 2);
+    const worker = createUnit(state, 'samlare', 0, 3, 2);
+    state.players[0]!.upgrades = { weapons: 2, armor: 1, gathering: 1 };
+    expect(stats(state, soldier.id)).toBe('Skada 14 (+4) · Rustning 2 (+1)');
+    expect(stats(state, worker.id)).toBe('Samlar 1,2/s (+20 %) · Rustning 1 (+1)');
+    state.players[0]!.upgrades.gathering = 2;
+    expect(stats(state, worker.id)).toBe('Samlar 1,4/s (+40 %) · Rustning 1 (+1)');
+  });
+
+  it('shows nothing for a building, several units, an enemy unit or one that has surrendered', () => {
+    const state = openState(8, 8);
+    const a = createUnit(state, 'ramkrigare', 0, 2, 2);
+    const b = createUnit(state, 'ramkrigare', 0, 3, 2);
+    const enemy = createUnit(state, 'ramkrigare', 1, 4, 2);
+    const store = createBuilding(state, 'visthus', 0, 5, 5);
+    expect(describeStats(state, new Set([a.id, b.id]), 0)).toBeUndefined();
+    expect(stats(state, enemy.id)).toBeUndefined();
+    expect(stats(state, store.id)).toBeUndefined();
+    expect(describeStats(state, new Set(), 0)).toBeUndefined();
+    a.task = { kind: 'flee', caveId: 1 };
+    expect(stats(state, a.id)).toBeUndefined();
+  });
+
+  it('does not show the enemy`s upgrades on the player`s units', () => {
+    const state = openState(8, 8);
+    const soldier = createUnit(state, 'ramkrigare', 0, 2, 2);
+    state.players[1]!.upgrades = { weapons: 2, armor: 2, gathering: 2 };
+    expect(stats(state, soldier.id)).toBe('Skada 10 · Rustning 1');
   });
 });
 

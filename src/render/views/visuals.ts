@@ -75,6 +75,7 @@ export const BUILDING_VISUALS: Record<BuildingType, { wallHeight: number; label:
   odling: { wallHeight: 6, label: 'O' },
   fiskehytta: { wallHeight: 44, label: 'F' },
   vakttorn: { wallHeight: 96, label: 'T' },
+  smedja: { wallHeight: 48, label: 'M' },
 };
 
 /**
@@ -147,6 +148,13 @@ export const ATTACK_COLOR = 0xe8384f;
 
 /** Life bar colours: more than half left, more than a quarter left, and less. */
 export const LIFE_BAR_COLORS = { high: 0x35e06a, medium: 0xf2c53d, low: 0xe8384f } as const;
+
+/**
+ * The bar over a building that is working something out: its size and
+ * colour, how far above the place of the life bar it sits, and the width
+ * of the dot shown for each piece of work that waits.
+ */
+export const WORK_BAR = { width: 44, height: 4, color: 0x63b3ed, above: 8, dot: 4 } as const;
 
 /** Life bar size in pixels, for units and for buildings. */
 export const LIFE_BAR = { unitWidth: 24, buildingWidth: 64, height: 4 } as const;
