@@ -996,13 +996,11 @@ walls are built and torn down")
 - Vitest: 888 av 888 tester gröna (42 filer). 58 är nya: 43 om murar,
   portar, vägsökning och genombrott (`walls.test.ts`), och resten om
   bildvalet och atlaserna
-- Playwright: 171 av 171 gröna i normal fart (5,1 min). 11 är nya
-  (`walls.spec.ts`). Med processorn strypt åtta gånger gick 169 av 171
-  igenom i hela körningen (16,3 min); de två som föll var Fiskehyttans
-  placeringstester, som jämförde förhandsbildens uppgifter exakt och
-  inte kände till de två nya fälten. Efter rättelsen går den filen
-  igenom i strypt fart (5 av 5), men hela den strypta sviten är inte
-  körd om
+- Playwright: 171 av 171 gröna i normal fart (5,1 min) och 171 av 171
+  med processorn strypt åtta gånger (16,7 min). 11 är nya
+  (`walls.spec.ts`). I den första hela körningen föll två äldre tester,
+  Fiskehyttans placeringstester: de jämförde förhandsbildens uppgifter
+  exakt och kände inte till de två nya fälten. De är rättade
 - Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
   testerna eller när skärmdumparna togs.
 - Matcher mellan två datorspelare, frö 1–6: 11,7, 18,6, 18,7, 16,5, 19,3
