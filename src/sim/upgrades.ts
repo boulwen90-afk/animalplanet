@@ -38,6 +38,16 @@ export function unitDamage(state: GameState, unit: Unit): number {
   return UNIT_DEFS[unit.type].damage + upgradeBonus(state, unit.owner, unit.type, 'damage');
 }
 
+/**
+ * Life a unit's throw takes from its target before the target's armour,
+ * with its side's upgrades; 0 for a unit that does not fight from a distance.
+ */
+export function throwDamage(state: GameState, unit: Unit): number {
+  const ranged = UNIT_DEFS[unit.type].ranged;
+  if (!ranged) return 0;
+  return ranged.damage + upgradeBonus(state, unit.owner, unit.type, 'damage');
+}
+
 /** What is taken off every strike against a unit, with its side's upgrades. */
 export function unitArmor(state: GameState, unit: Unit): number {
   return UNIT_DEFS[unit.type].armor + upgradeBonus(state, unit.owner, unit.type, 'armor');

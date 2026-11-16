@@ -1,7 +1,24 @@
 import type { Cost } from './resources';
-import type { BuildingType, UnitType } from './types';
+import type { BuildingType, ProjectileKind, UnitType } from './types';
 
 export type { UnitType } from './types';
+
+/** How a unit fights from a distance. */
+export interface RangedDef {
+  /** Life each throw takes from its target, before the target's armour. */
+  damage: number;
+  /**
+   * How far it throws, in tiles: to an enemy unit, or to the nearest edge of
+   * an enemy building.
+   */
+  range: number;
+  /** Seconds between two throws. */
+  cooldown: number;
+  /** How fast what it throws flies, in tiles per second. */
+  projectileSpeed: number;
+  /** What it throws. */
+  projectile: ProjectileKind;
+}
 
 export interface UnitDef {
   /** Price of training one. */
@@ -24,8 +41,17 @@ export interface UnitDef {
   builds: readonly BuildingType[];
   /** True for a unit that can repair its side's damaged buildings. */
   repairs: boolean;
-  /** Life taken from the target per strike, before the target's armour. */
+  /**
+   * Life taken from the target per strike at close quarters, before the
+   * target's armour.
+   */
   damage: number;
+  /**
+   * How the unit fights from a distance, if it does. Such a unit throws at
+   * whatever it attacks, except at an enemy unit on a tile next to its own:
+   * that one it strikes, for `damage`.
+   */
+  ranged?: RangedDef;
   /** Taken off the damage of every strike against this unit. */
   armor: number;
   /** Time between strikes, in seconds. */
@@ -55,7 +81,16 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     sight: 6,
     carryCapacity: 10,
     gatherRate: 1,
-    builds: ['visthus', 'krigshall', 'ide', 'odling', 'fiskehytta', 'vakttorn', 'smedja'],
+    builds: [
+      'visthus',
+      'krigshall',
+      'ide',
+      'odling',
+      'fiskehytta',
+      'vakttorn',
+      'smedja',
+      'kastbana',
+    ],
     repairs: true,
     damage: 3,
     armor: 0,
@@ -80,6 +115,29 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
     attackCooldown: 1.2,
     aggroRadius: 6,
     radius: 0.45,
+  },
+  /**
+   * Javelin thrower: fights from a distance. It outranges a watchtower, and
+   * loses to a soldier that gets up to it: it has little life, no armour and
+   * only a weak thrust at close quarters.
+   */
+  ramkastare: {
+    cost: { food: 50, wood: 40 },
+    population: 1,
+    trainTime: 20,
+    hp: 60,
+    speed: 2.0,
+    sight: 8,
+    carryCapacity: 0,
+    gatherRate: 0,
+    builds: [],
+    repairs: false,
+    damage: 3,
+    ranged: { damage: 8, range: 7, cooldown: 1.8, projectileSpeed: 10, projectile: 'javelin' },
+    armor: 0,
+    attackCooldown: 1.8,
+    aggroRadius: 7,
+    radius: 0.4,
   },
 };
 

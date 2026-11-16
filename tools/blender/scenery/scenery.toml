@@ -244,6 +244,16 @@ shadow = false
 type = "arrow"
 length = 0.5
 
+# What a javelin thrower throws: heavier than an arrow, with a binding in
+# its side's colour.
+[[item]]
+name = "javelin"
+kind = "projectile"
+shadow = false
+[[item.part]]
+type = "javelin"
+length = 0.8
+
 [[item]]
 name = "hit"
 kind = "spark"

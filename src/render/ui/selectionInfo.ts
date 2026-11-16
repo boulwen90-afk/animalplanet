@@ -2,7 +2,7 @@ import { BUILDING_DEFS } from '../../data/buildings';
 import { STRINGS } from '../../data/strings';
 import { UNIT_DEFS } from '../../data/units';
 import type { Entity, GameState, PlayerId } from '../../sim/state';
-import { gatherSpeed, unitArmor, unitDamage } from '../../sim/upgrades';
+import { gatherSpeed, throwDamage, unitArmor, unitDamage } from '../../sim/upgrades';
 import { buildFraction } from '../../sim/systems/construction';
 
 /** The two lines of text shown in the selection panel. */
@@ -91,6 +91,14 @@ export function describeStats(
     return `${pace} · ${armor}`;
   }
   const damageBonus = unitDamage(state, unit) - def.damage;
+  if (def.ranged) {
+    // A thrower: its throw with how far it reaches, then its weak strike.
+    const thrown =
+      STRINGS.hud.statThrow(throwDamage(state, unit)) + bonus(damageBonus, `${damageBonus}`);
+    const range = STRINGS.hud.statRange(def.ranged.range);
+    const strike = STRINGS.hud.statStrike(unitDamage(state, unit));
+    return `${thrown} · ${range} · ${strike} · ${armor}`;
+  }
   const damage =
     STRINGS.hud.statDamage(unitDamage(state, unit)) + bonus(damageBonus, `${damageBonus}`);
   return `${damage} · ${armor}`;

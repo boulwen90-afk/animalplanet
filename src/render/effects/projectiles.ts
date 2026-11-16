@@ -23,13 +23,18 @@ export function flightProgress(start: Point, at: Point, target: Point): number {
 
 /**
  * How high above the ground a projectile is, in pixels, `progress` of the
- * way along a flight of `tiles` tiles: down from where it was let go to the
+ * way along a flight of `tiles` tiles: from where it was let go to the
  * height it lands at, with an arc on top that is highest half-way.
+ * @param landPx How far above the ground it lands; the chest of a unit unless given.
  */
-export function flightHeight(progress: number, tiles: number, muzzlePx: number): number {
-  const { arcPxPerTile, targetHeightPx } = UI_CONFIG.projectile;
-  const straight = muzzlePx + (targetHeightPx - muzzlePx) * progress;
-  return straight + Math.sin(Math.PI * progress) * arcPxPerTile * tiles;
+export function flightHeight(
+  progress: number,
+  tiles: number,
+  muzzlePx: number,
+  landPx: number = UI_CONFIG.projectile.targetHeightPx,
+): number {
+  const straight = muzzlePx + (landPx - muzzlePx) * progress;
+  return straight + Math.sin(Math.PI * progress) * UI_CONFIG.projectile.arcPxPerTile * tiles;
 }
 
 /**
@@ -38,6 +43,7 @@ export function flightHeight(progress: number, tiles: number, muzzlePx: number):
  * @param at Where it is now, on the ground, in tiles.
  * @param target Where its target is now, in tiles.
  * @param muzzlePx How far above the ground it was let go, in pixels.
+ * @param landPx How far above the ground it lands; the chest of a unit unless given.
  */
 export function projectilePose(
   start: Point,
@@ -45,6 +51,7 @@ export function projectilePose(
   target: Point,
   muzzlePx: number,
   tile: TileSize,
+  landPx?: number,
 ): ProjectilePose {
   const tiles = Math.hypot(target.x - start.x, target.y - start.y);
   const progress = flightProgress(start, at, target);
@@ -54,10 +61,10 @@ export function projectilePose(
       start.y + (target.y - start.y) * p,
       tile,
     );
-    return { x: ground.x, y: ground.y - flightHeight(p, tiles, muzzlePx) };
+    return { x: ground.x, y: ground.y - flightHeight(p, tiles, muzzlePx, landPx) };
   };
   const ground = tileToWorld(at.x, at.y, tile);
-  const here = { x: ground.x, y: ground.y - flightHeight(progress, tiles, muzzlePx) };
+  const here = { x: ground.x, y: ground.y - flightHeight(progress, tiles, muzzlePx, landPx) };
   // It points the way it is going: from a little behind to a little ahead on its arc.
   const behind = pointAt(Math.max(0, progress - 0.02));
   const ahead = pointAt(Math.min(1, progress + 0.02));

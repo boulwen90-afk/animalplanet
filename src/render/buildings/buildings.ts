@@ -17,6 +17,9 @@ import bearForgeMaskUrl from '../../../assets/buildings/bear_forge/bear_forge_ma
 import bearMainAtlasUrl from '../../../assets/buildings/bear_main/bear_main.json?url';
 import bearMainBaseUrl from '../../../assets/buildings/bear_main/bear_main.png';
 import bearMainMaskUrl from '../../../assets/buildings/bear_main/bear_main_mask.png';
+import bearRangeAtlasUrl from '../../../assets/buildings/bear_range/bear_range.json?url';
+import bearRangeBaseUrl from '../../../assets/buildings/bear_range/bear_range.png';
+import bearRangeMaskUrl from '../../../assets/buildings/bear_range/bear_range_mask.png';
 import bearStorageAtlasUrl from '../../../assets/buildings/bear_storage/bear_storage.json?url';
 import bearStorageBaseUrl from '../../../assets/buildings/bear_storage/bear_storage.png';
 import bearStorageMaskUrl from '../../../assets/buildings/bear_storage/bear_storage_mask.png';
@@ -85,5 +88,11 @@ export const BUILDING_ART: Partial<Record<BuildingType, BuildingSource>> = {
     atlasUrl: bearTowerAtlasUrl,
     baseUrl: bearTowerBaseUrl,
     maskUrl: bearTowerMaskUrl,
+  },
+  kastbana: {
+    name: 'bear_range',
+    atlasUrl: bearRangeAtlasUrl,
+    baseUrl: bearRangeBaseUrl,
+    maskUrl: bearRangeMaskUrl,
   },
 };

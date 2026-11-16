@@ -17,7 +17,17 @@ export const DIRECTIONS = ['s', 'se', 'e', 'ne', 'n', 'nw', 'w', 'sw'] as const;
 export type Direction = (typeof DIRECTIONS)[number];
 
 export type CharacterAnimation =
-  'idle' | 'walk' | 'attack' | 'chop' | 'pick' | 'till' | 'fish' | 'hammer' | 'defeat';
+  | 'idle'
+  | 'walk'
+  | 'attack'
+  | 'throw'
+  | 'jab'
+  | 'chop'
+  | 'pick'
+  | 'till'
+  | 'fish'
+  | 'hammer'
+  | 'defeat';
 
 /** What a unit is doing, as far as its animation goes. */
 export type Activity = Exclude<CharacterAnimation, 'defeat'>;
@@ -38,7 +48,9 @@ export interface AnimationInfo {
 
 /** What a character has pictures of. Every character can stand, walk and give up. */
 export type CharacterAnimations = Record<'idle' | 'walk' | 'defeat', AnimationInfo> &
-  Partial<Record<'attack' | 'chop' | 'pick' | 'till' | 'fish' | 'hammer', AnimationInfo>>;
+  Partial<
+    Record<'attack' | 'throw' | 'jab' | 'chop' | 'pick' | 'till' | 'fish' | 'hammer', AnimationInfo>
+  >;
 
 /** How a unit works each resource: it chops wood and picks food. */
 export const GATHER_ACTIVITY: Record<ResourceType, Activity> = { wood: 'chop', food: 'pick' };
@@ -88,8 +100,9 @@ export function activityOf(unit: Unit, site?: BuildingType): Activity {
   if (task.kind === 'repair' && unit.path.length === 0 && !task.waiting) return BUILD_ACTIVITY;
   if (unit.x !== unit.prevX || unit.y !== unit.prevY) return 'walk';
   // A unit that stands still with a target strikes it as soon as it may, so a
-  // running cooldown means it is in the middle of a fight.
-  if (unit.task.kind === 'attack' && unit.attackCooldown > 0) return 'attack';
+  // running cooldown means it is in the middle of a fight. One that fights
+  // from a distance has either thrown or struck.
+  if (task.kind === 'attack' && unit.attackCooldown > 0) return task.threw ? 'throw' : 'attack';
   return 'idle';
 }
 
@@ -154,8 +167,11 @@ export function workLoops(info: AnimationInfo, seconds: number): number {
 const STAND_INS: Record<Activity, readonly CharacterAnimation[]> = {
   idle: [],
   walk: [],
-  // A worker has no attack of its own: it strikes with its axe as when it chops.
-  attack: ['chop'],
+  // A thrower strikes with a thrust of its javelin. A worker has no attack of
+  // its own: it strikes with its axe as when it chops.
+  attack: ['jab', 'chop'],
+  throw: ['attack', 'jab'],
+  jab: ['attack', 'chop'],
   chop: ['attack'],
   pick: ['chop'],
   till: ['pick', 'chop'],

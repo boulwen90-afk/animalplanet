@@ -614,7 +614,70 @@ def hearth(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
     face_box(b, f"{name}.embers", p.get("face", "-y"), mouth + normal * 0.03 - UP * h * 0.17, w * 0.36, 0.02, h * 0.12, pal["glow_hot"])
 
 
+def shed_roof(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """
+    A roof with a single slope, as on a lean-to: overlapping courses from the
+    high edge at the back (+y) down to the low edge at the front (-y), boards
+    along its sides and a cap along its top.
+    """
+    x0, y0, x1, y1 = p["box"]
+    high, low = p["high"], p["low"]
+    over = p.get("overhang", 0.1)
+    courses = p.get("courses", 4)
+    thick = p.get("thickness", 0.07)
+    middle = (x0 + x1) / 2
+    top = Vector((middle, y1, high))
+    bottom = Vector((middle, y0 - over, low))
+    slope = (bottom - top).length
+    down = (bottom - top).normalized()
+    along = Vector((1.0, 0.0, 0.0))
+    normal = down.cross(along).normalized()
+    turn = frame(normal, tuple(along))
+    length = x1 - x0 + over * 2
+    for i in range(courses):
+        t = (i + 0.5) / courses
+        # Each course lies a little over the one below it.
+        centre = top + down * slope * t + normal * (thick * 0.5 + 0.02 * (courses - i))
+        material = pal["roof"] if i % 2 == 0 else pal["roof_dark"]
+        b.box(f"{name}.course_{i}", centre, (length, slope / courses * 1.25, thick), material, turn)
+    for j, x in enumerate((x0 - over, x1 + over)):
+        board = Vector((x, 0.0, 0.0)) + Vector((0.0, top.y, top.z)) + down * slope * 0.5 + normal * (thick * 0.6)
+        b.box(f"{name}.board_{j}", board, (0.07, slope * 1.04, thick * 2.2), pal["timber_dark"], turn)
+    ridge = top + normal * (thick + 0.02 * courses)
+    cap = pal[p.get("cap", "timber_dark")]
+    b.limb(f"{name}.cap", ridge - along * length / 2, ridge + along * length / 2, 0.06, 0.06, cap, 6)
+
+
+def target(b: Builder, pal: Palette, p: dict, name: str, emblem) -> None:
+    """
+    A target to throw at: a thick disc of coiled straw on a stand of three
+    poles, with a ring in the team colour and a pale middle. With `javelin`
+    one has been left sticking in it.
+    """
+    x, y = p["at"]
+    z0, r, h = p.get("z", 0.0), p.get("radius", 0.2), p.get("height", 0.42)
+    normal, along = FACES[p.get("face", "-y")]
+    centre = Vector((x, y, z0 + h))
+    # The disc leans back a little on its stand.
+    facing = (normal + UP * 0.22).normalized()
+    hint = tuple(along)
+    back = centre - facing * 0.06
+    for i, foot in enumerate((-along * r * 0.9 + normal * 0.05, along * r * 0.9 + normal * 0.05, -normal * r * 1.3)):
+        b.limb(f"{name}.leg_{i}", Vector((x, y, z0)) + foot, back + UP * r * 0.5, 0.022, 0.022, pal["timber_dark"], 4)
+    b.limb(f"{name}.disc", back, centre, r, r, pal["straw_dark"], 12, 1.0, hint)
+    b.limb(f"{name}.face", centre, centre + facing * 0.015, r * 0.94, r * 0.94, pal["straw"], 12, 1.0, hint)
+    b.limb(f"{name}.ring", centre + facing * 0.015, centre + facing * 0.025, r * 0.66, r * 0.66, pal["team"], 12, 1.0, hint)
+    b.limb(f"{name}.middle", centre + facing * 0.025, centre + facing * 0.035, r * 0.36, r * 0.36, pal["straw_light"], 10, 1.0, hint)
+    if p.get("javelin"):
+        at = centre + along * r * 0.25 + UP * r * 0.2
+        out = (facing + UP * 0.35).normalized()
+        b.limb(f"{name}.javelin", at, at + out * 0.5, 0.016, 0.016, pal["timber_new"], 4)
+        b.limb(f"{name}.javelin_binding", at + out * 0.08, at + out * 0.14, 0.024, 0.024, pal["team"], 4)
+
+
 PARTS = {
+    "shed_roof": shed_roof,
+    "target": target,
     "anvil": anvil,
     "hearth": hearth,
     "window": window,

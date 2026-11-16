@@ -329,6 +329,30 @@ def build_armor(
                 rows.append([(across - 0.055, y, z), (across + 0.055, y, z)])
             b.sheet(f"armor.basket_strap_{side}", rows, pal["leather"])
 
+    if armor.get("quiver"):
+        # A long leather quiver slung across the back, from the left hip up
+        # over the right shoulder, where the throwing hand reaches it. The
+        # heads of the javelins in it stand up behind the shoulder.
+        b.attach("chest")
+        radius = armor.get("quiver_radius", 0.15)
+        back = chest.y + cy * 1.0 + radius * 0.75
+        low = Vector((cx * 0.42, back, hips.z + 0.22))
+        high = Vector((-cx * 0.5, back + 0.05, neck.z + 0.02))
+        axis = (high - low).normalized()
+        b.limb("armor.quiver", low, high, radius * 0.8, radius, pal["leather"], 8, 0.7)
+        b.limb("armor.quiver_foot", low - axis * 0.05, low, radius * 0.6, radius * 0.84, pal["steel_dark"], 8, 0.7)
+        b.limb("armor.quiver_rim", high - axis * 0.05, high + axis * 0.03, radius * 1.1, radius * 1.1, pal["brass"], 8, 0.7)
+        b.limb("armor.quiver_band", low.lerp(high, 0.45) - axis * 0.04, low.lerp(high, 0.45) + axis * 0.04, radius * 0.95, radius * 0.97, pal["team"], 8, 0.7)
+        side = Vector((axis.z, 0.0, -axis.x))
+        spares = ((-0.07, 0.0, 0.50), (0.06, 0.03, 0.40), (0.0, -0.03, 0.30))
+        for i, (across, away, above) in enumerate(spares[: armor.get("quiver_spares", 3)]):
+            foot = high + side * across + Vector((0.0, away, 0.0)) - axis * 0.1
+            neck_at = high + side * across * 1.5 + Vector((0.0, away, 0.0)) + axis * above
+            b.limb(f"armor.quiver_shaft_{i}", foot, neck_at, 0.034, 0.034, pal["wood"], 6)
+            b.limb(f"armor.quiver_binding_{i}", neck_at - axis * 0.12, neck_at - axis * 0.03, 0.048, 0.048, pal["team"], 6)
+            b.limb(f"armor.quiver_head_{i}", neck_at - axis * 0.03, neck_at + axis * 0.1, 0.04, 0.085, pal["blade"], 4, 0.3)
+            b.limb(f"armor.quiver_tip_{i}", neck_at + axis * 0.1, neck_at + axis * 0.3, 0.085, 0.0, pal["blade"], 4, 0.3)
+
     if armor.get("harness"):
         # Two leather straps crossing the chest and the back, with a brass disc where they meet in front.
         b.attach("chest")
@@ -407,6 +431,32 @@ def build_armor(
             [(-w * 0.1, y - 0.11, low_z), (0, y - 0.12, low_z - 0.02), (w * 0.1, y - 0.11, low_z)],
         ]
         b.sheet("armor.tabard", rows, pal["team"])
+
+    if armor.get("cap"):
+        # A leather cap over the crown, with a band in the team colour. The ears stay free.
+        hx, hy, hz = p["head_radii"]
+        b.attach("head")
+        rim = 0.42
+        tall = hz * 1.22
+        b.ellipsoid(
+            "armor.cap",
+            on_head(0, 0.01, 0.0),
+            (hx * 1.07, hy * 1.07, tall),
+            pal["leather"],
+            rotation=head_turn,
+            keep_above=rim,
+        )
+        b.limb(
+            "armor.cap_band",
+            on_head(0, 0.01, tall * (rim - 0.05)),
+            on_head(0, 0.01, tall * (rim + 0.12)),
+            hx * 1.08,
+            hx * 1.04,
+            pal["team"],
+            12,
+            hy / hx,
+        )
+        b.ellipsoid("armor.cap_stud", on_head(0, 0.01, tall * 0.98), (0.06, 0.06, 0.05), pal["brass"], detail=1)
 
     helmet = armor.get("helmet")
     if helmet:

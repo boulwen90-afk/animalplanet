@@ -164,6 +164,7 @@ describe('describeCommandPanel', () => {
       ['Bygg Krigshall', '150 trä', 'Tränar Ramkrigare'],
       ['Bygg Vakttorn', '120 trä', 'Skjuter på fiender'],
       ['Bygg Smedja', '150 trä', 'Uppgraderar enheter'],
+      ['Bygg Kastbana', '130 trä', 'Tränar Ramkastare'],
       ['Laga', '', 'Inget är skadat'],
     ]);
     expect(panel.tabs).toEqual([
@@ -196,7 +197,7 @@ describe('describeCommandPanel', () => {
           action: { kind: 'research', upgrade: 'weapons' },
           label: 'Vapen I',
           cost: '100 mat, 50 trä',
-          info: '+2 skada, krigare',
+          info: '+2 skada, soldater',
         },
         {
           action: { kind: 'research', upgrade: 'armor' },
@@ -243,7 +244,7 @@ describe('describeCommandPanel', () => {
         (b) => [b.label, b.cost, b.info, b.disabled],
       );
     expect(panel({ weapons: 1, armor: 0, gathering: 2 })).toEqual([
-      ['Vapen II', '175 mat, 100 trä', '+2 skada, krigare', undefined],
+      ['Vapen II', '175 mat, 100 trä', '+2 skada, soldater', undefined],
       ['Rustning I', '75 mat, 75 trä', '+1 rustning, alla', undefined],
       ['Verktyg II', '', 'Fullt utvecklad', true],
     ]);

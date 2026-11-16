@@ -158,26 +158,26 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 
 ## 7. Enheter (MVP)
 
-| | Samlare (arbetare) | Ramkrigare (soldat) |
-|---|---|---|
-| Beskrivning | Björn i läderförkläde med korg och yxa | Björn i järnrustning med svärd och rundsköld |
-| Tränas i | Storide | Krigshall |
-| Kostnad | 50 mat | 60 mat, 25 trä |
-| Träningstid | 12 s | 18 s |
-| Liv | 40 | 100 |
-| Skada / träff | 3 | 10 |
-| Rustning | 0 | 1 |
-| Tid mellan slag | 1,5 s | 1,2 s |
-| Räckvidd | Närstrid (angränsande ruta) | Närstrid (angränsande ruta) |
-| Fart | 2,5 rutor/s | 2,2 rutor/s |
-| Synfält | 6 rutor | 7 rutor |
-| Kan | Samla, bygga, slåss på order | Slåss |
-| Befolkningskostnad | 1 | 1 |
+| | Samlare (arbetare) | Ramkrigare (soldat) | Ramkastare (spjutkastare) |
+|---|---|---| --- |
+| Beskrivning | Björn i läderförkläde med korg och yxa | Björn i järnrustning med svärd och rundsköld | Björn i tunika och lädersele, med lädermössa, ett koger tallspjut på ryggen och ett i handen |
+| Tränas i | Storide | Krigshall | Kastbana |
+| Kostnad | 50 mat | 60 mat, 25 trä | 50 mat, 40 trä |
+| Träningstid | 12 s | 18 s | 20 s |
+| Liv | 40 | 100 | 60 |
+| Skada / träff | 3 | 10 | Kast 8, slag på nära håll 3 |
+| Rustning | 0 | 1 | 0 |
+| Tid mellan slag | 1,5 s | 1,2 s | 1,8 s, både kast och slag |
+| Räckvidd | Närstrid (angränsande ruta) | Närstrid (angränsande ruta) | 7 rutor; slår mot en enhet på rutan intill |
+| Fart | 2,5 rutor/s | 2,2 rutor/s | 2,0 rutor/s |
+| Synfält | 6 rutor | 7 rutor | 8 rutor |
+| Kan | Samla, bygga, slåss på order | Slåss | Kasta spjut på enheter och byggnader, slå på nära håll |
+| Befolkningskostnad | 1 | 1 | 1 |
 
 Stridsregler:
 - Skada = anfallarens skada − målets rustning, minst 1.
-- Ramkrigare som står stilla anfaller automatiskt fiender inom 6 rutor.
-  Samlare anfaller bara på order.
+- Ramkrigare som står stilla anfaller automatiskt fiender inom 6 rutor,
+  Ramkastare inom 7. Samlare anfaller bara på order.
 - En enhet som fått attackorder följer efter målet tills det kapitulerar
   eller försvinner in i krigsdimman.
 - En enhet vars liv når 0 kapitulerar (avsnitt 15). Den slåss inte längre
@@ -193,17 +193,52 @@ Stridsregler:
   intill. Övriga väntar på närmaste lediga ruta och går in när en plats
   blir ledig.
 
+**Ramkastaren och strid på avstånd** (infört 2026-11-16 på användarens
+begäran; namn, vapen och värden godkända av användaren som förslag att
+justera efter att ha prövat; värdena ligger i `UNIT_DEFS.ramkastare`):
+- **Den kastar** korta, tunga tallspjut med järnspets på allt den
+  anfaller: enheter och byggnader. Räckvidden är **7 rutor**, räknat till
+  en enhets mitt och till en byggnads närmaste kant.
+- **Den stannar så fort den når.** En Ramkastare som får en attackorder
+  går tills målet är inom räckvidd och kastar därifrån, så långt från
+  målet den kan. Flera Ramkastare ställer sig på var sin ruta längs
+  räckviddens rand i stället för att tränga sig in mot målet.
+- **Ett kast var 1,8:e sekund, 8 i skada** minus målets rustning. Spjutet
+  flyger 10 rutor per sekund och följer sitt mål, som tornets pil: det
+  träffar alltid om målet finns kvar. Skadan kommer när det landar.
+- **På nära håll slår den i stället**, med en stöt med spjutet: mot en
+  fiendeenhet på en ruta intill dess egen (också snett) gör den **3 i
+  skada** var 1,8:e sekund och kastar inte. Mot en byggnad kastar den
+  alltid, också när den står intill.
+- **Sten, sax, påse:**
+
+  | Möte | Vinner | Uppmätt i simuleringen |
+  |---|---|---|
+  | Ramkastare mot Vakttorn | Ramkastaren | Den når 7 rutor från tornets kant, tornet 6 från sin mitt. Fyra river ett torn på 25–35 s utan att bli beskjutna en enda gång |
+  | Ramkrigare mot Ramkastare | Ramkrigaren | Den tar högst två spjut på vägen fram och vinner med minst 70 av 100 liv. Tre mot tre: alla Ramkastare kapitulerar, minst två Ramkrigare står kvar |
+  | Vakttorn mot Ramkrigare | Tornet | Två Ramkrigare som anfaller ett torn kapitulerar innan det faller |
+
+- **En enhet som träffas av ett spjut svarar.** Står den sysslolös, kan
+  den slåss på egen hand och ser den kastaren, så anfaller den kastaren.
+  Annars skulle en Ramkrigare stå och ta emot spjut från 7 rutors håll,
+  eftersom den själv upptäcker fiender först på 6. Samlare svarar inte,
+  och en enhet som gör något annat fortsätter med det.
+- **Uppgraderingar:** Vapen ger +2 per nivå på både kastet och stöten.
+  Rustning gäller Ramkastaren som alla andra. Ett spjut behåller den
+  skada det kastades med.
+- **Markeringspanelen** visar "Kast 8 · Räckvidd 7 · Slag 3 · Rustning 0".
+
 ## 8. Byggnader (MVP)
 
-| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) | Fiskehytta | Vakttorn | Smedja |
-|---|---|---|---|---|---|---|---|---|
-| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare | Fiske vid vatten, upp till 3 Samlare; avlämningsplats för fisk | Skjuter på fiender, ser långt | Uppgraderingar |
-| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä | 100 trä | 120 trä | 150 trä |
-| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s | 25 s | 30 s | 35 s |
-| Liv | 1500 | 400 | 700 | 300 | 200 | 350 | 500 | 600 |
-| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor | 2×2 rutor | 1×1 ruta | 2×2 rutor |
-| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor | 5 rutor | 8 rutor | 5 rutor |
-| Befolkningsplats | 5 | 0 | 0 | 5 | 0 | 0 | 0 | 0 |
+| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) | Fiskehytta | Vakttorn | Smedja | Kastbana |
+|---|---|---|---|---|---|---|---|---| --- |
+| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare | Fiske vid vatten, upp till 3 Samlare; avlämningsplats för fisk | Skjuter på fiender, ser långt | Uppgraderingar | Tränar Ramkastare |
+| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä | 100 trä | 120 trä | 150 trä | 130 trä |
+| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s | 25 s | 30 s | 35 s | 30 s |
+| Liv | 1500 | 400 | 700 | 300 | 200 | 350 | 500 | 600 | 500 |
+| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor | 2×2 rutor | 1×1 ruta | 2×2 rutor | 2×2 rutor |
+| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor | 5 rutor | 8 rutor | 5 rutor | 5 rutor |
+| Befolkningsplats | 5 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | 0 |
 
 Bostaden heter olika för varje ras; björnarnas är Idet. Det byggs av
 Samlare. Det är en låg timmerstuga under ett djupt halmtak, med ljus i
@@ -285,7 +320,7 @@ som väntar på godkännande och ligger i `src/data/upgrades.ts` och
 
   | Uppgradering | Gäller | Nivå I | Nivå II |
   |---|---|---|---|
-  | **Vapen** | Ramkrigare | +2 skada (10 → 12): 100 mat, 50 trä, 40 s | +2 till (14): 175 mat, 100 trä, 60 s |
+  | **Vapen** | Ramkrigare och Ramkastare | +2 skada (Ramkrigare 10 → 12, kast 8 → 10): 100 mat, 50 trä, 40 s | +2 till (14 och 12): 175 mat, 100 trä, 60 s |
   | **Rustning** | Alla enheter | +1 rustning: 75 mat, 75 trä, 40 s | +1 till: 150 mat, 150 trä, 60 s |
   | **Verktyg** | Samlare | +20 % fart i allt samlande: 100 mat, 50 trä, 40 s | +20 % till: 175 mat, 100 trä, 60 s |
 
@@ -308,6 +343,18 @@ som väntar på godkännande och ligger i `src/data/upgrades.ts` och
   "Samlar 1/s · Rustning 0". Ett värde som en uppgradering har höjt följs
   av hur mycket: "Skada 14 (+4) · Rustning 2 (+1)".
 
+**Kastbanan** (infört 2026-11-16 på användarens begäran; den hette
+Skyttebana i uppdraget och bytte namn eftersom björnarna kastar och inte
+skjuter; värdena ligger i `BUILDING_DEFS.kastbana`) byggs av Samlare och
+ligger under fliken Försvar:
+- Ett högt skärmtak av skiffer mot en timmervägg, med spjutställ under
+  taket. På gården framför står två halmtavlor med en ring i lagfärg, en
+  tunna och en planka som märker ut var kastarna står.
+- **Den tränar Ramkastare** (50 mat, 40 trä, 20 s) med samma kö som
+  Krigshallen, och gör inget annat.
+- 130 trä, 30 s byggtid, 500 liv, 2×2 rutor. Den kan lagas som andra
+  byggnader.
+
 Byggregler:
 - Spelaren väljer byggnad i kommandopanelen och placerar en "spökbild" på
   kartan: byggnadens bild, halvgenomskinlig, på sitt fotavtryck. Där den
@@ -325,7 +372,7 @@ Byggregler:
 - Produktionskö: högst 5 enheter per byggnad. Kostnaden dras när enheten
   köas och återbetalas om den avbryts.
 - Nya enheter dyker upp på närmaste lediga ruta intill byggnaden.
-- Byggnader anfaller inte.
+- Byggnader anfaller inte, utom Vakttornet.
 
 **Lagning** (infört 2026-11-15 på användarens begäran; värdena är förslag
 som väntar på godkännande och ligger i `src/data/repair.ts`):
@@ -391,7 +438,10 @@ som väntar på godkännande och ligger i `src/data/repair.ts`):
 En enkel, regelstyrd motståndare som spelar med samma regler och kostnader
 som spelaren (inget fusk med resurser):
 
-1. Tränar Samlare upp till 8 och fördelar dem på mat och trä.
+1. Tränar Samlare upp till 10 och fördelar dem på mat och trä: 4 på trä
+   och 6 på mat. (Till och med 2026-11-15 var det 8, med 3 på trä. Med
+   Ramkastarnas pris i trä ovanpå Kastbana, torn och Smedja räckte det
+   inte: på de flesta kartor blev någon sida utan en av byggnaderna.)
 2. Bygger ett Ide när den har högst 3 lediga platser kvar (enheter i kö
    inräknade), så att träningen inte behöver vänta på en bostad. Bostäder
    går före allt annat byggande.
@@ -423,13 +473,21 @@ som spelaren (inget fusk med resurser):
    6 Ramkrigare eller fler tränar den inga nya förrän nästa uppgradering
    är betald; annars äter soldaterna upp maten först varje gång. Värdena
    ligger i `AI_CONFIG.research`.
-5. Tränar Ramkrigare kontinuerligt.
+   **Bygger en Kastbana**, en, när den har en färdig Krigshall och ett
+   Visthus, så snart den har råd. Där tränar den **en Ramkastare på två
+   Ramkrigare**, aldrig fler, så att en våg har någon som går först.
+   Värdena ligger i `AI_CONFIG.throwers`.
+5. Tränar Ramkrigare kontinuerligt, och Ramkastare efter sin andel. Båda
+   slagen räknas mot taket på 20 soldater.
 6. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
    ligger i en datafil (t.ex. våg 1: 4 krigare tidigast vid 4 min, därefter
    större vågor).
    Krigare i en våg **river först ett torn som når dem**: står en krigare
    inom ett fientligt torns räckvidd anfaller den tornet innan den går
    vidare mot Storidet. Fientliga krigare i närheten går fortfarande före.
+   **Ramkastare i en våg vänder sig mot ett torn tidigare:** när tornet
+   är inom 9 rutor (deras räckvidd 7 och 2 till), alltså innan de har
+   gått in i tornets räckvidd. De river det utifrån och går sedan vidare.
 7. Hemmavarande krigare försvarar basen om den anfalls.
 
 Förenkling: AI:n känner till spelarens startposition och påverkas inte av
@@ -464,6 +522,10 @@ krigsdimman. En svårighetsgrad.
 | Slut på trä under lagning | "Slut på trä – lagningen väntar" i 2,5 s, träsiffran röd lika länge, Samlarna står still |
 | Torn skjuter | En pil med fjädrar i lagfärg lämnar tornets plattform (72 px över marken), flyger i en båge som är 4 px högre per ruta den ska flyga, pekar åt det håll den flyger, och landar i brösthöjd (14 px) på målet |
 | Pil träffar | Målet blinkar vitt i 80 ms; en splitterstjärna visas på målet i 220 ms medan den växer från 70 % till 160 % och tonas bort |
+| Ramkastare kastar | Kastet är 12 bilder på 1,8 s och börjar när spjutet lämnar handen: armen sträcks ut, handen är tom i 5 bilder (0,75 s), tar ett nytt spjut ur kogret över axeln, och lyfter det vågrätt vid huvudet med den fria armen pekande mot målet |
+| Spjut i luften | Ett spjut med bindning i lagfärg lämnar kastarens hand (34 px över marken), flyger i samma båge som tornets pil och landar i brösthöjd på en enhet eller halvvägs upp på en byggnads vägg |
+| Spjut träffar | Som pilen: målet blinkar vitt i 80 ms och en splitterstjärna visas i 220 ms. En byggnad som träffas blinkar på samma sätt |
+| Ramkastare slår på nära håll | En stöt med spjutet rakt fram, 8 bilder på 1,8 s; målet blinkar vitt och kastaren gör utfall som andra som slår |
 | Torn markerat eller placeras | Gul ring på marken med tornets räckvidd (6 rutor) |
 | Smedjan arbetar | Blå stapel, 44×4 px, över byggnaden; en prick efter den för varje uppgradering som väntar |
 | Uppgradering klar | "Vapen I är klar" under resursraden i 2,5 s |

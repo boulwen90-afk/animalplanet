@@ -53,6 +53,14 @@ const FIGURES: {
       load_grain: ['idle', 'walk', 'till'],
     },
   },
+  {
+    name: 'bear_thrower',
+    unit: 'ramkastare',
+    sizeClass: 'warrior',
+    tileWidths: 0.55,
+    animations: ['idle', 'walk', 'throw', 'jab', 'defeat'],
+    layers: {},
+  },
 ];
 
 describe.each(FIGURES)('the $name atlas', (figure) => {
@@ -137,6 +145,10 @@ describe('the figures against each other', () => {
   it('a worker is shorter than a warrior', () => {
     const [warrior, worker] = FIGURES.map((figure) => read(figure.name).meta.figure.height);
     expect(worker).toBeLessThan(warrior!);
+  });
+
+  it('a thrower is as tall as a warrior: both are soldiers', () => {
+    expect(read('bear_thrower').meta.figure.height).toBe(read('bear_warrior').meta.figure.height);
   });
 
   it('a tiger warrior is a tenth taller than a bear warrior: the same class, another stature', () => {

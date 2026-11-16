@@ -69,6 +69,19 @@ describe('activityOf', () => {
     expect(activityOf(fighting)).toBe('attack');
   });
 
+  it('is throw for a unit whose latest attack was a throw, and attack when it struck instead', () => {
+    const thrower = unit();
+    thrower.task = { kind: 'attack', targetId: 99, repathTicks: 0, threw: true };
+    thrower.attackCooldown = 30;
+    expect(activityOf(thrower)).toBe('throw');
+    thrower.task = { kind: 'attack', targetId: 99, repathTicks: 0, threw: false };
+    expect(activityOf(thrower)).toBe('attack');
+    // Between throws it stands with its next javelin; it does not throw without a cooldown running.
+    thrower.task = { kind: 'attack', targetId: 99, repathTicks: 0, threw: true };
+    thrower.attackCooldown = 0;
+    expect(activityOf(thrower)).toBe('idle');
+  });
+
   it('is idle for a unit whose target is gone, even while its cooldown runs', () => {
     const done = unit();
     done.attackCooldown = 12;
@@ -218,6 +231,14 @@ describe('animationFor', () => {
     expect(animationFor(worker, 'pick')).toBe('pick');
     expect(animationFor(worker, 'hammer')).toBe('hammer');
     expect(animationFor(worker, 'walk')).toBe('walk');
+  });
+
+  it('lets a thrower throw, and strike with a thrust of its javelin', () => {
+    const thrower: CharacterAnimations = { ...basic, throw: info, jab: info };
+    expect(animationFor(thrower, 'throw')).toBe('throw');
+    expect(animationFor(thrower, 'attack')).toBe('jab');
+    // A character that cannot throw strikes instead.
+    expect(animationFor(warrior, 'throw')).toBe('attack');
   });
 
   it('lets a worker strike with its axe: it has no attack of its own', () => {

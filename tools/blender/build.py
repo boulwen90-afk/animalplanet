@@ -123,15 +123,19 @@ class Studio:
         figure = self.figure
         return Context(figure.stance, figure.race["proportions"], figure.rig.rest, self.ground_share)
 
-    def hold(self, animation: str | None) -> None:
+    def hold(self, animation: str | None, index: int | None = None) -> None:
         """
         Shows what the figure holds in an animation: its weapon, unless the
         unit's config hides it there, or the tool that is shown in it. With no
-        animation it holds its weapon.
+        animation it holds its weapon. The config can also hide the weapon in
+        single frames of an animation (`hidden_frames`): a thrown javelin is
+        gone from the hand until the next one is drawn.
         """
         weapon = self.unit.get("weapon") or {}
         shown = list(self._fixed)
         show_weapon = animation not in weapon.get("hidden_in", [])
+        if index is not None and index in weapon.get("hidden_frames", {}).get(animation, []):
+            show_weapon = False
         for part in self._weapon:
             part.hide_render = not show_weapon
         if show_weapon:
@@ -148,7 +152,7 @@ class Studio:
     def animate(self, name: str, index: int) -> None:
         """Puts the figure in one frame of an animation from the shared library."""
         figure = self.figure
-        self.hold(name)
+        self.hold(name, index)
         if name not in self._actions:
             animation = ANIMATIONS[name]
             proportions = figure.race["proportions"]

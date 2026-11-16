@@ -58,9 +58,10 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/data/upgrades.ts` | `UPGRADE_DEFS`: uppgraderingarna, vad de ändrar, för vilka enheter, och varje nivås pris, tid och tillägg | Efter MVP |
 | `src/sim/upgrades.ts` | En enhets värden med sidans uppgraderingar: `unitDamage`, `unitArmor`, `gatherSpeed` | Efter MVP |
 | `src/sim/systems/research.ts` | Forskningskön: `queueResearch`, `cancelResearch`, `researchUpgrades` | Efter MVP |
-| `src/sim/systems/shooting.ts` | Byggnader som skjuter: `shootFromBuildings`, `flyProjectiles`, `shootingTarget` | Efter MVP |
+| `src/sim/systems/shooting.ts` | Byggnader som skjuter, och allt som flyger: `shootFromBuildings`, `flyProjectiles`, `shootingTarget`, `shotDamage` | Efter MVP |
+| `src/sim/systems/projectiles.ts` | `launchProjectile`: lägger en projektil i luften, från ett torn eller en kastare | Efter MVP |
 | `src/render/effects/projectiles.ts` | En projektils bana på skärmen, träffens utseende och räckviddsringens mått, som rena funktioner | Efter MVP |
-| `src/render/views/ProjectileView.ts` | Ritar pilar i luften och splitterstjärnan där de landar | Efter MVP |
+| `src/render/views/ProjectileView.ts` | Ritar pilar och spjut i luften och splitterstjärnan där de landar | Efter MVP |
 | `src/sim/systems/repair.ts` | Lagning: `orderRepair`, `repairBuildings`, kostnad och takt, lediga platser runt en byggnad | Efter MVP |
 | `src/data/repair.ts` | `REPAIR_CONFIG`: kostnadsandel, liv per sekund och avtagande effekt | Efter MVP |
 | `src/render/effects/damage.ts` | Skadans utseende som rena funktioner: skadenivå, var det ryker och brinner, hur en puff och en eld ser ut vid en tidpunkt | Efter MVP |
@@ -340,6 +341,38 @@ motsvarande längre tid.
   det huvudbyggnaden (`START_CONFIG.building`) sätts `winner` till andra
   sidan.
 
+**Strid på avstånd** (Ramkastaren, i samma `systems/combat.ts`):
+
+- En enhetstyp med `ranged` i `UNIT_DEFS` (`damage`, `range`, `cooldown`,
+  `projectileSpeed`, `projectile`) kastar. `damage` och `attackCooldown`
+  på samma enhet gäller dess slag på nära håll.
+- **`attackMode(unit, target)`** avgör vilket: en enhet med `ranged`
+  kastar på allt utom en fiende**enhet** på en ruta intill dess egen, som
+  den slår (`'strike'`). På byggnader kastar den alltid. Enheter utan
+  `ranged` slår alltid.
+- **`throwDistance(from, target)`** är avståndet som räckvidden mäts med:
+  till en enhets mitt, och till närmaste punkt på en byggnads fotavtryck
+  (0 på byggnaden). Tornets räckvidd mäts däremot från tornets mitt; det
+  är därför en Ramkastare med 7 når ett torn med 6 utan att nås.
+- **`pursueOrThrow`**: är målet inom `range` och enheten inte står på en
+  upptagen ruta (`standsOnTakenTile`, som i närstrid) stannar den där den
+  är och kastar när nedräkningen är 0: `launchProjectile` med
+  `throwDamage` (kastets skada plus Vapen), och `attackCooldown` sätts
+  till `throwTicks` (36 steg). Annars går den dit `throwingPath` säger,
+  och räknar om vägen var 10:e steg som i närstrid.
+- **`throwingPath`** väljer den ruta som ligger närmast enheten bland dem
+  som (a) i sin helhet är inom räckvidd, alltså har mitten minst en halv
+  rutdiagonal innanför den, (b) enheten kan gå till, och (c) ingen annan
+  står på eller är på väg till. Utifrån blir det en ruta på räckviddens
+  rand, och en grupp sprider sig längs randen. Finns ingen sådan ruta
+  blir enheten sysslolös.
+- **`task.threw`** på anfallsuppgiften säger om det senaste anfallet var
+  ett kast eller ett slag. Bara ritningen läser det.
+- **`provoke(state, victim, attackerId)`** anropas när ett spjut eller en
+  pil har landat på en enhet som har liv kvar: en sysslolös,
+  stillastående enhet med `aggroRadius` som ser den **enhet** som kastade
+  tar den som mål. Ett torn är ingen enhet, så en pil väcker ingen.
+
 ### Uppgraderingar (`upgrades.ts`, `systems/research.ts`)
 
 - **Data.** `UPGRADE_DEFS` har för varje uppgradering vad den ändrar
@@ -370,25 +403,31 @@ motsvarande längre tid.
 ### Byggnader som skjuter (`systems/shooting.ts`)
 
 - En byggnadstyp med `attack` i `BUILDING_DEFS` (`damage`, `range`,
-  `cooldown`, `projectileSpeed`) skjuter av sig själv när den är färdig.
-  I dag är det Vakttornet.
+  `cooldown`, `projectileSpeed`, `projectile`) skjuter av sig själv när
+  den är färdig. I dag är det Vakttornet.
 - **`shootFromBuildings`** körs varje steg efter närstriden. Byggnadens
   `attackCooldown` räknas ned; vid 0 väljer `shootingTarget` den närmaste
   fiendeenhet som sidan ser (`isAttackable`) inom `range` rutor från
   byggnadens mitt, vid lika avstånd den som kom först in i spelet. Finns
-  en läggs en projektil i `state.projectiles`, händelsen `shot` läggs, och
-  nedräkningen sätts till `shotTicks` (30 steg för tornet). Byggnader är
-  aldrig mål.
+  en läggs en projektil i luften med `launchProjectile`
+  (`systems/projectiles.ts`), som också lägger händelsen `shot`, och
+  nedräkningen sätts till `shotTicks` (30 steg för tornet). Ett torn
+  skjuter aldrig på byggnader.
 - **`Projectile`**: `id` (ur samma räknare som enheterna), `owner`,
-  `sourceId`, `targetId`, `startX/Y`, `x/y`, `prevX/Y`, `speed` (rutor per
-  steg) och `damage`. Den ligger i speltillståndet, så en match är
-  fortfarande helt bestämd av sitt frö.
+  `kind` (`arrow` eller `javelin`, `ProjectileKind` i `data/types.ts`),
+  `sourceId` (ett torn eller en kastare), `targetId` (en enhet, eller för
+  ett spjut också en byggnad), `startX/Y`, `x/y`, `prevX/Y`, `speed`
+  (rutor per steg) och `damage` (bestämd när den sköts). Den ligger i
+  speltillståndet, så en match är fortfarande helt bestämd av sitt frö.
 - **`flyProjectiles`** flyttar varje projektil rakt mot målets nuvarande
-  plats. Är den inom ett stegs flykt landar den: målet förlorar
-  `shotDamage` (skadan minus rustning, minst 1), händelsen `projectileHit`
-  läggs, och ett mål utan liv kapitulerar (`surrender`). Har målet lämnat
-  spelet eller kapitulerat tas projektilen bort utan verkan. En projektil
-  lever vidare om byggnaden som sköt den faller.
+  plats; för en byggnad är det fotavtryckets mitt. Är den inom ett stegs
+  flykt landar den: målet förlorar `shotDamage` (skadan minus målets
+  rustning, minst 1) och händelsen `projectileHit` läggs. En enhet utan
+  liv kapitulerar (`surrender`), och en som har liv kvar kan svara
+  (`provoke`, se Strid). En byggnad ger också `buildingAttacked` och
+  rasar utan liv (`collapse`, som i närstrid). Har målet lämnat spelet
+  eller kapitulerat tas projektilen bort utan verkan. En projektil lever
+  vidare om den som sköt den är borta.
 - Tornets synfält (8) är större än räckvidden (6), så `isAttackable`, som
   kräver att målet syns, hindrar aldrig ett skott inom räckvidden.
 
@@ -463,7 +502,8 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
 - Dess enda fördel: krigsdimman gäller inte för en sida med `ai` satt
   (`visibilityAt` och `isEntityVisibleTo` ger alltid synligt).
 - Varje beslut går igenom samma lista, i den här ordningen:
-  1. **Arbetare:** träna en i taget tills den har 8.
+  1. **Arbetare:** träna en i taget tills den har 10
+     (`AI_CONFIG.targetWorkers`; 4 av dem på trä, `woodShare` 0,4).
   2. **Byggen:** ett bygge utan byggare får närmaste lediga arbetare.
      Först bostäder: har den högst `AI_CONFIG.housingMargin` (3) lediga
      platser kvar, räknat med bostäder under uppförande och enheter i kö,
@@ -499,7 +539,11 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
      fortast först) och först därefter bär längre bort. En arbetare som
      redan plockar bär utanför `berryRadius` flyttas till en fiskeplats
      eller Odling så snart en är ledig.
-  4. **Soldater:** träna en i taget i varje färdig kasern, upp till 20.
+  4. **Soldater:** träna en i taget i varje färdig byggnad som tränar
+     soldater, upp till 20 tillsammans. Soldater med `ranged` hålls till
+     sin andel: en ny tränas bara om det sedan finns minst
+     `AI_CONFIG.throwers.soldiersEach` (2) närstridssoldater per kastare,
+     räknat med dem som står i kö.
   5. **Försvar:** hemmavarande soldater anfaller fiendeenheter inom 12 rutor
      från huvudbyggnaden.
   6. **Anfallsvåg:** när vågens tidigaste tid är inne och tillräckligt många
@@ -507,7 +551,15 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
      senaste tiden går den med de soldater som finns.
   7. **Soldater i en våg** anfaller fiendesoldater inom sin upptäcktsradie,
      därefter ett fientligt torn som har dem inom sin räckvidd (det
-     närmaste), och annars huvudbyggnaden.
+     närmaste), och annars huvudbyggnaden. En soldat med `ranged` räknar
+     tornet redan när det är inom dess egen räckvidd plus
+     `throwers.towerMargin` (7 + 2 rutor): beslut tas en gång i sekunden
+     och den går 2 rutor på den tiden, så den hinner få ordern innan den
+     är inne i tornets räckvidd.
+- **Kastbana.** Har sidan en färdig kasern och ett förråd men ingen
+  byggnad som tränar soldater med `ranged`, bygger den en vid basen så
+  snart den har råd (`buildableRange`). Kasernen känns igen på att den
+  tränar soldater utan `ranged` (`buildableBarracks`).
 - **Smedja och forskning.** Efter tornet: har sidan en färdig kasern,
   ingen Smedja och minst `AI_CONFIG.research.whenWood` (200) trä bygger
   den en vid basen. `research` körs före soldatträningen: i en ledig
@@ -527,7 +579,8 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
 - AI:n läser vilka byggnader som är kasern och förråd ur `BUILDING_DEFS`
   (tränar soldater, respektive bara avlämningsplats), inte ur namnen.
 - Uppmätt: mot en spelare som inte gör något vinner den efter drygt 5
-  minuter. Två datorstyrda sidor avgör en match på 11–16 minuter.
+  minuter. Två datorstyrda sidor avgör en match på 11,7–19,3 minuter
+  (frö 1–6, 2026-11-16).
 
 ### Krigsdimma
 
@@ -915,8 +968,14 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
     därför 84 px hög i stället för 64.
   - Händelsen `upgradeDone` för spelarens sida ger meddelandet "Vapen I
     är klar" (`UiScene.showMessage`).
-- **`ProjectileView`** ritar `state.projectiles` med bilden `arrow` ur
-  miljöns atlas, i skyttens lagfärg (fjädrarna är maskade). Banan räknas
+- **`ProjectileView`** ritar `state.projectiles` med bilden för sitt slag
+  (`PROJECTILE_FRAMES`: `arrow` eller `javelin`) ur miljöns atlas, i
+  skyttens lagfärg (pilens fjädrar och spjutets bindning är maskade).
+  Höjden den släpps från är tornets `MUZZLE_HEIGHT` eller kastarens
+  `THROW_HEIGHT` (34 px), och sparas när projektilen först ritas, så att
+  banan inte ändras om skytten försvinner. Den landar i brösthöjd på en
+  enhet och på `landHeight` på en byggnad: halva den höjd ett klick
+  träffar byggnaden på (`buildingHitShare` 0,5). Banan räknas
   av rena funktioner i `effects/projectiles.ts`:
   - `projectilePose(start, at, target, muzzlePx, tile)`: markpunkten är
     projektilens interpolerade plats; höjden över marken går från
@@ -1072,7 +1131,7 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
   `BUILDING_ART` ritas från sina atlaser. I dag gäller det Storide
   (`bear_main`), Krigshall (`bear_barracks`), Visthus (`bear_storage`),
   Odling (`bear_field`), Fiskehytta (`bear_fishery`), Ide (`bear_den`),
-  Vakttorn (`bear_tower`) och Smedja (`bear_forge`), för båda sidorna. Alla byggnadstyper har därmed bilder; en typ utan
+  Vakttorn (`bear_tower`), Smedja (`bear_forge`) och Kastbana (`bear_range`), för båda sidorna. Alla byggnadstyper har därmed bilder; en typ utan
   bild ritas fortfarande som ett platshållarblock.
   - `BuildingLibrary` laddar atlaserna och gör en färgad kopia per
     spelare, på samma sätt som `CharacterLibrary`.
@@ -1101,8 +1160,9 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
   - Livstapeln sitter 12 px över taket. Markering är fortfarande en grön
     kontur runt fotavtrycket.
 - **Figurer (`render/characters/`).** Enhetstyper som finns i `CHARACTERS`
-  ritas som figurer; övriga är platshållare. I dag gäller det båda
-  enhetstyperna: Samlaren (`bear_worker`) och Ramkrigaren (`bear_warrior`).
+  ritas som figurer; övriga är platshållare. I dag gäller det alla tre
+  enhetstyperna: Samlaren (`bear_worker`), Ramkrigaren (`bear_warrior`)
+  och Ramkastaren (`bear_thrower`).
   - `GameScene.preload` laddar atlasens bas, mask och JSON-fil.
     `CharacterLibrary` gör sedan **en färgad kopia av atlasen per
     spelare**: pixlarna läses ut via en canvas, `recolorPixels` räknar om
@@ -1120,6 +1180,12 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
     (bildruta ur tid), `attackFrame` (bildruta ur nedkylningen, så att
     hugget träffar i samma ögonblick som skadan delas ut) och
     `progressFrame` (bildruta ur hur långt ett arbetsmoment har kommit).
+  - **Kast och stöt.** En enhet vars senaste anfall var ett kast
+    (`task.threw`) har aktiviteten `throw`, annars `attack`. En figur
+    utan animationen `attack` slår med `jab` om den har den (kastaren),
+    annars med `chop` (arbetaren). `attackFrame` får tiden mellan två
+    kast (`throwTicks`) eller två slag (`strikeTicks`), så att spjutet
+    lämnar handen i samma steg som projektilen läggs i luften.
   - Arbete kontrolleras före rörelse i `activityOf`. En arbetare som
     knuffas åt sidan av en granne fortsätter alltså att hugga i stället
     för att växla till gång i ett par bildrutor.
@@ -1292,7 +1358,7 @@ alla figurer från konfigfilerna. En figurs atlas tar cirka 1,5 minut.
 | `buildings/<ras>/style.toml` | Rasens byggnadsstil: färgerna som alla dess byggnader delar |
 | `buildings/<ras>/<namn>.toml` | En byggnad: storleksklass, fotavtryck och listan av delar med mått och stadier |
 | `lib/structures.py` | Byggnadsdelarna: stengrund, timmerväggar, stomme, sadeltak, takstolar, tornspira, dörr, sköld, baner, vimpel, palissad, tunna, låda, säck, vedtrave, brädhög, vapenställ, träningsdocka, byggnadsställning, skorsten, åkerjord, gröda, gärdsgård, fågelskrämma, utstakning, torkställning med fisk, nät, fönster, bikupa |
-| `animations/` | Det gemensamma animationsbiblioteket: `base.py` (byggstenar), `idle.py`, `walk.py`, `attack.py`, `chop.py`, `pick.py`, `till.py`, `fish.py`, `hammer.py`, `defeat.py` |
+| `animations/` | Det gemensamma animationsbiblioteket: `base.py` (byggstenar), `idle.py`, `walk.py`, `attack.py`, `throw.py`, `jab.py`, `chop.py`, `pick.py`, `till.py`, `fish.py`, `hammer.py`, `defeat.py` |
 | `lib/atlas.py` | Packar bildrutorna till en atlas och skriver JSON-filen |
 | `lib/scale.py` | Storleksstandarden: räknar ut hur mycket en figur skalas, och kontrollerar bredden |
 | `game.toml` | Gemensamt för alla figurer: rutstorlek, kameravinkel, skala, bildruta, kontur, skugga, kantmjukhet per delgrupp, ljus, lagfärger och sigillens färg |
@@ -1310,7 +1376,7 @@ alla figurer från konfigfilerna. En figurs atlas tar cirka 1,5 minut.
 | `lib/coat.py` | Pälsteckning och lång svans: ränder runt lemmar, bål och huvud, och en ringlad svans i segment. Slås på i rasens konfig under `[markings]` och `[tail]` |
 | `lib/body.py` | Kroppen: bål, puckel, huvud, kinder, nos, käke, huggtänder, ögon, ögonbryn, öron, armar, ben, tassar, klor, svans |
 | `lib/armor.py` | Rustnings- och klädesdelar. Krigarens: ringbrynja, bröstplåt med bukskenor, höftplåtar, axelskydd med taggar, pälskrage, armskenor, benskenor, bälte, vapenrock, hjälm med kam, mantel. Arbetarens: tunika, läderlindor, ett axelskydd av läder, förkläde, korg med remmar. Lätt rustning: korsade läderremmar med bröstbricka, midjeskärp och pannband i lagfärg |
-| `lib/weapons.py` | Svärd, yxa, glav, hammare och rundsköld |
+| `lib/weapons.py` | Svärd, yxa, glav, kastspjut, hacka, metspö, hammare och rundsköld |
 | `lib/emblem.py` | Läser ett sigill och lägger det på en yta (sköld eller mantel); ritar det även som platt bild |
 | `lib/figure.py` | Sätter ihop kropp, rustning, vapen, sköld och sigill till en figur och binder den till sitt skelett |
 | `lib/camera.py` | Ortografisk kamera, ljus och den osynliga mark som fångar skuggan |
@@ -1461,6 +1527,21 @@ utom i `pick` (tomma händer), `till` (hacka), `fish` (metspö med lina
 och flöte i lagfärg) och `hammer` (hammare). Alla verktyg byggs
 på figuren och följer handen; bygget visar ett i taget.
 
+**Vapen som lämnar handen.** `[weapon.hidden_frames]` listar, per
+animation, de bildrutor där vapnet inte syns. Björnkastaren har
+`throw = [0, 1, 2, 3, 4]`: från att spjutet har lämnat handen tills den
+har tagit nästa ur kogret. `Studio.hold(animation, index)` läser det.
+
+**Björnkastaren** (`units/thrower.toml`, spelets Ramkastare,
+storleksklass `warrior`): tunika i lagfärg, korsade läderremmar,
+lädermössa med band i lagfärg (`cap`), ett läderkoger snett över ryggen
+med tre spjut i (`quiver`) och ett kastspjut i handen (`javelin`: skaft,
+grepp, bindning i lagfärg och bladformad järnspets), som den håller
+upprätt som en stav när den står. Två animationer är dess egna i
+biblioteket: `throw` (12 bildrutor, loopen börjar när spjutet lämnar
+handen) och `jab` (8 bildrutor, en stöt rakt fram som börjar när den
+träffar).
+
 **Lager.** Ett `[[layer]]` i enhetens konfig är en grupp delar som inte
 hör till figurens egen bild, utan renderas som egna bilder som spelet
 ritar ovanpå: `name` och `parts` (början på delarnas namn). För varje
@@ -1575,6 +1656,16 @@ skärmtak, med glödande öppning mot gården, och i det fria ett städ på en
 kubb med en hammare på, ett vapenställ och en tunna. Två nya delar i
 `lib/structures.py`: `anvil` och `hearth`. Eldens och det blankslitna
 järnets färger står i `forge.toml`.
+
+Kastbanan (`range`, 2×2, storleksklass `small`, taket 73 px) är ett högt
+skärmtak av skiffer med list i lagfärg, som lutar sig mot en timmervägg
+och bärs av tre stolpar framtill. Under taket står två spjutställ. På
+gården står två halmtavlor på trefot, vända mot den sida där en planka
+märker ut kastlinjen, och en tunna. Två nya delar i
+`lib/structures.py`: `shed_roof` (pulpettak) och `target` (halmtavla med
+ring i lagfärg, med eller utan ett spjut i). Halmens färger står i
+`range.toml`. Byggstadierna är stomme med virke, och timmerväggen med
+stolpar och bara takbjälkar.
 
 Vakttornet (`tower`, 1×1, storleksklass `tower`) är ett smalt timmertorn
 på stenfot: ett skaft av stockar, en plattform som kragar ut över skaftet
@@ -1826,7 +1917,7 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getBuildingSprite(id)` | Hur en byggnad som ritas från bilder ser ut just nu: `frame` (`construction_1`, `construction_2` eller `complete`) och `texture`. `null` för platshållarblock |
 | `getBuildingProgress(id)` | Hur långt stapeln över en byggnad har kommit, 0–1: uppgraderingen den arbetar fram. `null` när ingen stapel ritas |
 | `getHudStats()` | Markeringspanelens tredje rad: vad den markerade enheten kan, med uppgraderingar. Tom när inget visas |
-| `getProjectiles()` | Det som är i luften så som det ritas: `projectiles` (varje pil spelaren ser, med `id`, plats i världspixlar, `rotation` i radianer och `texture`), `bursts` (antal splitterstjärnor som visas nu) och `burstsShown` (antal som har visats sedan start) |
+| `getProjectiles()` | Det som är i luften så som det ritas: `projectiles` (varje pil och spjut spelaren ser, med `id`, plats i världspixlar, `rotation` i radianer, `texture` och bildens namn `frame`), `bursts` (antal splitterstjärnor som visas nu) och `burstsShown` (antal som har visats sedan start) |
 | `getRangeRings()` | Id på de byggnader som har en räckviddsring ritad runt sig: markerade egna torn |
 | `getBuildingDamage(id)` | Skadan som ritas på en byggnad: `level` (`none`, `smoke` eller `fire`) och antalet rökpuffar (`puffs`) och eldar (`flames`) |
 | `getPointer()` | Muspekaren: `shown` (`repair` medan den är hammaren över en skadad byggnad som de markerade skulle laga, annars `default`), `css` (spelytans CSS-markör) och `repairTarget` (byggnadens id eller `null`) |

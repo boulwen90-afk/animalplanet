@@ -696,6 +696,121 @@ describe('upgrades', () => {
   });
 });
 
+describe('javelin throwers', () => {
+  const bothSides = (seed: number) => createGame(seed, undefined, undefined, { ai: [0, 1] });
+  const soldiers = (state: GameState, owner: number) => ({
+    warriors: unitsOf(state, owner, 'ramkrigare').length,
+    throwers: unitsOf(state, owner, 'ramkastare').length,
+  });
+
+  it('builds a Kastbana once it has a Krigshall and a Visthus, and only one', () => {
+    for (const seed of SEEDS) {
+      const state = bothSides(seed);
+      const done = () =>
+        [0, 1].every((side) => buildingsOf(state, side, 'kastbana').some((b) => b.complete));
+      for (let i = 0; i < 8 * MINUTE && !done() && state.winner === null; i++) tick(state);
+      for (const side of [0, 1]) {
+        expect(buildingsOf(state, side, 'kastbana'), `seed ${seed}`).toMatchObject([
+          { complete: true },
+        ]);
+        expect(buildingsOf(state, side, 'krigshall'), `seed ${seed}`).toMatchObject([
+          { complete: true },
+        ]);
+        expect(buildingsOf(state, side, 'visthus').length, `seed ${seed}`).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it('does not build a Kastbana before it has a Krigshall, however much wood it has', () => {
+    const state = againstNobody(1);
+    state.players[1]!.resources.wood = 1000;
+    advance(state, 30 * SECOND);
+    expect(buildingsOf(state, 1, 'krigshall')).toHaveLength(1);
+    expect(buildingsOf(state, 1, 'kastbana')).toHaveLength(0);
+  });
+
+  it('trains one Ramkastare for every two Ramkrigare, never more', () => {
+    const state = againstNobody(1);
+    const share = AI_CONFIG.throwers.soldiersEach;
+    expect(share).toBe(2);
+    const queueOf = (type: string) =>
+      buildingsOf(state, 1, type).reduce((sum, building) => sum + building.queue.length, 0);
+    // With all it can use of food and wood, until just before the first wave
+    // leaves: nobody has been lost yet.
+    const until = AI_CONFIG.waves[0].earliest * SECOND - SECOND;
+    while (state.tick < until) {
+      state.players[1]!.resources = { food: 2000, wood: 2000 };
+      tick(state);
+      const { warriors, throwers } = soldiers(state, 1);
+      expect((throwers + queueOf('kastbana')) * share).toBeLessThanOrEqual(
+        warriors + queueOf('krigshall'),
+      );
+    }
+    const { warriors, throwers } = soldiers(state, 1);
+    expect(warriors).toBeGreaterThanOrEqual(6);
+    // As many as its share allows, give or take the one in training.
+    expect(throwers).toBeGreaterThanOrEqual(Math.floor(warriors / share) - 1);
+    expect(throwers).toBeGreaterThanOrEqual(2);
+  });
+
+  it('counts both kinds as soldiers: it stops at the most it may have of them together', () => {
+    const state = againstNobody(1);
+    const base = buildingsOf(state, 1, 'storide')[0]!;
+    createBuilding(state, 'krigshall', 1, base.x - 5, base.y - 5);
+    createBuilding(state, 'kastbana', 1, base.x - 5, base.y + 4);
+    for (let i = 0; i < 4; i++) createBuilding(state, 'ide', 1, base.x + 5, base.y + i * 3);
+    for (let i = 0; i < AI_CONFIG.maxSoldiers; i++) {
+      createUnit(
+        state,
+        i % 3 === 0 ? 'ramkastare' : 'ramkrigare',
+        1,
+        base.x - 8 + (i % 5),
+        base.y + 8 + Math.floor(i / 5),
+      );
+    }
+    state.players[1]!.resources = { food: 2000, wood: 2000 };
+    advance(state, 5 * SECOND);
+    for (const type of ['krigshall', 'kastbana']) {
+      expect(buildingsOf(state, 1, type)[0]!.queue, type).toEqual([]);
+    }
+  });
+
+  it('its throwers in a wave tear down a tower from outside its range, and are never shot at', () => {
+    const state = againstNobody(1);
+    const home = buildingsOf(state, 0, 'storide')[0]!;
+    const centre = buildingCentre(home);
+    const enemyBase = buildingCentre(buildingsOf(state, 1, 'storide')[0]!);
+    const dx = Math.sign(enemyBase.x - centre.x);
+    const dy = Math.sign(enemyBase.y - centre.y);
+    // A tower of the player's by its main building, on the way the attackers come.
+    const tower = createBuilding(state, 'vakttorn', 0, home.x + 1 + dx * 4, home.y + 1 + dy * 4);
+    // Four throwers of the computer's, well outside the tower's range, sent as a wave.
+    const from = { x: tower.x + dx * 16, y: tower.y + dy * 16 };
+    const wave = [0, 1, 2, 3].map((i) =>
+      createUnit(state, 'ramkastare', 1, from.x + (i % 2), from.y + Math.floor(i / 2)),
+    );
+    const memory = state.players[1]!.ai!;
+    memory.attackers.push(...wave.map((unit) => unit.id));
+    for (const unit of wave) unit.task = { kind: 'attack', targetId: home.id, repathTicks: 0 };
+
+    let towerShot = false;
+    for (let i = 0; i < 2 * MINUTE && state.entities.includes(tower); i++) {
+      tick(state);
+      if (state.events.some((event) => event.type === 'shot' && event.sourceId === tower.id)) {
+        towerShot = true;
+      }
+    }
+    expect(state.entities).not.toContain(tower);
+    expect(towerShot).toBe(false);
+    for (const unit of wave) expect(unit.hp).toBe(UNIT_DEFS.ramkastare.hp);
+    // With the tower gone they go on to the main building.
+    advance(state, 10 * SECOND);
+    for (const unit of wave) {
+      expect(unit.task).toMatchObject({ kind: 'attack', targetId: home.id });
+    }
+  });
+});
+
 describe('computer against computer', () => {
   const play = (seed: number) => {
     const state = createGame(seed, undefined, undefined, { ai: [0, 1] });

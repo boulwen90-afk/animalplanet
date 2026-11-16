@@ -8,6 +8,7 @@ export const STRINGS = {
   units: {
     samlare: 'Samlare',
     ramkrigare: 'Ramkrigare',
+    ramkastare: 'Ramkastare',
   } satisfies Record<UnitType, string>,
   buildings: {
     storide: 'Storide',
@@ -18,6 +19,7 @@ export const STRINGS = {
     fiskehytta: 'Fiskehytta',
     vakttorn: 'Vakttorn',
     smedja: 'Smedja',
+    kastbana: 'Kastbana',
   } satisfies Record<BuildingType, string>,
   /** The tabs of the build menu. */
   menus: {
@@ -34,6 +36,7 @@ export const STRINGS = {
     fiskehytta: 'Vid vatten, 3 Samlare',
     vakttorn: 'Skjuter på fiender',
     smedja: 'Uppgraderar enheter',
+    kastbana: 'Tränar Ramkastare',
   } satisfies Record<BuildingType, string>,
   /** The upgrades worked out at a Smedja: their names, and what a level of each gives. */
   upgrades: {
@@ -42,7 +45,7 @@ export const STRINGS = {
     gathering: 'Verktyg',
   } satisfies Record<UpgradeType, string>,
   upgradeInfo: {
-    weapons: (bonus: number) => `+${bonus} skada, krigare`,
+    weapons: (bonus: number) => `+${bonus} skada, soldater`,
     armor: (bonus: number) => `+${bonus} rustning, alla`,
     gathering: (bonus: number) => `+${Math.round(bonus * 100)} % fart, Samlare`,
   } satisfies Record<UpgradeType, (bonus: number) => string>,
@@ -50,6 +53,7 @@ export const STRINGS = {
   unitInfo: {
     samlare: 'Samlar och bygger',
     ramkrigare: 'Slåss i närstrid',
+    ramkastare: 'Kastar spjut på avstånd',
   } satisfies Record<UnitType, string>,
   resources: {
     food: 'Mat',
@@ -102,6 +106,10 @@ export const STRINGS = {
     upgradeReady: (name: string) => `${name} är klar`,
     /** What a unit can do, with its side's upgrades: under its life in the selection panel. */
     statDamage: (damage: number) => `Skada ${damage}`,
+    /** For a unit that fights from a distance: its throw, how far it reaches in tiles, and its strike at close quarters. */
+    statThrow: (damage: number) => `Kast ${damage}`,
+    statRange: (range: number) => `Räckvidd ${range}`,
+    statStrike: (damage: number) => `Slag ${damage}`,
     statArmor: (armor: number) => `Rustning ${armor}`,
     statGather: (perSecond: string) => `Samlar ${perSecond}/s`,
     /** After a value that an upgrade has raised: by how much. */

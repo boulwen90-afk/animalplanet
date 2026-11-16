@@ -238,6 +238,14 @@ describe('describeStats', () => {
     expect(stats(state, worker.id)).toBe('Samlar 1,4/s (+40 %) · Rustning 1 (+1)');
   });
 
+  it('shows what a thrower does: its throw, how far it reaches, its strike and its armour', () => {
+    const state = openState(8, 8);
+    const thrower = createUnit(state, 'ramkastare', 0, 2, 2);
+    expect(stats(state, thrower.id)).toBe('Kast 8 · Räckvidd 7 · Slag 3 · Rustning 0');
+    state.players[0]!.upgrades = { weapons: 1, armor: 2, gathering: 0 };
+    expect(stats(state, thrower.id)).toBe('Kast 10 (+2) · Räckvidd 7 · Slag 5 · Rustning 2 (+2)');
+  });
+
   it('shows nothing for a building, several units, an enemy unit or one that has surrendered', () => {
     const state = openState(8, 8);
     const a = createUnit(state, 'ramkrigare', 0, 2, 2);

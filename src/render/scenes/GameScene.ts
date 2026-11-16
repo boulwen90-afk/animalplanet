@@ -54,7 +54,7 @@ import { SceneryLibrary } from '../scenery/SceneryLibrary';
 import { MapView } from '../views/MapView';
 import { PLAYER_COLORS } from '../views/visuals';
 import { PlacementView } from '../views/PlacementView';
-import { ProjectileView } from '../views/ProjectileView';
+import { ProjectileView, landHeight } from '../views/ProjectileView';
 import { SelectionView } from '../views/SelectionView';
 import { restartGame } from '../session';
 import type { HudButton, HudButtonId, HudSource, ResourceBarInfo, UiScene } from './UiScene';
@@ -325,7 +325,8 @@ export class GameScene extends Scene implements HudSource {
         // What lands out of sight is not shown.
         if (isTileVisible(state, LOCAL_PLAYER, Math.floor(event.x), Math.floor(event.y))) {
           this.entityView.flash(event.targetId);
-          this.projectileView.showHit(event.x, event.y);
+          const target = state.entities.find((entity) => entity.id === event.targetId);
+          this.projectileView.showHit(event.x, event.y, landHeight(target));
         }
         break;
       case 'upgradeDone':
