@@ -358,3 +358,263 @@ Uppskjuten till efter steg 5. Användarens beställning, efter mätningarna:
 som håller ut (`levels.test.ts`, `balance.test.ts`), webbläsartester för
 valet på startskärmen (`difficulty.spec.ts`), och matcher utan webbläsare
 där nivåerna möter varandra. Se `progress.md`.
+
+## Multiplayer för två spelare via lockstep (förslag 2026-11-16, väntar på godkännande)
+
+Ingenting av det här är byggt. Användaren bad om en undersökning och en
+plan; planen genomförs först när den är godkänd, en fas i taget.
+
+Principen: båda spelarna kör samma simulering, och **bara order skickas**
+mellan dem. Då måste samma frö och samma order ge samma spel, steg för
+steg, på båda enheterna.
+
+### Vad undersökningen visade
+
+Hela underlaget står i `progress.md` (2026-11-16, "Undersökning inför
+multiplayer").
+
+**Håller redan**
+
+- Samma frö och samma inspelade order ger samma spel: 16 matcher på
+  sammanlagt 636 957 steg jämförda steg för steg med en kontrollsumma av
+  hela spelläget, utan en enda skillnad (`src/sim/determinism.test.ts`).
+- Simuleringen använder ingen slump efter att kartan är skapad, ingen
+  klocka och inget globalt tillstånd utanför spelläget.
+- All spelarpåverkan under en match går genom `applyCommand` med ett
+  enda orderformat, som är ren data och tål att skickas som JSON.
+- Spelläget går att spara som JSON och ladda igen mitt i en match utan
+  att spelet ändras (184 KB med 400 enheter, 21 KB komprimerat).
+- Simuleringen går i fasta steg om 50 ms, oberoende av bildfrekvensen,
+  och grafiken ändrar aldrig spelläget.
+
+**Måste ändras**
+
+- `Math.hypot`, `Math.sin`, `Math.cos` och `Math.atan2` i simuleringen.
+  Deras sista decimal får skilja mellan webbläsarmotorer, och då glider
+  spelen isär mellan t.ex. Chrome och Safari. Inte kunnat prövas här,
+  där bara Chromium finns.
+- Order utförs i dag i samma ögonblick som spelaren ger dem. De måste
+  gå genom en kö och utföras i ett bestämt steg hos båda.
+- Gränssnittet väntar sig svaret på en order direkt (t.ex. "för lite
+  mat"). Med en kö kommer svaret senare.
+- Vilken sida som är "jag" är hårdkodad till sida 0 i `GameScene`.
+- Prestandan i värsta fall: när 400 enheter söker ny väg i samma steg
+  tar steget 163 ms på testmaskinen, mot en budget på 50 ms.
+
+### Förbindelsen: två alternativ
+
+Båda är nya körtidsberoenden och kräver användarens godkännande
+(CLAUDE.md). Sidan ligger på GitHub Pages, så ingen egen server finns.
+Uppgifterna kommer från bibliotekens källkod och Supabases dokumentation,
+lästa 2026-11-16; det som inte gick att bekräfta står sist.
+
+| | A. WebRTC med PeerJS | B. Supabase Realtime (Broadcast) |
+|---|---|---|
+| Väg | Direkt mellan spelarna när det går | Via Supabases servrar |
+| Fördröjning | Lägst: bara nätet mellan spelarna | Två hopp. Supabases egen mätning: 6 ms i median inne i tjänsten, plus spelarnas nät |
+| Leverans | Säker och i ordning, om kanalen öppnas med `reliable: true` (förvalet är oordnat) | Inte garanterad, ingen uttalad ordning: vi får själva numrera och skicka om |
+| Brandväggar och mobilnät | Omkring en femtedel av alla par behöver en relä (TURN). PeerJS har en gratis relä förinställd, utan utfästelser | Fungerar där WebSocket fungerar |
+| Tjänster vi blir beroende av | PeerJS gratis signalserver och relä, utan utfästelser om drift. Egen server kräver Node, alltså inte GitHub Pages | Ett Supabase-projekt. Gratisnivån pausas efter 7 dagar utan databasaktivitet och måste då startas för hand |
+| Kvoter | Inga | Gratis: 100 meddelanden/s och 2 miljoner/månad för hela projektet. Ett meddelande räknas en gång när det skickas och en gång per mottagare |
+| Vad kvoten räcker till | – | Med en tur var 200:e ms: 20 räknade meddelanden/s per match, alltså 5 matcher samtidigt och omkring 27 matchtimmar i månaden |
+| Återanslutning | Biblioteket återansluter bara till signalservern; förbindelsen mellan spelarna får vi bygga upp på nytt själva | Klienten ansluter och går in i kanalen igen av sig själv. Det som skickades under tiden är borta |
+| Lobby | Rumskoden blir den ena spelarens id hos signalservern | Rumskoden blir kanalens namn; närvaro (Presence) visar vem som är där |
+| Storlek | 24 KB komprimerat | 17 KB med bara `@supabase/realtime-js` (59 KB med hela klienten) |
+| Underhåll | Senaste version juni 2025, nästan bara beroendeuppdateringar, 184 öppna ärenden | Aktivt, del av en betaltjänst |
+| Säkerhet | Den som kan rumskoden kan ansluta | Den som kan rumskoden och den publika nyckeln kan skicka i kanalen |
+
+**Rekommendation: B, Supabase Realtime, bakom ett eget gränssnitt så att
+A kan läggas till senare.** Skälen:
+
+1. Att få kontakt är det som oftast går fel i ett spel mellan två
+   personer, och där är B förutsägbart: det är en vanlig WebSocket till
+   en känd adress. A beror på båda spelarnas nätverk och på en gratis
+   relä som ingen lovar något om.
+2. Lobby, närvaro och återanslutning blir enklare: båda går in i samma
+   kanal med samma rumskod, också efter ett avbrott.
+3. Det som B saknar, säker leverans i ordning, måste lockstep ändå
+   hantera: varje tur numreras, och varje meddelande bär också de
+   senaste turernas order, så att ett tappat meddelande inte stoppar
+   spelet.
+
+Vad B kostar: fördröjningen genom en server, kvoterna, och att
+gratisprojektet pausas om ingen använder databasen på en vecka. Det
+sista behöver en lösning innan spelet lämnas åt sig självt: ett
+schemalagt jobb som rör databasen, eller betalnivån.
+
+**Innan valet är slutgiltigt** bör båda prövas en kväll från två riktiga
+enheter, varav en telefon på mobilnät (fas M3). Faserna M0–M2 är
+desamma vilket som väljs.
+
+### Faser
+
+Varje fas är en egen pull request och avslutas som vanligt: tester
+gröna, inga konsolfel, skärmdump, uppdaterad minnesbank, och en lista
+över det som saknas eller avviker. Storleken är en uppskattning i
+arbetspass av den längd som stegen i "björnrasen komplett" tog.
+
+**M0 – Samma resultat i alla webbläsare** (litet, ett halvt pass)
+
+1. Byt `Math.hypot(a, b)` mot `Math.sqrt(a * a + b * b)` i simuleringen
+   (sex ställen, bl.a. `tileDistance` och `moveUnit`). Kvadratroten och
+   de fyra räknesätten är exakt bestämda av standarden; `hypot` är det
+   inte.
+2. Byt `Math.sin` och `Math.cos` i `separateUnits` (riktningen för två
+   enheter på exakt samma punkt) mot en tabell med fasta riktningar, och
+   `atan2`, `sin` och `cos` i datorspelarens `towerSpot` mot räkning med
+   vektorer.
+3. En ESLint-regel som förbjuder `Math.hypot`, `sin`, `cos`, `tan`,
+   `atan2`, `pow`, `exp`, `log`, `Math.random` och `Date` i `src/sim/`.
+4. Flytta kontrollsumman från testet till `src/sim/checksum.ts`.
+5. Kör determinismtestet i Firefox och WebKit i CI och jämför
+   kontrollsummorna med Chromiums.
+
+**Test:** determinismtestet grönt; samma kontrollsummor i tre motorer;
+balanstesterna körs om, eftersom sista decimalen i avstånd ändras och
+matcherna därmed kan gå annorlunda.
+
+**M1 – Orderkö och turer, utan nätverk** (medel, ett till två pass)
+
+1. `src/sim/lockstep.ts`, ren logik: spelet delas i turer om 4 steg
+   (200 ms). En order som ges under tur T utförs i början av tur T + 2
+   (400 ms senare). En tur körs först när båda spelarnas order för den
+   har kommit. Order utförs i fast ordning: sida 0 före sida 1, och
+   varje sidas i den ordning de gavs. Värdena läggs i `src/data/`.
+2. All inmatning går genom en enda `issue(order)` i stället för de sex
+   ställen som i dag anropar `applyCommand`. Spel mot datorn går genom
+   samma kö med fördröjningen 0, så att det finns en väg, inte två.
+3. Gränssnittet får svar på två sätt: en förhandskontroll direkt
+   (`checkCommand`, som inte ändrar något) och det verkliga utfallet som
+   en händelse när ordern utförs.
+4. Vilken sida spelaren har blir en inställning i stället för en
+   konstant.
+
+**Test:** två spel i samma process, kopplade med en förbindelse i minnet
+som fördröjer, kastar om och tappar meddelanden, håller samma
+kontrollsumma i varje tur. Alla befintliga tester gröna utan ändring i
+spel mot datorn. Mätbart: en order syns hos båda 400 ms efter att den
+gavs, ±50 ms.
+
+**M2 – Kontrollsummor som upptäcker att spelen glider isär** (litet, ett
+halvt pass)
+
+1. Var 20:e steg (en gång i sekunden) skickar varje spelare
+   kontrollsumman för sitt spelläge med turens meddelande. En
+   kontrollsumma tar 0,4 ms med 400 enheter.
+2. Skiljer de sig stannar båda spelen och visar "Spelen har glidit
+   isär". Rummets värd skickar sitt spelläge (21 KB komprimerat med 400
+   enheter), gästen laddar det, och spelet fortsätter.
+3. I utvecklingsläge skrivs var lägena först skiljer sig.
+
+**Test:** ett fel som läggs in med flit hos den ena spelaren upptäcks
+inom en sekund; efter omsynkningen är kontrollsummorna lika igen.
+
+**M3 – Förbindelse och lobby med rumskod** (medel, ett till två pass)
+
+1. Ett gränssnitt `Transport` (skicka, ta emot, motspelaren kom eller
+   försvann) med tre utföranden: i minnet för enhetstester, mellan två
+   flikar i samma webbläsare för webbläsartester, och den valda tjänsten.
+2. Startskärmen får "Spela mot datorn", "Skapa rum" och "Gå med i rum".
+   Rumskoden är fem tecken ur ett alfabet utan förväxlingsbara tecken
+   (inget 0, O, 1 eller I) och går också att dela som länk (`?room=`).
+3. Värden bestämmer fröet och skickar det tillsammans med spelets
+   version. Har spelarna olika version startar inte matchen. Värden är
+   sida 0 och gästen sida 1. Ingen datorspelare.
+4. Fördröjningen mäts när spelarna har fått kontakt, och antalet turers
+   fördröjning väljs efter den.
+
+**Test:** två flikar i Playwright skapar och går med i ett rum och
+spelar en match i takt. Den riktiga tjänsten prövas av användaren på två
+enheter, och här om nätverket tillåter det.
+
+**M4 – Väntan, paus, återanslutning och vinst när någon försvinner**
+(medel, ett till två pass)
+
+1. Saknas motspelarens order när en tur ska köras väntar simuleringen.
+   Efter 0,5 s visas "Väntar på motspelaren…". Bilden fortsätter ritas.
+2. Efter 10 s utan livstecken: "Motspelaren har tappat förbindelsen" med
+   en nedräkning från 60 s. När den är slut kan den som är kvar ta
+   segern eller vänta vidare.
+3. Paus är en order som alla andra och gäller därför i samma tur hos
+   båda. Varje spelare får pausa tre gånger per match, högst 60 s åt
+   gången.
+4. Den som lämnar (knapp, eller stänger fliken) skickar ett avsked, och
+   motspelaren vinner direkt. Kommer inget avsked gäller punkt 2.
+5. Återanslutning: samma rumskod och ett id som sparas i fliken. Den som
+   är kvar skickar sitt spelläge och de order som kommit sedan dess; den
+   som återvänder spelar ikapp utan att rita och är sedan med igen. Att
+   ladda om sidan går samma väg.
+
+**Test:** förbindelsen i minnet bryts i 5 s och båda fortsätter i takt;
+den bryts i 70 s och den som är kvar kan ta segern; den ena spelaren
+stängs och återvänder, och kontrollsummorna är lika efteråt.
+
+**M5 – Avslutning** (litet, ett halvt pass)
+
+Returmatch från slutskärmen, den långsammaste enhetens takt visas när
+den håller tillbaka spelet, och avstämning mot den här planen.
+
+### Prestanda med 400 enheter
+
+Mätt på testmaskinen (en kärna, Intel Xeon 2,3 GHz), utan ritning. Ett
+steg har 50 ms på sig.
+
+| Läge | 100 enheter | 200 | 400 | Dyrast |
+|---|---|---|---|---|
+| Stillastående | 0,5 ms (1 %) | 0,9 ms (2 %) | 1,9 ms (4 %) | Sikten, 83 % |
+| Samlande | 0,8 ms (2 %) | 1,5 ms (3 %) | 2,6 ms (5 %) | Sikten 61 %, samlandet 22 % |
+| Strid, arméerna möts på mitten | 1,6 ms (3 %), längst 4 | 2,2 ms (4 %), längst 9 | 4,1 ms (8 %), längst 19 | Striden 69 %, sikten 24 % |
+| Strid, alla får var sitt mål i samma steg | 3,9 ms (8 %), längst 42 | 8,4 ms (17 %), längst 88 | 17,4 ms (35 %), längst 163 | Striden 84 %: vägsökning |
+
+Dessutom, per order: en förflyttningsorder för 200 enheter tvärs över
+kartan tar 16 ms, och hundra små samlarorder i samma steg 208 ms (2 ms
+styck, det mesta för att kartans hinder räknas ut på nytt för varje
+order).
+
+**Slutsats.** Vanligt spel ryms med god marginal också på en enhet som
+är flera gånger långsammare. Det som inte håller är när många enheter
+söker väg i samma steg: redan på testmaskinen tar ett sådant steg tre
+gånger budgeten, och det upprepas var tionde steg så länge de jagar sina
+mål. Hur mycket långsammare en telefon eller en Raspberry Pi är har jag
+inte kunnat mäta; `?stress=400` visar det.
+
+**Åtgärder**, i den ordning de ger mest för minst arbete. Alla är rena
+ändringar i `src/sim/` och ändrar inte reglerna, men P1 och P2 ändrar
+vilket steg en enhet söker väg i, och därmed hur en match utvecklar sig.
+
+| | Åtgärd | Väntad verkan | Arbete |
+|---|---|---|---|
+| P1 | Sprid ut omsökningen: enheter söker ny väg i olika steg (efter sitt id), och högst ett bestämt antal sökningar görs per steg; resten väntar i en kö i id-ordning | Det längsta steget från 163 ms till omkring 20 ms | Litet |
+| P2 | Sök inte om när målet står kvar på samma ruta och vägen fortfarande är fri | Medelsteget under jakt från 17 ms till några få | Litet |
+| P3 | Räkna om sikten bara för enheter som har bytt ruta, eller vartannat steg | Stillastående och samlande: från 1,9–2,6 ms till under 1 ms | Litet till medel |
+| P4 | Räkna ut kartans hinder en gång per steg i stället för en gång per order och system; kasta bort uträkningen när en byggnad kommer eller försvinner | En order från 2 ms till en bråkdel; hundra order i ett steg från 208 ms till omkring 20 | Litet till medel; risken är en uträkning som inte kastas bort i tid |
+| P5 | Slå upp enheter på id i en tabell som görs en gång per steg, i stället för att leta i listan för varje enhet | Några procent av striden | Litet |
+| P6 | Leta närmaste fiende bland enheterna på rutorna intill, som kollisionen redan gör, i stället för bland alla | Märks först med många stillastående soldater | Litet till medel |
+| P7 | Gruppförflyttning: en väg för hela gruppen i stället för en per enhet | 16 ms per order blir någon ms. Behövs inte om P1 och P4 räcker | Medel till stort |
+
+Rumslig indelning för kollisioner, som nämndes i uppdraget, finns redan:
+`separateUnits` jämför bara enheter på samma och angränsande rutor, och
+kollisionen är 3–8 % av ett steg i strid och högst 19 % när
+en hel armé marscherar.
+
+Förslag: P1–P4 görs som en egen fas mellan M1 och M3, efter att
+användaren har mätt med `?stress=400` på telefon och Raspberry Pi.
+Tillsammans ungefär ett arbetspass. P5–P7 bara om mätningen visar att
+det behövs.
+
+### Inte kontrollerat
+
+- Att spelet ger samma resultat i Safari och Firefox som i Chromium. Här
+  finns bara Chromium.
+- Hur lång tid ett steg tar på en telefon och på en Raspberry Pi.
+- Att PeerJS gratis signalserver och relä fungerar i dag, och hur ofta
+  två spelare behöver relän.
+- Om Supabase Broadcast levererar i ordning, hur snabbt närvaron märker
+  en tappad spelare, och om trafik i enbart Realtime hindrar att ett
+  gratisprojekt pausas.
+- Hur någon av tjänsterna beter sig när en telefon lägger fliken i
+  bakgrunden.
+- Ingen av tjänsterna har anropats från den här miljön; uppgifterna om
+  dem är lästa, inte prövade. Flera av PeerJS och Cloudflares sidor gick
+  inte att öppna härifrån, och de uppgifterna kommer från bibliotekets
+  källkod och från sökresultat.

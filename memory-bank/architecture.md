@@ -81,7 +81,9 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/pathfinding/astar.ts` | `findPath` (A*), `pathTowards`, `pathCost`, `nearestReachable`, `reachableTiles`, `canStep`, typen `PathGrid` | 3, 4 |
 | `src/sim/pathfinding/passability.ts` | `buildPathGrid` (gångbara rutor just nu, för en sida), `PathGrids` (ett rutnät per sida), `buildBreachGrid` och `nearestFreeTiles` | 3 |
 | `src/sim/testUtils.ts` | Små kartor från teckenrader, för enhetstester | 3 |
-| `src/sim/clock.ts` | Fast tidssteg: gör om bildrutetid till ett helt antal steg | 2 |
+| `src/sim/clock.ts` | Fast tidssteg: gör om bildrutetid till ett helt antal steg. `StepTimes`: hur lång tid stegen tog, mätt av den som kör dem | 2 |
+| `src/sim/stress.ts` | Stresskörningar: `stressUnits` (extra enheter delade på båda sidor) och `startStress` (deras första order) i lägena `still`, `gather` och `fight` | Efter MVP |
+| `src/sim/determinism.test.ts` | Samma frö och samma inspelade order ger samma spel, steg för steg: kontrollsumma av hela spelläget efter varje steg | Efter MVP |
 | `src/sim/rng.ts` | Frösatt slumpgenerator (mulberry32) och `parseSeed` | 2 |
 | `src/sim/map/iso.ts` | Isometrisk matematik: ruta ↔ världspixlar, begränsning till kartan | 1 |
 | `src/sim/map/grid.ts` | Typerna `GameMap` och `Cave`, rutuppslag, gångbarhet, spegling, avstånd, `isReachable` | 2, 7 |
@@ -877,6 +879,42 @@ händelserna efter varje steg. Simuleringen själv använder dem inte.
 `nextFloat`, `nextInt` och `pick` tar generatorn som argument. All slump i
 `sim/` ska gå den vägen.
 
+Slumpen används bara när spelet skapas (kartan och startplatserna).
+Under en match drar simuleringen inga slumptal alls.
+
+### Determinism (`determinism.test.ts`, undersökt 2026-11-16)
+
+Inför multiplayer via lockstep, där bara order skickas mellan spelarna,
+måste samma frö och samma order ge samma spel i varje steg.
+
+- **Testet** spelar in en matchs order och spelar upp dem i två spel
+  samtidigt, och jämför en kontrollsumma av hela spelläget efter varje
+  steg. Ordern kommer dels från två datorspelare (fångade på väg in i
+  `applyCommand`), dels från två skriptade spelare som ger alla tolv
+  slag av order, också sådana som avvisas. Det ena uppspelade spelet
+  sparas och laddas som JSON var tionde sekund och får samma frågor som
+  bilden ställer (`lookAround`); det andra spelas rakt igenom.
+  Uppspelningen jämförs också med den inspelade matchen, och varje order
+  ska ge samma svar som när den spelades in.
+- **Kontrollsumman** (`checksum` i testet) går igenom hela spelläget och
+  tar med varje tal bit för bit, så att en skillnad i sista decimalen
+  syns. Vid en skillnad säger `firstDifference` var.
+- Testet är skalbart: `DETERMINISM_SEEDS=1,2,3` och
+  `DETERMINISM_MINUTES=40`. Förvalt är två frön och åtta minuter.
+- **Kända risker mellan webbläsarmotorer**, inte åtgärdade:
+  `Math.hypot` (i `tileDistance`, `moveUnit`, `separateUnits`,
+  `shootFromBuildings` och `gathering.ts`), `Math.sin` och `Math.cos` (i
+  `separateUnits`, för två enheter på exakt samma punkt) och
+  `Math.atan2`, `sin` och `cos` i datorspelarens `towerSpot`. Standarden
+  bestämmer inte deras sista decimal. I V8 ger `Math.hypot(a, b)` ett
+  annat tal än `Math.sqrt(a * a + b * b)` för 38 % av två miljoner
+  slumpade par, vilket visar att resultatet beror på hur motorn räknar.
+- **Det som inte går genom order:** `createGame` med sina val (frö,
+  dimma, datorspelare, svårighetsgrad, extra enheter), `setDifficulty`
+  före första steget, och testgränssnittets `spawnUnit` och `setLife`.
+  Allt annat som ändrar spelläget under en match är `applyCommand` och
+  `tick`.
+
 ### Kartgenerering (`generateMap`)
 
 1. Startplatserna kontrolleras: exakt två, punktspeglade, minst
@@ -1378,10 +1416,17 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
   bort när spelet startar. Den texten ligger i HTML-filen och inte i
   `strings.ts`, eftersom den måste finnas före koden.
 - **Räknare och stresstart.** Med `?debug=1` skriver `UiScene` antal
-  bilder per sekund (räknade under 500 ms, inte Phasers utjämnade värde)
-  och antal enheter under resursraden. `?stress=N` låter `createGame`
-  ställa ut N extra Samlare (`extraUnits`), och spelscenen skickar dem i
-  arbete med vanliga kommandon.
+  bilder per sekund (räknade under 500 ms, inte Phasers utjämnade värde),
+  antal enheter och **tiden för ett simuleringssteg** under resursraden,
+  t.ex. "58 bilder/s · 406 enheter · steg 2,1 ms (längst 9,4)".
+  `GameScene.runSteps` mäter bara anropet till `tick`, inte vad bilden
+  gör med resultatet (`recordStep` i `sim/clock.ts`; klockan läses i
+  `render`, aldrig i `sim`). Det första talet är medelvärdet sedan
+  förra utskriften, det andra det längsta steget under de senaste 10–20
+  sekunderna (två fönster om 200 steg). `?stress=N` låter `createGame`
+  ställa ut N extra enheter (`extraUnits`, `stressUnits`), hälften till
+  varje sida, och `startStress` ger dem deras första order med vanliga
+  kommandon.
 - **`MapView`** ritar kartan från `state.map`, med bilder ur miljöns
   atlas (`SceneryLibrary`). Vilken bild en ruta får avgörs av rena
   funktioner i `scenery/scenery.ts`:
@@ -2027,14 +2072,27 @@ URL-parametrar:
   tillsammans med `?test=1`. `openGame` i `tests/e2e/helpers.ts` lägger
   till den om testet inte ber om startskärmen
   (`openGame(page, '', { startScreen: true })`).
-- `?debug=1` – visar en räknare under resursraden: bilder per sekund och
-  antal enheter, uppdaterad två gånger per sekund. Fungerar utan
-  `?test=1`, så att den kan användas på den publicerade sidan.
-- `?stress=N` – matchen börjar med N extra Samlare (högst 500) hos
-  spelaren, på de lediga rutorna närmast Storiden. Varannan skickas att
-  hugga ved och resten att plocka bär vid närmaste källa; de som inte får
-  en arbetsplats inom sökradien står kvar. Slår även på räknaren. Fungerar
-  utan `?test=1`. Befolkningstaket gäller inte de extra enheterna.
+- `?debug=1` – visar en räknare under resursraden: bilder per sekund,
+  antal enheter och tiden för ett simuleringssteg i millisekunder
+  (medel, och det längsta på senare tid), uppdaterad två gånger per
+  sekund. Fungerar utan `?test=1`, så att den kan användas på den
+  publicerade sidan.
+- `?stress=N` – matchen börjar med N extra enheter (högst 500), **hälften
+  till varje sida**, på de lediga rutorna närmast varje Storide, och
+  **utan datorspelare**. `?stress=400` ger alltså 200 per sida, som i en
+  fullsatt match mellan två spelare (406 med de sex Samlarna från
+  början). Slår även på räknaren. Fungerar utan `?test=1`.
+  Befolkningstaket gäller inte de extra enheterna. (Till och med
+  2026-11-16 fick spelaren alla N, och datorspelaren spelade.)
+- `?stressmode=still`, `gather` eller `fight` – vad stresskörningens
+  enheter gör. `gather` gäller när inget annat sägs.
+  - `still`: Samlare som står där de ställdes.
+  - `gather`: Samlare som samlar, vartannat lag trä och resten mat, så
+    många vid varje källa som får plats där, de närmaste källorna på
+    den egna kartsidan först. Med 400 får omkring 240 en plats; resten
+    står kvar.
+  - `fight`: soldater, var tredje en Ramkastare, som får en enda
+    förflyttningsorder per sida till kartans mitt och slåss där.
 
 I testläge finns dessutom `window.__TEST_LOADING__()` från första stund,
 innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
@@ -2059,7 +2117,7 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `getShakeCount()` | Antal skärmskakningar hittills |
 | `getFrameCount()` | Antal ritade bildrutor hittills. Med en klocka ger det bildfrekvensen |
 | `getUnitSprite(id)` | Hur en enhet som ritas som figur ser ut just nu: `animation`, `direction`, `frame` (bildrutans namn), `texture`, `load` (bildrutan för lasten som ritas ovanpå, eller `null`) och `behindBuilding` (om den står bakom en byggnad och ritas svagt ovanpå den). `null` för platshållare |
-| `getDebug()` | Vad räknaren från `?debug=1` visar: `visible`, `text` och `fps` |
+| `getDebug()` | Vad räknaren från `?debug=1` visar: `visible`, `text` (bilder per sekund, antal enheter och stegtid) och `fps` |
 | `getNotice()` | Meddelandet som förklarar en nekad order, eller en tom sträng |
 | `getBuildingSprite(id)` | Hur en byggnad som ritas från bilder ser ut just nu: `frame` (`construction_1`, `construction_2` eller `complete`) och `texture`. `null` för platshållarblock |
 | `getBuildingProgress(id)` | Hur långt stapeln över en byggnad har kommit, 0–1: uppgraderingen den arbetar fram. `null` när ingen stapel ritas |

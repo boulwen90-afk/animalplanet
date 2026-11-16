@@ -10,10 +10,13 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   `implementation-plan.md`. Användaren har sett skärmdumpar efter varje
   steg. Alla fem är mergade (pull request 18, 19, 21, 22 och 23;
   byggmenyns flikar i pull request 20)
-- **Senaste ändring (2026-11-16):** balansen mot datorspelaren och tre
-  svårighetsgrader (Nybörjare, Medel, Proffs). Se "Efter MVP:n". Om
-  den senaste ändringen är mergad står i GitHub; den här raden säger det
-  inte, eftersom den skrivs innan det är avgjort
+- **Senaste ändring (2026-11-16):** undersökning inför multiplayer via
+  lockstep: ett determinismtest, `?stress=400` med tre lägen och en
+  mätare för stegtiden, och en plan sist i `implementation-plan.md`. Se
+  "Efter MVP:n". Om den senaste ändringen är mergad står i GitHub; den
+  här raden säger det inte, eftersom den skrivs innan det är avgjort
+- **Väntar på användarens godkännande:** planen för multiplayer. Inget
+  av den är byggt
 - **Godkänt av användaren 2026-11-16:** datorspelaren har 10 Samlare
   tills vidare ("Ja på allt"); den tredje fliken "Armé" i byggmenyn ("Ja
   på alla."); Ramkastarens pris 45 mat och 25 trä och 1,4 s mellan
@@ -22,8 +25,9 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   eller speltesta först; min tolkning är att värdena är godkända)
 - **Fortfarande förslag:** värdena i steg 3 (Smedjan), fem värden i steg
   4 och värdena i steg 5 (palissad och port)
-- **Står på tur:** inget är beställt. Nästa ras väntar på användarens
-  besked
+- **Mergat:** balansen mot datorspelaren och de tre svårighetsgraderna
+  (pull request 24)
+- **Står på tur:** multiplayer, fas M0, om planen godkänns
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare; björnkastaren kom med steg 4), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
@@ -36,8 +40,11 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   med bilder
 - **Beslutat men inte påbörjat:** skarp rendering i skärmens verkliga
   upplösning. Den står som egen punkt sist i `implementation-plan.md`
-- **Mäta på telefon:** `?debug=1` visar bilder per sekund, och
-  `?stress=120` startar en match med 120 extra Samlare
+- **Mäta på telefon:** `?debug=1` visar bilder per sekund och tiden för
+  ett simuleringssteg. `?stress=400` startar en match med 200 extra
+  enheter på varje sida, utan datorspelare, som samlar;
+  `&stressmode=still` låter dem stå och `&stressmode=fight` låter dem
+  slåss
 - **Publicering:** https://boulwen90-afk.github.io/animalplanet/ uppdateras
   vid varje merge till `main`. Att sidan visar spelet är inte kontrollerat
   från Claudes session, som inte når github.io
@@ -841,6 +848,222 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Undersökning inför multiplayer via lockstep (2026-11-16)
+
+Balansen och svårighetsgraderna (pull request 24) mergades först, efter
+grönt CI, och användaren godkände nivåernas värden ("Ja på båda").
+
+Användaren vill lägga till multiplayer för två spelare via lockstep, där
+bara order skickas mellan spelarna, och bad om en undersökning innan
+något byggs. Det enda som fick byggas var determinismtestet och
+`?stress=400`. Planen står som egen del sist i `implementation-plan.md`
+och **väntar på godkännande**.
+
+**Skärmdumpar:** `docs/screenshots/stress-400-strid.png` (`?stress=400&stressmode=fight`:
+två arméer som slåss på kartans mitt, räknaren visar "9 bilder/s · 352
+enheter · steg 8,0 ms (längst 17,3)") och `stress-400-samlar.png`
+(`?stress=400`: 406 enheter, 244 samlar). Bildfrekvensen i dem är
+testmiljöns, som ritar utan grafikkort.
+
+**1. Determinism: testet** (`src/sim/determinism.test.ts`)
+
+- En match spelas in: varje order med sitt steg, som ren data. Sedan
+  spelas ordern upp i två spel samtidigt, och en kontrollsumma av hela
+  spelläget jämförs efter varje steg. Det ena spelet sparas och laddas
+  som JSON var tionde sekund och får samma frågor som bilden ställer.
+  Uppspelningen jämförs också steg för steg med den inspelade matchen.
+- Order från två datorspelare (fångade på väg in i `applyCommand`), och
+  från två skriptade spelare som ger alla tolv slag av order.
+- **Lång körning** (åtta frön, upp till 40 minuter per match):
+  - Datorspelare: åtta matcher, 270 017 steg, 53 333 order. Ingen
+    skillnad. Fyra av matcherna var 40 minuter långa med Storiden som
+    inte kan rivas, så att båda sidor växte till full storlek.
+  - Skriptade spelare: åtta matcher, 366 940 steg, 58 914 order. Ingen
+    skillnad. Alla tolv slag av order gavs och utfördes i varje match;
+    ungefär hälften av ordern avvisades, vilket också ska gå likadant
+    varje gång. Sju matcher var 40 minuter; en tog slut efter 26.
+  - Sammanlagt 16 matcher, 636 957 steg och 112 247 order.
+- **I webbläsaren:** samma inspelade order spelades i den byggda sidan i
+  Chromium 153, med bilden igång, och gav samma spelläge som körningen i
+  Node 22: 180 jämförelser per frö över 15 minuter, två frön, alla lika.
+- Förvalt i CI är två frön och åtta minuter. Det tar omkring en minut.
+
+**2. Källor till skillnader mellan enheter**
+
+| Källa | Fynd |
+|---|---|
+| `Math.random` utanför den fröade slumpen | Finns inte i `src/sim/`. Slumpen används bara när kartan skapas; under en match dras inga slumptal |
+| `Date`, klockor | Finns inte i `src/sim/`. Stegtiden mäts i `render` |
+| Ordning i `Map`, `Set` och objekt | Används, men bara som tillfälliga tabeller inom ett steg, fyllda i en bestämd ordning. Språket garanterar insättningsordning. Inget sådant ligger i spelläget |
+| Sortering | Sorteringen är stabil enligt standarden: lika element behåller sin ordning, och den ordningen är bestämd av spelläget |
+| Flyttal | Positioner är flyttal. De fyra räknesätten och `Math.sqrt` är exakt bestämda och ger samma svar överallt |
+| **`Math.hypot`** | **Risk.** Används i `tileDistance`, `moveUnit`, `separateUnits`, `shootFromBuildings` och `gathering.ts`. Sista decimalen är inte bestämd av standarden. I V8 skiljer den sig från `Math.sqrt(a*a + b*b)` för 38 % av två miljoner prövade par |
+| **`Math.sin`, `Math.cos`** | **Risk.** I `separateUnits`, när två enheter står på exakt samma punkt |
+| **`Math.atan2`, `sin`, `cos`** | **Risk**, men bara i datorspelarens tornplacering, som inte är med i en match mellan två spelare |
+| Bildfrekvensberoende logik | Ingen i simuleringen. Se punkt 4 |
+| Grafiken påverkar simuleringen | Nej. `render` skriver aldrig i spelläget utom i testgränssnittet; det spel som fick bildens frågor i testet höll takten med det som inte fick dem |
+| Globalt tillstånd utanför spelläget | Inget i `src/sim/`. Ett sparat och laddat spel fortsätter likadant |
+| Olika versioner av spelet | Inte hanterat i dag; planen låter spelarna jämföra version innan matchen |
+
+De tre riskerna går inte att se i ett test som kör samma motor två
+gånger. De är hittade genom läsning och måste rättas innan två olika
+webbläsare spelar mot varandra (fas M0 i planen).
+
+**3. Orderformatet**
+
+- All spelarpåverkan under en match går genom `applyCommand(state,
+  command)` med tolv slag av order. En order är ren data: tal, text och
+  listor av id. Testet skickar varje order genom JSON innan den utförs.
+- Datorspelaren går samma väg, från inuti steget.
+- En order ger samma svar (utförd eller avvisad, och varför) varje gång
+  den spelas upp.
+- **Undantag**, alltså sådant som ändrar spelläget utan att vara en
+  order:
+  - `createGame` och dess val: frö, dimma, vilka sidor datorn spelar,
+    svårighetsgrad och extra enheter (`?stress`).
+  - `setDifficulty`, från startskärmen, före första steget.
+  - Testgränssnittets `spawnUnit` och `setLife`, bara med `?test=1`.
+- **Att ändra inför lockstep:**
+  - Ordern utförs i dag i samma ögonblick som den ges, mellan två steg,
+    från sex ställen i `render`. De måste gå genom en kö.
+  - Gränssnittet använder svaret direkt, till exempel för att blinka
+    rött vid "för lite mat".
+  - Vilken sida spelaren har är en konstant (`LOCAL_PLAYER`, 39 ställen
+    i `GameScene`).
+  - En order säger själv vilken spelare den kommer från; mottagaren
+    måste kontrollera det.
+
+**4. Fasta steg**
+
+- `consumeSteps` gör om tiden mellan två bildrutor till ett helt antal
+  steg om 50 ms och sparar resten. Simuleringen ser aldrig tiden.
+- Högst 5 steg körs per bildruta; tid därutöver kastas, så att en
+  långsam enhet går långsammare i stället för att frysa. I lockstep
+  måste i stället den snabbare spelaren vänta in den långsammare.
+- Testgränssnittets `advance` kör steg utan bildrutor, och ger samma
+  spel.
+
+**5. Prestanda** (ett steg, utan ritning; Intel Xeon 2,3 GHz, en kärna;
+budgeten är 50 ms)
+
+| Läge | 100 enheter | 200 | 400 | Dyrast |
+|---|---|---|---|---|
+| Stillastående | 0,5 ms (1 %) | 0,9 ms (2 %) | 1,9 ms (4 %) | Sikten 83 % |
+| Samlande | 0,8 ms (2 %) | 1,5 ms (3 %) | 2,6 ms (5 %) | Sikten 61 %, samlandet 22 % |
+| Strid: arméerna möts på mitten | 1,6 ms (3 %), längst 4 | 2,2 ms (4 %), längst 9 | 4,1 ms (8 %), längst 19 | Striden 69 %, sikten 24 % |
+| Strid: var enhet får sitt eget mål i samma steg | 3,9 ms (8 %), längst 42 | 8,4 ms (17 %), längst 88 | 17,4 ms (35 %), längst 163 | Striden 84 %: vägsökning |
+
+- I samlarläget samlar 77, 133 och 206 av enheterna; resten får ingen
+  plats vid en källa på sin kartsida och står stilla.
+- Det sista läget är det värsta jag kunde ställa till med: alla enheter
+  söker väg tvärs över kartan i samma steg, och sedan igen var tionde
+  steg, eftersom alla fick sin order samtidigt. Med 400 enheter tar
+  vart tionde steg 100–160 ms.
+- Order kostar också: en förflyttningsorder för 200 enheter tvärs över
+  kartan 16 ms, och hundra små samlarorder i samma steg 208 ms.
+- En kontrollsumma av hela spelläget med 400 enheter tar 0,4 ms. Hela
+  spelläget som JSON är 184 KB, komprimerat 21 KB.
+- Mätt två gånger med samma resultat inom några procent. Den andra
+  gången körde ett annat arbete på en annan kärna.
+
+**6. `?stress=400`**
+
+- `?stress=N` delar nu de extra enheterna på båda sidor, utan
+  datorspelare: `?stress=400` ger 200 per sida (406 med Samlarna från
+  början).
+- `?stressmode=still`, `gather` (förval) eller `fight`.
+- Räknaren visar tiden för ett simuleringssteg, skild från ritningen:
+  medelvärdet sedan förra utskriften och det längsta steget under de
+  senaste 10–20 sekunderna.
+- Adresser att mäta med, på den publicerade sidan:
+  - `?stress=400&stressmode=still`
+  - `?stress=400`
+  - `?stress=400&stressmode=fight`
+
+**7. Åtgärder om det inte håller**, och **8. planen**: se
+`implementation-plan.md`.
+
+**Saknas eller avviker**
+
+- **`?stress=N` betyder något annat än förut.** Förut fick spelaren alla
+  N Samlare och datorspelaren spelade. Nu delas de på båda sidor och
+  ingen datorspelare är med. `?stress=120` ger alltså 60 per sida. Det
+  befintliga testet är ändrat efter det.
+- **Jag byggde mer än en parameter:** tre lägen och en mätare för
+  stegtiden. Utan dem går de tre lägena i punkt 5 inte att mäta på en
+  telefon. Uppdraget sa "lägg till ?stress=400"; lägena och mätaren är
+  min tolkning av vad som behövs för det.
+- **Stresslägenas strid är inte det värsta fallet.** `fight` ger en
+  förflyttningsorder per sida, och enheterna hittar själva sina mål när
+  de möts. Det värsta fallet i punkt 5, där varje enhet får ett eget
+  mål i samma steg, går inte att starta från adressraden: med
+  krigsdimman på avvisas en attackorder mot något spelaren inte ser.
+- **Samlarläget får inte alla i arbete**: omkring 240 av 406.
+- **Striden tar slut.** När den ena armén har kapitulerat finns inget
+  kvar att mäta; sidan får laddas om.
+- **Testet ligger inte i `src/sim/checksum.ts`.** Kontrollsumman finns
+  bara i testfilen, eftersom inget annat fick byggas. Planen flyttar
+  den.
+- **De långa körningarna ingår inte i CI.** Där körs två frön i åtta
+  minuter.
+- **Inget är rättat.** Riskerna i punkt 2 och prestandan i punkt 5 är
+  rapporterade, inte åtgärdade.
+
+**Inte kontrollerat**
+
+- **Andra webbläsarmotorer.** Här finns bara Chromium. Att Safari och
+  Firefox ger samma spel är inte prövat, och riskerna i punkt 2 gäller
+  just dem.
+- **Andra processorer.** Allt är kört på x86. ARM (telefoner, Raspberry
+  Pi) ska ge samma svar för de räknesätt som används, men det är inte
+  prövat.
+- **Stegtiden på en telefon och på en Raspberry Pi.** Jag har inget
+  mått på hur mycket långsammare de är än testmaskinen.
+- **Bilden under uppspelningen i webbläsaren.** Bara ett fyrtiotal
+  bildrutor ritades under de 18 000 stegen, eftersom stegen kördes
+  utan att vänta på bilden.
+- **Ritningens kostnad med 400 enheter** på en riktig enhet. Testmiljön
+  ritar utan grafikkort och ger 8–15 bilder per sekund.
+- **PeerJS och Supabase Realtime** är inte anropade härifrån.
+  Uppgifterna är lästa i bibliotekens källkod och Supabases
+  dokumentation. Vad som inte gick att bekräfta står i planen.
+- **Order från en människa.** De inspelade ordern kommer från
+  datorspelare och från skript.
+
+**Testresultat**
+
+- Vitest: 935 av 935 (45 filer).
+- Playwright: 180 av 180 i normal fart och 180 av 180 på en åtta gånger
+  långsammare processor (`E2E_CPU_THROTTLE=8`).
+- Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
+  testerna eller när skärmdumparna togs.
+
+**Nya tester**
+
+- `src/sim/determinism.test.ts` (6 med förvalda frön).
+- `src/sim/stress.test.ts` (10): fördelningen på två sidor, de tre
+  lägena, och stegtidernas medel och längsta värde.
+- `src/sim/game.test.ts`: flera uppsättningar extra enheter.
+- `tests/e2e/loading-debug.spec.ts`: `?stress=400`, `?stressmode=`, och
+  stegtiden i räknaren.
+
+**Äldre tester som ändrades, och varför**
+
+- **`loading-debug.spec.ts`:** räknarens text har fått stegtiden, och
+  `?stress=120` ger 63 Samlare per sida i stället för 123 hos spelaren.
+
+**Beslut och lärdomar**
+
+- **Samma motor två gånger bevisar inte samma svar i två motorer.**
+  Testet visar att simuleringen inte har någon dold slump eller dolt
+  tillstånd. Skillnader mellan webbläsare måste hittas genom att läsa
+  koden, eller genom att köra i flera webbläsare.
+- **Prestandan avgörs av det värsta steget, inte av medelvärdet.** I
+  lockstep väntar båda spelarna på det långsammaste steget hos den
+  långsammaste enheten.
+- **Behållaren startades om** under den långa körningen. Det som var
+  klart låg i en loggfil; resten kördes om.
 
 ### Balansen mot datorspelaren och svårighetsgrader (2026-11-16)
 
