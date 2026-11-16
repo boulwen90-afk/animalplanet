@@ -154,6 +154,28 @@ describe('extra units for stress runs', () => {
     );
   });
 
+  it('takes several lots of extra units, for either side and of any type', () => {
+    const plain = createGame(1);
+    const state = createGame(1, undefined, undefined, {
+      extraUnits: [
+        { owner: 0, type: 'ramkrigare', count: 10 },
+        { owner: 1, type: 'ramkastare', count: 7 },
+        { owner: 1, type: 'samlare', count: 5 },
+      ],
+    });
+    const count = (owner: number, type: string) =>
+      units(state).filter((unit) => unit.owner === owner && unit.type === type).length;
+    expect(count(0, 'ramkrigare')).toBe(10);
+    expect(count(1, 'ramkastare')).toBe(7);
+    expect(count(1, 'samlare')).toBe(units(plain).filter((unit) => unit.owner === 1).length + 5);
+    const tiles = units(state).map((unit) => `${Math.floor(unit.x)},${Math.floor(unit.y)}`);
+    expect(new Set(tiles).size).toBe(units(state).length);
+    // An empty list is a normal game.
+    expect(createGame(1, undefined, undefined, { extraUnits: [] }).entities).toEqual(
+      plain.entities,
+    );
+  });
+
   it('gives the same game for the same seed', () => {
     const a = stressed(40);
     const b = stressed(40);

@@ -5,6 +5,7 @@ import { GameScene } from './render/scenes/GameScene';
 import { UiScene } from './render/scenes/UiScene';
 import { rememberedLevel, takeRestartRequest, toDifficulty } from './render/session';
 import { parseSeed } from './sim/rng';
+import { DEFAULT_STRESS_MODE, STRESS_MODES } from './sim/stress';
 import { installLoadingProbe } from './testing/testHooks';
 
 /** The most extra units ?stress=N gives. */
@@ -32,13 +33,27 @@ const difficulty =
 const restarted = takeRestartRequest();
 const startScreen = !restarted && !(testMode && params.get('start') === '0');
 
-// ?debug=1 shows how many frames a second the game draws.
-// ?stress=N starts the match with N extra Samlare, to measure how the game
-// runs with many units; it turns the frame counter on as well.
+// ?debug=1 shows how many frames a second the game draws and how long a
+// simulation step takes.
+// ?stress=N starts the match with N extra units, half to each side, and no
+// computer player, to measure how the game runs with many units; it turns
+// the counter on as well. ?stressmode= says what they do: still, gather
+// (when nothing is said) or fight.
 const stress = Math.min(STRESS_MAX, Math.max(0, Math.floor(Number(params.get('stress')) || 0)));
+const stressMode =
+  STRESS_MODES.find((mode) => mode === params.get('stressmode')) ?? DEFAULT_STRESS_MODE;
 const debug = params.get('debug') === '1' || stress > 0;
 
-const gameScene = new GameScene({ testMode, seed, fog, ai, difficulty, startScreen, stress });
+const gameScene = new GameScene({
+  testMode,
+  seed,
+  fog,
+  ai: ai && stress === 0,
+  difficulty,
+  startScreen,
+  stress,
+  stressMode,
+});
 const uiScene = new UiScene(gameScene, { debug });
 if (testMode) installLoadingProbe(() => uiScene.getLoadingDisplay());
 

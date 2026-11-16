@@ -28,10 +28,18 @@ export interface GameOptions {
   difficulty?: Difficulty;
   /**
    * Units a side has besides its starting ones, for measuring how the game
-   * runs with many units. They stand on the free tiles nearest its main
-   * building and do not count against the population cap when placed.
+   * runs with many units: one lot, or several. They stand on the free tiles
+   * nearest its main building and do not count against the population cap
+   * when placed.
    */
-  extraUnits?: { owner: PlayerId; type: UnitType; count: number };
+  extraUnits?: ExtraUnits | readonly ExtraUnits[];
+}
+
+/** A lot of extra units of one type for one side. */
+export interface ExtraUnits {
+  owner: PlayerId;
+  type: UnitType;
+  count: number;
 }
 
 const DEFAULT_AI_PLAYERS: readonly PlayerId[] = [1];
@@ -59,7 +67,8 @@ export function createGame(
     }
   }
   placeStartingEntities(state);
-  if (options.extraUnits) placeExtraUnits(state, options.extraUnits);
+  const extra = options.extraUnits ?? [];
+  for (const lot of 'owner' in extra ? [extra] : extra) placeExtraUnits(state, lot);
   updateVisibility(state);
   return state;
 }

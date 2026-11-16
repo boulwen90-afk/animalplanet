@@ -2,11 +2,17 @@ import { Scene } from 'phaser';
 import type { Difficulty } from '../../data/ai';
 import { CAMERA_CONFIG } from '../../data/camera';
 import { MAP_CONFIG, MAP_GEN_CONFIG } from '../../data/map';
-import { RESOURCE_TYPES } from '../../data/resources';
 import { STRINGS } from '../../data/strings';
 import { UI_CONFIG } from '../../data/ui';
 import { SIM_CONFIG, TICK_MS } from '../../data/sim';
-import { consumeSteps, createStepClock } from '../../sim/clock';
+import {
+  consumeSteps,
+  createStepClock,
+  createStepTimes,
+  recordStep,
+  takeStepTime,
+  type StepTime,
+} from '../../sim/clock';
 import { BUILDING_DEFS, BUILD_MENUS, type BuildMenu } from '../../data/buildings';
 import { applyCommand, type CommandResult } from '../../sim/commands';
 import {
@@ -19,6 +25,7 @@ import {
 } from '../../sim/entities';
 import { missingResources } from '../../sim/economy';
 import { createGame, setDifficulty } from '../../sim/game';
+import { startStress, stressUnits, type StressMode } from '../../sim/stress';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
 import { buildPathGrid } from '../../sim/pathfinding/passability';
 import type { Building, GameState, PlayerId, SimEvent } from '../../sim/state';
@@ -30,7 +37,6 @@ import {
   updateVisibility,
   visibleEntities,
 } from '../../sim/systems/visibility';
-import { resourceAt } from '../../sim/resources';
 import { tick } from '../../sim/tick';
 import { installTestApi, type TestApi } from '../../testing/testHooks';
 import { BuildingLibrary } from '../buildings/BuildingLibrary';
@@ -81,6 +87,8 @@ export interface GameSceneOptions {
    * runs with many units (set with ?stress=N). 0 for a normal match.
    */
   stress: number;
+  /** What the units of a stress run do (set with ?stressmode=). */
+  stressMode: StressMode;
 }
 
 /** The side the person at the screen plays. */
@@ -96,6 +104,7 @@ const OPPONENT: PlayerId = 1;
 export class GameScene extends Scene implements HudSource {
   private state: GameState | undefined;
   private readonly stepClock = createStepClock();
+  private readonly stepTimes = createStepTimes();
   private cameraController!: CameraController;
   private selectionController!: SelectionController;
   private placementController!: PlacementController;
@@ -152,12 +161,10 @@ export class GameScene extends Scene implements HudSource {
       fog: this.options.fog,
       ai: this.options.ai ? [OPPONENT] : [],
       difficulty: this.options.difficulty,
-      ...(stress > 0
-        ? { extraUnits: { owner: LOCAL_PLAYER, type: 'samlare', count: stress } }
-        : {}),
+      extraUnits: stressUnits(stress, this.options.stressMode),
     });
     this.state = state;
-    if (stress > 0) this.putToWork(state);
+    if (stress > 0) startStress(state, this.options.stressMode);
 
     const scenery = new SceneryLibrary(this, PLAYER_COLORS);
     this.mapView = new MapView(this, state.map, MAP_CONFIG, scenery);
@@ -308,7 +315,10 @@ export class GameScene extends Scene implements HudSource {
   /** Runs simulation steps one at a time, reacting to what happens in each. */
   private runSteps(state: GameState, steps: number): void {
     for (let i = 0; i < steps && state.winner === null; i++) {
+      // Only the step itself is timed: what the picture does with it is not.
+      const before = performance.now();
       tick(state);
+      recordStep(this.stepTimes, performance.now() - before);
       for (const event of state.events) this.onSimEvent(state, event);
     }
   }
@@ -399,36 +409,8 @@ export class GameScene extends Scene implements HudSource {
     return this.state?.entities.filter(isUnit).length ?? 0;
   }
 
-  /**
-   * Sends the player's workers to gather, every other one wood and the rest
-   * food, from the sources nearest the base. Used for stress runs, so that
-   * the many units move and work without the player having to order them.
-   */
-  private putToWork(state: GameState): void {
-    const home = state.entities.find(
-      (entity) => entity.kind === 'building' && entity.owner === LOCAL_PLAYER,
-    );
-    if (!home) return;
-    const workers = state.entities
-      .filter(isUnit)
-      .filter((unit) => unit.owner === LOCAL_PLAYER && unit.type === 'samlare');
-    for (const resource of RESOURCE_TYPES) {
-      let nearest: { x: number; y: number } | undefined;
-      let best = Infinity;
-      for (let y = 0; y < state.map.height; y++) {
-        for (let x = 0; x < state.map.width; x++) {
-          if (resourceAt(state.map, x, y) !== resource) continue;
-          const distance = Math.hypot(x - home.x, y - home.y);
-          if (distance < best) [nearest, best] = [{ x, y }, distance];
-        }
-      }
-      if (!nearest) continue;
-      const turn = RESOURCE_TYPES.indexOf(resource);
-      const unitIds = workers
-        .filter((_, index) => index % RESOURCE_TYPES.length === turn)
-        .map((unit) => unit.id);
-      applyCommand(state, { type: 'gather', player: LOCAL_PLAYER, unitIds, ...nearest });
-    }
+  takeStepTime(): StepTime {
+    return takeStepTime(this.stepTimes);
   }
 
   getDifficulty(): Difficulty {

@@ -5,6 +5,7 @@ import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
 import { POPULATION_CONFIG } from '../../data/population';
 import { STRINGS } from '../../data/strings';
 import { UI_CONFIG } from '../../data/ui';
+import type { StepTime } from '../../sim/clock';
 import type { CommandResult } from '../../sim/commands';
 import {
   commandPanelHit,
@@ -79,6 +80,8 @@ export interface HudSource {
   getLoadProgress(): number | undefined;
   /** How many units there are on the map. */
   getUnitCount(): number;
+  /** How long the simulation steps since the last call took. */
+  takeStepTime(): StepTime;
 }
 
 export interface UiSceneOptions {
@@ -718,7 +721,13 @@ export class UiScene extends Scene {
     this.debugFps = Math.round((this.debugFrames * 1000) / elapsed);
     this.debugFrames = 0;
     this.debugSince = time;
-    this.debugText.setText(STRINGS.debug.fps(this.debugFps, this.source.getUnitCount()));
+    const step = this.source.takeStepTime();
+    this.debugText.setText(
+      [
+        STRINGS.debug.fps(this.debugFps, this.source.getUnitCount()),
+        STRINGS.debug.step(step.averageMs, step.largestMs),
+      ].join(' · '),
+    );
   }
 
   private hideStartScreen(): void {
