@@ -214,9 +214,9 @@ justera efter att ha prövat; värdena ligger i `UNIT_DEFS.ramkastare`):
 
   | Möte | Vinner | Uppmätt i simuleringen |
   |---|---|---|
-  | Ramkastare mot Vakttorn | Ramkastaren | Den når 7 rutor från tornets kant, tornet 6 från sin mitt. Fyra river ett torn på 25–35 s utan att bli beskjutna en enda gång |
-  | Ramkrigare mot Ramkastare | Ramkrigaren | Den tar högst två spjut på vägen fram och vinner med minst 70 av 100 liv. Tre mot tre: alla Ramkastare kapitulerar, minst två Ramkrigare står kvar |
-  | Vakttorn mot Ramkrigare | Tornet | Två Ramkrigare som anfaller ett torn kapitulerar innan det faller |
+  | Ramkastare mot Vakttorn | Ramkastaren | Den når 7 rutor från tornets kant, tornet 6 från sin mitt. Fyra river ett torn på 27,8 s utan att bli beskjutna en enda gång |
+  | Ramkrigare mot Ramkastare | Ramkrigaren | Den tar två spjut på vägen fram och vinner med 80 av 100 liv. Tre mot tre: alla Ramkastare kapitulerar, alla tre Ramkrigare står kvar med 80 liv |
+  | Vakttorn mot Ramkrigare | Tornet | Två Ramkrigare som anfaller ett torn kapitulerar innan det faller; tornet har 60 av 500 liv kvar. Tre river det |
 
 - **En enhet som träffas av ett spjut svarar.** Står den sysslolös, kan
   den slåss på egen hand och ser den kastaren, så anfaller den kastaren.

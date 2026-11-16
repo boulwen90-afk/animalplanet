@@ -839,6 +839,211 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
 
 ## Efter MVP:n
 
+### Björnrasen komplett, steg 4: Kastbana och Ramkastare (2026-11-16)
+
+Steg 3, Smedjan (pull request 21), mergades först, efter grönt CI.
+Användaren godkände förslaget för steg 4 med "Ja": enheten heter
+**Ramkastare** och kastar tallspjut, byggnaden heter **Kastbana** (inte
+Skyttebana), kastaren slår svagt på nära håll, och värdena i tabellen
+nedan gäller som förslag att justera efter att ha prövat.
+
+**Skärmdumpar:** `docs/screenshots/kastbana-stadier.png` (Kastbanans tre
+byggstadier i spelet), `kastbana-tranar.png` (Kastbanan markerad:
+knappen "Träna Ramkastare / 50 mat, 40 trä / Kastar spjut på avstånd",
+kö och stapel, och en färdig Ramkastare framför), `kastare-vald.png`
+(markeringspanelen: "Kast 8 · Räckvidd 7 · Slag 3 · Rustning 0"),
+`kastare-kastar.png` (fyra blå Ramkastare kastar på två röda Ramkrigare:
+två spjut i luften, splitterstjärnor där de förra landade),
+`kastare-mot-torn.png` (fyra röda Ramkastare river spelarens Vakttorn
+utifrån; tornet är markerat, så dess räckviddsring syns, och kastarna
+står precis utanför den), `kastare-narstrid.png` (Ramkrigarna har kommit
+fram: kastarna stöter med spjuten), `kastbana-meny.png` och
+`kastbana-telefon.png` (fliken Försvar med fem knappar, på 1280 px och
+på en 390 px bred telefon), `kastare-pipeline.png` (figuren framifrån,
+från sidan, bakifrån och i båda lagfärgerna) och `kastbana-pipeline.png`
+(pipelinens bild av de tre stadierna).
+
+**Värden** i `UNIT_DEFS.ramkastare`, `BUILDING_DEFS.kastbana`,
+`AI_CONFIG.throwers` och `UI_CONFIG.projectile`
+
+| Värde | Förslag | Godkänt i förslaget? |
+|---|---|---|
+| Ramkastare, pris | 50 mat, 40 trä | Ja |
+| Träningstid | 20 s | Ja |
+| Liv / rustning | 60 / 0 | Ja |
+| Fart | 2,0 rutor/s | Ja |
+| Kast | 8 i skada, ett var 1,8:e sekund, räckvidd 7 rutor | Ja |
+| Slag på nära håll | 3 i skada | Ja |
+| Synfält | 8 rutor | Ja |
+| Kastbana | 130 trä, 30 s, 500 liv, 2×2 rutor, fliken Försvar | Ja |
+| Vapen I/II | +2 per nivå på kastet | Ja |
+| Tid mellan två slag på nära håll | 1,8 s | **Nej**, stod inte i förslaget |
+| Spjutets fart | 10 rutor/s (pilen: 12) | **Nej** |
+| Upptäcktsradie | 7 rutor, samma som räckvidden | **Nej** |
+| Kollisionsradie | 0,40 rutor (Ramkrigare 0,45) | **Nej** |
+| Kastbanans synfält | 5 rutor | **Nej** |
+| Datorspelarens Samlare | 10, varav 4 på trä (förut 8, varav 3) | **Nej**, se avvikelserna |
+| Datorspelarens andel kastare | 1 Ramkastare på 2 Ramkrigare | Ja |
+
+**Sten, sax, påse, uppmätt i simuleringen** (`throwing.test.ts`)
+
+| Möte | Resultat |
+|---|---|
+| 4 Ramkastare mot 1 Vakttorn | Tornet faller 27,8 s efter första kastet. Tornet skjuter inte en enda pil: kastarna står 7 rutor från dess kant, och det når 6 från sin mitt |
+| 1 Ramkrigare mot 1 Ramkastare, från 7 rutors håll | Ramkrigaren vinner efter 8,6 s med 80 av 100 liv. Den tar 2 spjut på vägen fram (14 liv) och 3 stötar (6 liv) |
+| 3 Ramkrigare mot 3 Ramkastare (180 mat + 75 trä mot 150 mat + 120 trä) | Alla tre Ramkastare kapitulerar; alla tre Ramkrigare står kvar med 80 liv var |
+| 2 Ramkrigare mot 1 Vakttorn | Båda kapitulerar; tornet står kvar med 60 av 500 liv. Tre Ramkrigare river det |
+
+**Avstämning mot uppdraget**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| Ny byggnad som tränar en distansenhet | Klar | Kastbana tränar Ramkastare |
+| Originellt namn och vapen som passar björnarna | Klar | Ramkastare med tallspjut; godkänt av användaren |
+| Svag i närstrid, stark på avstånd | Klar | Kast 8 från 7 rutor; slag 3; 60 liv och ingen rustning |
+| Ny figur i pipelinen med egna animationer | Klar | `bear_thrower`; `throw` och `jab` är nya i biblioteket |
+| Tydlig sten-sax-påse mot Ramkrigaren och tornet | Klar | Se tabellen ovan; fyra tester håller den |
+| Föreslå balansvärden | Klar | Godkända som förslag; sex värden tillkom, se tabellen |
+| Byggmenyn visar kostnad och beskrivning | Klar | "Bygg Kastbana / 130 trä / Tränar Ramkastare" |
+| Alla värden i datafilerna | Klar | |
+| Grafik via pipelinen enligt skalstandarden | Klar | Figuren klass `warrior` (35,2 px, som Ramkrigaren); byggnaden klass `small` (krav 64 px, taket 73 px) |
+| Datorspelaren bygger Kastbana och tränar kastare | Klar | Stod inte i uppdraget; ingick i det godkända förslaget |
+
+**Vad som gjordes**
+
+- **Data:** `UnitDef.ranged` (`RangedDef`), `UNIT_DEFS.ramkastare`,
+  `BUILDING_DEFS.kastbana`, `ProjectileKind`, `AttackDef.projectile`,
+  `AI_CONFIG.throwers`. Vapen och Rustning gäller Ramkastaren.
+- **Simulering:** kast i `systems/combat.ts` (`attackMode`,
+  `throwDistance`, `pursueOrThrow`, `throwingPath`, `provoke`),
+  `systems/projectiles.ts` (`launchProjectile`), och `flyProjectiles`
+  klarar byggnader som mål. `Projectile.kind`, `AttackTask.threw`.
+- **Datorspelaren:** bygger en Kastbana, håller andelen kastare, och
+  dess kastare tar torn utifrån.
+- **Grafik:** `units/thrower.toml` med kastspjut, koger och lädermössa;
+  animationerna `throw` och `jab`; `buildings/bear/range.toml` med
+  delarna `shed_roof` och `target`; spjutet `javelin` i miljöns atlas.
+- **Spelet:** figuren och byggnaden ritas från sina atlaser, spjutet
+  flyger från kastarens hand, och markeringspanelen visar kast,
+  räckvidd, slag och rustning.
+
+**Saknas eller avviker**
+
+- **Byggnaden heter Kastbana, inte Skyttebana.** Godkänt av användaren.
+- **Sex värden stod inte i förslaget** och är alltså inte godkända: se
+  tabellen.
+- **Datorspelaren har 10 Samlare i stället för 8**, fyra på trä i
+  stället för tre. Det stod inte i förslaget och är en balansändring.
+  Grundorsak: en Ramkastare kostar 40 trä mot Ramkrigarens 25, och
+  Kastbanan 130. Med 8 Samlare gick allt trä åt, och det som förut blev
+  över till torn och Smedja fanns inte längre. Uppmätt på frö 1–6 med 8
+  Samlare: på tre av sex kartor blev någon sida utan Smedja och utan
+  torn, och på en utan Kastbana. Prövat: 4 av 8 på trä gav en
+  match på 6,2 minuter; 4 av 9 gav en på 24,4 minuter och 400 trä över;
+  4 av 10 gav alla byggnader på alla sex kartor och matcher på 11,7–19,3
+  minuter. Datorspelaren samlar därmed en fjärdedel mer än förut, mot
+  spelaren också.
+- **En enhet som träffas av ett spjut svarar** (`provoke`). Det stod
+  inte i förslaget. Utan det stod en sysslolös Ramkrigare kvar och tog
+  emot spjut från 7 rutor, eftersom den själv upptäcker fiender på 6.
+  Samlare svarar inte. En pil från ett torn väcker ingen: det är som
+  förut.
+- **Vapen gäller stöten också** (3 → 5 → 7), inte bara kastet.
+  Förslaget sade "även på kastet"; uppgraderingen räknas per enhetstyp.
+- **På byggnader kastar den alltid**, också när den står intill. Den
+  slår bara fiendeenheter på en ruta intill dess egen.
+- **Kastaren backar inte.** Kommer en fiende fram står den kvar och
+  stöter. Den byter inte heller mål till den som slår på den.
+- **Spjutet träffar alltid** om målet finns kvar, som tornets pil: det
+  följer målet, flyger över träd och hus, och kan inte träffa någon
+  annan.
+- **Räckvidden mäts olika för kastare och torn:** kastarens till en
+  byggnads närmaste kant, tornets från tornets mitt. Mot ett torn på en
+  ruta skiljer det en halv ruta, till kastarens fördel.
+- **Kastare i grupp står tätt.** De tar var sin ruta längs räckviddens
+  rand, men rutorna ligger intill varandra (se `kastare-mot-torn.png`).
+- **Spelarens Ramkastare kastar inte på byggnader av sig själva**, bara
+  på enheter inom 7 rutor. Ett fientligt torn måste spelaren peka ut.
+  Det gäller alla enheter sedan steg 2.
+- **Datorspelarens Ramkrigare går fortfarande in i ett torns räckvidd**
+  innan de vänder sig mot det. Bara dess kastare tar tornet utifrån.
+- **Kogret visar alltid tre spjut**, hur många som än har kastats.
+- **Det första kastet har ingen ansats.** Animationen börjar när spjutet
+  lämnar handen, som krigarens hugg börjar när det träffar; ansatsen
+  syns inför varje kast efter det första.
+- **Stöten är långsam att se på:** åtta bildrutor på 1,8 sekunder.
+- **Ett spjut mot en byggnad landar mitt på den**, halvvägs upp på
+  väggen, inte på den vägg som vetter mot kastaren.
+- **Köns ruta visar "R"** för både Ramkrigare och Ramkastare. De tränas
+  i olika byggnader, så de står aldrig i samma kö.
+- **Fliken Försvar har nu fyra byggnader och "Laga":** en rad på 1280
+  px, tre rader på en telefon. Steg 5 lägger till två till.
+- **Figurens atlas är 1024×818 px** (1,2 MB och 0,75 MB mask), lika stor
+  som krigarens. Spelet laddar alltså två megabyte till.
+- **Miljöns atlas är fortfarande 256×249 px** med spjutet i (38 bilder).
+- **Tornet vinner knappt över två Ramkrigare:** det har 60 av 500 liv
+  kvar. Tre river det.
+- **Skärmdumpen mot tornet visar röda kastare mot spelarens torn.**
+  Testgränssnittet kan inte ställa ut ett fientligt torn, så bilden är
+  tagen åt andra hållet. Reglerna är desamma för båda sidor.
+- **Övriga figurers och byggnaders atlaser är inte byggda om** efter
+  tilläggen i de gemensamma `lib/armor.py`, `lib/weapons.py` och
+  `lib/structures.py`. Tilläggen är nya delar som bara kastaren och
+  Kastbanan använder. `assets/previews/overview.png` är byggd om.
+- **Balansen mot en mänsklig spelare är inte prövad.** Den tas efter
+  steg 5, som användaren har bestämt.
+- **Inte mätt:** bilder per sekund med många spjut i luften.
+  **Inte prövat:** en riktig telefon.
+- **Inget ljud**, som i resten av spelet.
+
+**Testresultat**
+
+- Vitest: 830 av 830 tester gröna (41 filer). 62 är nya: 35 om kast och
+  sten-sax-påse (`throwing.test.ts`), 5 om datorspelaren, och resten om
+  figurens atlas, byggnadens atlas, animationsvalet, spjutets bild och
+  markeringspanelen
+- Playwright: 160 av 160 gröna i normal fart (4,5 min) och 160 av 160
+  med processorn strypt åtta gånger (14,3 min). 8 är nya
+  (`thrower.spec.ts`)
+- Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
+  testerna eller när skärmdumparna togs.
+- Matcher mellan två datorspelare, frö 1–6: 11,7, 18,6, 18,7, 16,5, 19,3
+  och 13,1 minuter. Kastbanan står klar efter 3,3–5,5 minuter, tornet
+  efter 4,8–12,7 och Smedjan efter 6,3–12,8. På frö 5 bygger den ena
+  sidan ingen Smedja.
+
+**Äldre tester som ändrades, och varför**
+
+- **Byggmenyns tester** (`commandPanel.test.ts`,
+  `phase6-building.spec.ts`) väntar sig "Bygg Kastbana" under Försvar.
+- **Texten på knappen Vapen** är "+2 skada, soldater" i stället för
+  "+2 skada, krigare" (`commandPanel.test.ts`, `forge.spec.ts`),
+  eftersom den gäller två slags soldater.
+- **`buildingAtlas.test.ts`** prövar nu också Smedjans och Kastbanans
+  atlaser; Smedjan saknades i listan sedan steg 3.
+- Inget test är avstängt, och ingen tidsgräns är höjd. Datorspelarens
+  tester för torn och Smedja föll med 8 Samlare och går igenom oändrade
+  med 10.
+
+**Beslut och lärdomar**
+
+- **Spjutet är samma sak som pilen.** Projektilerna låg redan i
+  speltillståndet; de fick ett slag (`kind`), en avsändare som kan vara
+  en enhet och ett mål som kan vara en byggnad. Tornets kod blev kortare.
+- **"Stanna så fort den når" räcker inte för en grupp.** Det första
+  försöket på papper lät kastare som hamnade på en upptagen ruta gå
+  vidare mot målet: den tredje och fjärde i en kolonn hade då hamnat
+  inom tornets räckvidd. Nu väljs en egen ruta inom räckvidd i förväg,
+  den närmaste, och det blir en ruta på randen.
+- **En ny enhet ändrar ekonomin för den som spelar utan marginal.**
+  Datorspelaren gjorde av med allt den samlade. När soldaterna började
+  kosta mer trä försvann det som blev över, och med det torn och Smedja,
+  utan att någon regel om dem hade ändrats.
+- **Ett test som ställer ut byggnader på måfå prövar kartan, inte
+  spelet.** En Kastbana som testet lade i en ficka mellan träd kunde
+  inte släppa ut sin andra kastare. Testet låter nu datorspelaren
+  placera sina byggnader själv.
+
 ### Björnrasen komplett, steg 3: Smedja (2026-11-15)
 
 Flikarna i byggmenyn (pull request 20) mergades först, efter grönt CI.
