@@ -351,7 +351,7 @@ Uppskjuten till efter steg 5. Användarens beställning, efter mätningarna:
 |---|---|---|
 | 1 | **Ramkastaren:** 45 mat och 25 trä i stället för 50 och 40; 1,4 s mellan kasten i stället för 1,8 | Klart 2026-11-16 |
 | 2 | **Datorspelaren ska inte mattas av.** Den var lagom i början, blev sedan lättare och lättare och slutade till slut anfalla | Klart 2026-11-16: grundorsaken (matekonomin) rättad, och den växer under matchen |
-| 3 | **Tre svårighetsgrader:** Nybörjare, Medel och Proffs, där Medel är den dåvarande datorspelaren | Klart 2026-11-16; värdena är förslag |
+| 3 | **Tre svårighetsgrader:** Nybörjare, Medel och Proffs, där Medel är den dåvarande datorspelaren | Klart 2026-11-16; värdena godkända samma dag |
 | 4 | Långa matcher ska **inte** kortas | Inget gjort, som beställt |
 
 **Test:** enhetstester för nivåerna och för att vågorna växer mot en sida

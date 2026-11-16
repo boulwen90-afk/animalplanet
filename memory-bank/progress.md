@@ -11,16 +11,17 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   steg. Alla fem är mergade (pull request 18, 19, 21, 22 och 23;
   byggmenyns flikar i pull request 20)
 - **Senaste ändring (2026-11-16):** balansen mot datorspelaren och tre
-  svårighetsgrader (Nybörjare, Medel, Proffs). Nivåernas värden är
-  förslag som väntar på användarens godkännande. Se "Efter MVP:n". Om
+  svårighetsgrader (Nybörjare, Medel, Proffs). Se "Efter MVP:n". Om
   den senaste ändringen är mergad står i GitHub; den här raden säger det
   inte, eftersom den skrivs innan det är avgjort
 - **Godkänt av användaren 2026-11-16:** datorspelaren har 10 Samlare
   tills vidare ("Ja på allt"); den tredje fliken "Armé" i byggmenyn ("Ja
   på alla."); Ramkastarens pris 45 mat och 25 trä och 1,4 s mellan
-  kasten ("1 ja")
+  kasten ("1 ja"); svårighetsgradernas värden ("Ja på båda", på frågorna
+  om att merga pull request 24 och om att godkänna nivåernas värden
+  eller speltesta först; min tolkning är att värdena är godkända)
 - **Fortfarande förslag:** värdena i steg 3 (Smedjan), fem värden i steg
-  4, värdena i steg 5 (palissad och port) och svårighetsgradernas värden
+  4 och värdena i steg 5 (palissad och port)
 - **Står på tur:** inget är beställt. Nästa ras väntar på användarens
   besked
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
@@ -908,7 +909,8 @@ vågorna krympte till 4–8 soldater. Vågorna fortsatte gå varannan minut
   minns så länge fliken är öppen (`session.ts`), också över "Spela
   igen". `?level=` i testläge.
 
-**Värden (förslag, väntar på godkännande)**, alla i `src/data/ai.ts`
+**Värden** (förslag när detta skrevs; godkända av användaren
+2026-11-16 med "Ja på båda"), alla i `src/data/ai.ts`
 
 | | Nybörjare | Medel | Proffs |
 |---|---|---|---|
@@ -956,8 +958,9 @@ byggplats inom 22 rutor.
 
 **Saknas eller avviker**
 
-- **Nivåernas värden är förslag**, och de är bara prövade dator mot
-  dator. Ingen nivå är prövad mot en människa. Om Nybörjare är lagom för
+- **Nivåerna är bara prövade dator mot dator.** Ingen nivå är prövad mot
+  en människa. (Värdena godkändes av användaren efter att detta
+  skrevs.) Om Nybörjare är lagom för
   en nybörjare och Proffs svår nog för en van spelare vet jag inte.
 - **Medel är inte exakt den gamla datorspelaren.** De tre första vågorna
   har samma tider och storlekar, men: Ramkastarna är billigare och

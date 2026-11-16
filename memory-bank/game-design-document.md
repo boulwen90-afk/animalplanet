@@ -565,7 +565,7 @@ var innan nivåerna fanns, med rättningarna nedan. Valet gäller också efter
 Samlare som spelaren, betalar samma priser och följer samma regler.
 Nivåerna skiljer sig i hur många Samlare de håller, hur stor armé, och när
 och hur hårt de anfaller. Värdena ligger i `AI_LEVELS` i `src/data/ai.ts`
-och är förslag.
+och är godkända av användaren (2026-11-16).
 
 | | Nybörjare | Medel | Proffs |
 |---|---|---|---|
