@@ -1,4 +1,5 @@
 import { Scene } from 'phaser';
+import type { Difficulty } from '../../data/ai';
 import { CAMERA_CONFIG } from '../../data/camera';
 import { MAP_CONFIG, MAP_GEN_CONFIG } from '../../data/map';
 import { RESOURCE_TYPES } from '../../data/resources';
@@ -17,7 +18,7 @@ import {
   reservedPopulation,
 } from '../../sim/entities';
 import { missingResources } from '../../sim/economy';
-import { createGame } from '../../sim/game';
+import { createGame, setDifficulty } from '../../sim/game';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
 import { buildPathGrid } from '../../sim/pathfinding/passability';
 import type { Building, GameState, PlayerId, SimEvent } from '../../sim/state';
@@ -56,7 +57,7 @@ import { PLAYER_COLORS } from '../views/visuals';
 import { PlacementView } from '../views/PlacementView';
 import { ProjectileView, landHeight } from '../views/ProjectileView';
 import { SelectionView } from '../views/SelectionView';
-import { restartGame } from '../session';
+import { rememberLevel, restartGame } from '../session';
 import type { HudButton, HudButtonId, HudSource, ResourceBarInfo, UiScene } from './UiScene';
 
 export interface GameSceneOptions {
@@ -68,6 +69,11 @@ export interface GameSceneOptions {
   fog: boolean;
   /** Whether the computer plays the opponent. Off only with ?ai=0 in test mode. */
   ai: boolean;
+  /**
+   * How hard the computer plays, unless the player picks another level on
+   * the start screen (set with ?level= in test mode).
+   */
+  difficulty: Difficulty;
   /** Whether the game waits behind the start screen until the player presses "start". */
   startScreen: boolean;
   /**
@@ -145,6 +151,7 @@ export class GameScene extends Scene implements HudSource {
     const state = createGame(this.options.seed, MAP_CONFIG, MAP_GEN_CONFIG, {
       fog: this.options.fog,
       ai: this.options.ai ? [OPPONENT] : [],
+      difficulty: this.options.difficulty,
       ...(stress > 0
         ? { extraUnits: { owner: LOCAL_PLAYER, type: 'samlare', count: stress } }
         : {}),
@@ -424,7 +431,14 @@ export class GameScene extends Scene implements HudSource {
     }
   }
 
-  start(): void {
+  getDifficulty(): Difficulty {
+    return this.state?.players[OPPONENT]?.ai?.level ?? this.options.difficulty;
+  }
+
+  start(difficulty: Difficulty): void {
+    if (this.started) return;
+    if (this.state) setDifficulty(this.state, difficulty);
+    rememberLevel(difficulty);
     this.started = true;
   }
 

@@ -164,12 +164,12 @@ I MVP:n spelar både spelaren och AI:n Järnramarna. Lagen skiljs åt med färg
 |---|---|---| --- |
 | Beskrivning | Björn i läderförkläde med korg och yxa | Björn i järnrustning med svärd och rundsköld | Björn i tunika och lädersele, med lädermössa, ett koger tallspjut på ryggen och ett i handen |
 | Tränas i | Storide | Krigshall | Kastbana |
-| Kostnad | 50 mat | 60 mat, 25 trä | 50 mat, 40 trä |
+| Kostnad | 50 mat | 60 mat, 25 trä | 45 mat, 25 trä |
 | Träningstid | 12 s | 18 s | 20 s |
 | Liv | 40 | 100 | 60 |
 | Skada / träff | 3 | 10 | Kast 8, slag på nära håll 3 |
 | Rustning | 0 | 1 | 0 |
-| Tid mellan slag | 1,5 s | 1,2 s | 1,8 s, både kast och slag |
+| Tid mellan slag | 1,5 s | 1,2 s | 1,4 s mellan kast, 1,8 s mellan slag |
 | Räckvidd | Närstrid (angränsande ruta) | Närstrid (angränsande ruta) | 7 rutor; slår mot en enhet på rutan intill |
 | Fart | 2,5 rutor/s | 2,2 rutor/s | 2,0 rutor/s |
 | Synfält | 6 rutor | 7 rutor | 8 rutor |
@@ -205,7 +205,10 @@ justera efter att ha prövat; värdena ligger i `UNIT_DEFS.ramkastare`):
   går tills målet är inom räckvidd och kastar därifrån, så långt från
   målet den kan. Flera Ramkastare ställer sig på var sin ruta längs
   räckviddens rand i stället för att tränga sig in mot målet.
-- **Ett kast var 1,8:e sekund, 8 i skada** minus målets rustning. Spjutet
+- **Ett kast var 1,4:e sekund, 8 i skada** minus målets rustning. (Till
+  och med 2026-11-16 var det 1,8 s, och priset 50 mat och 40 trä: en
+  datorspelare som tränade Ramkastare förlorade då 15 matcher av 16 mot
+  en som lät bli. Med de nya värdena vinner den 10 av 24.) Spjutet
   flyger 10 rutor per sekund och följer sitt mål, som tornets pil: det
   träffar alltid om målet finns kvar. Skadan kommer när det landar.
 - **På nära håll slår den i stället**, med en stöt med spjutet: mot en
@@ -216,8 +219,8 @@ justera efter att ha prövat; värdena ligger i `UNIT_DEFS.ramkastare`):
 
   | Möte | Vinner | Uppmätt i simuleringen |
   |---|---|---|
-  | Ramkastare mot Vakttorn | Ramkastaren | Den når 7 rutor från tornets kant, tornet 6 från sin mitt. Fyra river ett torn på 27,8 s utan att bli beskjutna en enda gång |
-  | Ramkrigare mot Ramkastare | Ramkrigaren | Den tar två spjut på vägen fram och vinner med 80 av 100 liv. Tre mot tre: alla Ramkastare kapitulerar, alla tre Ramkrigare står kvar med 80 liv |
+  | Ramkastare mot Vakttorn | Ramkastaren | Den når 7 rutor från tornets kant, tornet 6 från sin mitt. Fyra river ett torn på 21,8 s utan att bli beskjutna en enda gång |
+  | Ramkrigare mot Ramkastare | Ramkrigaren | Den tar två spjut på vägen fram och vinner med 78 av 100 liv. Tre mot tre: alla Ramkastare kapitulerar, alla tre Ramkrigare står kvar med 78 liv |
   | Vakttorn mot Ramkrigare | Tornet | Två Ramkrigare som anfaller ett torn kapitulerar innan det faller; tornet har 60 av 500 liv kvar. Tre river det |
 
 - **En enhet som träffas av ett spjut svarar.** Står den sysslolös, kan
@@ -352,7 +355,7 @@ ligger under fliken Försvar:
 - Ett högt skärmtak av skiffer mot en timmervägg, med spjutställ under
   taket. På gården framför står två halmtavlor med en ring i lagfärg, en
   tunna och en planka som märker ut var kastarna står.
-- **Den tränar Ramkastare** (50 mat, 40 trä, 20 s) med samma kö som
+- **Den tränar Ramkastare** (45 mat, 25 trä, 20 s) med samma kö som
   Krigshallen, och gör inget annat.
 - 130 trä, 30 s byggtid, 500 liv, 2×2 rutor. Den kan lagas som andra
   byggnader.
@@ -489,7 +492,9 @@ En enkel, regelstyrd motståndare som spelar med samma regler och kostnader
 som spelaren (inget fusk med resurser):
 
 1. Tränar Samlare upp till 10 och fördelar dem på mat och trä: 4 på trä
-   och 6 på mat. (Till och med 2026-11-15 var det 8, med 3 på trä. Med
+   och 6 på mat. (Det här avsnittet beskriver nivån Medel. De andra
+   nivåerna och hur den växer under matchen står under Svårighetsgrader
+   nedan.) (Till och med 2026-11-15 var det 8, med 3 på trä. Med
    Ramkastarnas pris i trä ovanpå Kastbana, torn och Smedja räckte det
    inte: på de flesta kartor blev någon sida utan en av byggnaderna.)
 2. Bygger ett Ide när den har högst 3 lediga platser kvar (enheter i kö
@@ -497,8 +502,10 @@ som spelaren (inget fusk med resurser):
    går före allt annat byggande.
 3. Bygger en Krigshall när den har råd, och ett Visthus vid skogen.
 4. Bygger Odlingar **innan bären tar slut**: när bärsnåren inom 14 rutor
-   från Storidet har mindre än 600 mat kvar bygger den en Odling för varje
-   150 mat som fattas, högst 5, och ställer en ledig Samlare på varje.
+   från Storidet har mindre än 600 mat kvar bygger den Odlingar för så
+   stor andel av sina mat-Samlare som bären har sjunkit under 600 (alla
+   när bären är slut), och ställer en ledig Samlare på varje. (Till och
+   med 2026-11-16: en Odling för varje 150 mat som fattades, högst 5.)
    Lediga Samlare tar i första hand bär nära basen, sedan en ledig Odling
    och först därefter bär längre bort. Värdena ligger i `AI_CONFIG.fields`.
    **Har den vatten inom räckhåll** (en plats vid vatten högst 18 rutor
@@ -528,7 +535,7 @@ som spelaren (inget fusk med resurser):
    Ramkrigare**, aldrig fler, så att en våg har någon som går först.
    Värdena ligger i `AI_CONFIG.throwers`.
 5. Tränar Ramkrigare kontinuerligt, och Ramkastare efter sin andel. Båda
-   slagen räknas mot taket på 20 soldater.
+   slagen räknas mot taket på 20 soldater, som höjs när den växer.
 6. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
    ligger i en datafil (t.ex. våg 1: 4 krigare tidigast vid 4 min, därefter
    större vågor).
@@ -545,7 +552,76 @@ som spelaren (inget fusk med resurser):
 7. Hemmavarande krigare försvarar basen om den anfalls.
 
 Förenkling: AI:n känner till spelarens startposition och påverkas inte av
-krigsdimman. En svårighetsgrad.
+krigsdimman.
+
+### Svårighetsgrader (2026-11-16)
+
+Spelaren väljer på startskärmen hur datorspelaren spelar: **Nybörjare**,
+**Medel** eller **Proffs**. Medel är förvalt, och är datorspelaren som den
+var innan nivåerna fanns, med rättningarna nedan. Valet gäller också efter
+"Spela igen" och så länge fliken är öppen.
+
+**Ingen nivå fuskar.** Alla tre börjar med samma lager och samma tre
+Samlare som spelaren, betalar samma priser och följer samma regler.
+Nivåerna skiljer sig i hur många Samlare de håller, hur stor armé, och när
+och hur hårt de anfaller. Värdena ligger i `AI_LEVELS` i `src/data/ai.ts`
+och är godkända av användaren (2026-11-16).
+
+| | Nybörjare | Medel | Proffs |
+|---|---|---|---|
+| Samlare från början | 7 | 10 | 14 |
+| Soldater som mest, från början | 10 | 20 | 24 |
+| Första vågen | 3 soldater, 6–8 min | 4 soldater, 4–5,5 min | 5 soldater, 3,5–5 min |
+| Andra vågen | 4, 10–12 min | 6, 7–8,5 min | 8, 6–7,5 min |
+| Tredje vågen | 5, 14–16 min | 8, 10–11,5 min | 11, 8,5–10 min |
+| Därefter | var 3:e minut, 6 soldater och 1 fler varje gång, högst 12 | varannan minut, 10 soldater och 2 fler varje gång, högst 30 | var 100:e sekund, 14 soldater och 3 fler varje gång, högst 45 |
+| Växer | efter 15 min: 10 Samlare, 14 soldater | efter 10 min: 16 Samlare, 30 soldater, 2 Krigshallar. Efter 20 min: 22 och 40. Efter 30 min: 28 och 50, 3 Krigshallar | efter 7 min: 20 Samlare, 36 soldater, 2 Krigshallar. Efter 14 min: 28 och 50, 3 Krigshallar. Efter 25 min: 34 och 70, 4 Krigshallar |
+| Ramkastare | 1 på 3 Ramkrigare | 1 på 2 | 1 på 2 |
+| Vakttorn | 1 | 1 | 2 |
+
+En våg som inte är fulltalig när dess senaste tid kommer går med dem som
+finns. Vågornas storlek i tabellen är alltså det mesta den skickar, inte
+det den alltid har.
+
+**Mätt** (matcher utan webbläsare, dator mot dator): Medel vinner 8 av 8
+mot Nybörjare, och Proffs vinner 7 av 8 mot Medel. Hur nivåerna är
+mot en människa är inte mätt.
+
+### Att datorspelaren inte mattas av (2026-11-16)
+
+Användaren rapporterade att datorspelaren var lagom i början, men att det
+sedan bara blev lättare och att den till slut inte anföll alls. Mätt mot
+en sida som bara försvarar sig krympte vågorna till 4–8 soldater, medan
+datorspelarens oanvända trä växte till 3 800 på 45 minuter och dess mat
+stod på noll. Fyra saker är ändrade, på alla nivåer:
+
+- **En plats för varje Samlare på mat.** När bären nära basen sinar vill
+  den ha platser på Odlingar och i Fiskehyttan för så stor andel av sina
+  mat-Samlare som bären har sjunkit under 600: alla när bären är slut.
+  Förut blev det högst fyra platser, så att två av sex mat-Samlare
+  hamnade på trä.
+- **Trä som inte används flyttar Samlare till mat.** Med 400 trä eller mer
+  i lager håller den bara 20 % av Samlarna på trä i stället för 40 %, och
+  bygger Odlingar åt de andra. Vid 150 trä eller mindre går den tillbaka.
+  Däremellan står de kvar där de är. Värdena ligger i `AI_CONFIG.surplus`.
+- **Den växer.** Efter bestämda tider tränar den fler Samlare, får ha
+  fler soldater och bygger fler Krigshallar (tabellen ovan,
+  `AI_CONFIG.growth`). En Krigshall tränar en soldat var 18:e sekund; med
+  bara en blev det aldrig fler än tio till en våg, hur mycket mat den än
+  hade.
+- **Vågorna växer.** Efter de tre uppräknade vågorna är varje våg större
+  än den förra (`AI_CONFIG.repeat.grow`), i stället för alltid 10.
+- Den letar också byggplats längre bort, 22 rutor i stället för 14, och
+  tar den närmaste som finns. Med tjugo Odlingar och femton Iden var
+  marken närmast basen full.
+
+**Mätt** mot en sida som bygger upp sig som Medel men aldrig anfaller:
+Medels vågor var 4, 6, 8, 8, 7, 8, 11, 9, 16, 15, 18, 17, 14, 18 och 20
+soldater under de första 36 minuterna (frö 1), där de förut var 4–8 från
+den fjärde vågen. På frö 2 vann Medel efter 20 minuter. Nybörjares vågor
+var 3, 4, 5, 6, 7, 8, 9 och 10 på 30 minuter, utan att den vann. Proffs
+vann efter 14 och 21 minuter. De första tio
+minuterna är som förut: vågorna 4, 6 och 8 vid samma tider.
 
 ### Uttryckliga förenklingar i MVP:n
 - **Ändrat 2026-11-13 på användarens begäran:** enheter har en
@@ -576,7 +652,7 @@ krigsdimman. En svårighetsgrad.
 | Slut på trä under lagning | "Slut på trä – lagningen väntar" i 2,5 s, träsiffran röd lika länge, Samlarna står still |
 | Torn skjuter | En pil med fjädrar i lagfärg lämnar tornets plattform (72 px över marken), flyger i en båge som är 4 px högre per ruta den ska flyga, pekar åt det håll den flyger, och landar i brösthöjd (14 px) på målet |
 | Pil träffar | Målet blinkar vitt i 80 ms; en splitterstjärna visas på målet i 220 ms medan den växer från 70 % till 160 % och tonas bort |
-| Ramkastare kastar | Kastet är 12 bilder på 1,8 s och börjar när spjutet lämnar handen: armen sträcks ut, handen är tom i 5 bilder (0,75 s), tar ett nytt spjut ur kogret över axeln, och lyfter det vågrätt vid huvudet med den fria armen pekande mot målet |
+| Ramkastare kastar | Kastet är 12 bilder på 1,4 s och börjar när spjutet lämnar handen: armen sträcks ut, handen är tom i 5 bilder (0,58 s), tar ett nytt spjut ur kogret över axeln, och lyfter det vågrätt vid huvudet med den fria armen pekande mot målet |
 | Spjut i luften | Ett spjut med bindning i lagfärg lämnar kastarens hand (34 px över marken), flyger i samma båge som tornets pil och landar i brösthöjd på en enhet eller halvvägs upp på en byggnads vägg |
 | Spjut träffar | Som pilen: målet blinkar vitt i 80 ms och en splitterstjärna visas i 220 ms. En byggnad som träffas blinkar på samma sätt |
 | Ramkastare slår på nära håll | En stöt med spjutet rakt fram, 8 bilder på 1,8 s; målet blinkar vitt och kastaren gör utfall som andra som slår |
@@ -641,7 +717,8 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 - Rekrytering ur grottor, ledarrang och de 50 extra befolkningsplatserna
   (avsnitt 15)
 - Flerspelarläge, spara/ladda, kampanj, flera kartor, kartredigerare
-- Svårighetsgrader, AI som spanar eller påverkas av krigsdimma
+- ~~Svårighetsgrader~~ (tillagt 2026-11-16, se avsnitt 10), AI som spanar
+  eller påverkas av krigsdimma
 - Zoom, inställningsmeny, översättningar
 
 ## 14. Beslut vid godkännandet (2026-11-12)

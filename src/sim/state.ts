@@ -1,3 +1,4 @@
+import type { Difficulty } from '../data/ai';
 import type { BuildingType } from '../data/buildings';
 import type { LoadKind, ResourceType } from '../data/resources';
 import type { ProjectileKind } from '../data/types';
@@ -135,12 +136,16 @@ export interface PlayerState {
 
 /** What the computer opponent remembers between decisions. */
 export interface AiState {
+  /** How hard it plays: which of the levels in AI_LEVELS steers it. */
+  level: Difficulty;
   /** Ids of its soldiers that are out on an attack wave. */
   attackers: number[];
   /** The simulation step at which each wave so far set off. */
   waveTicks: number[];
   /** How many towers it has placed so far. A tower that falls is not replaced. */
   towersPlaced: number;
+  /** True while it has more wood than it uses and keeps fewer workers on wood. */
+  woodSurplus: boolean;
 }
 
 export interface Unit {

@@ -44,7 +44,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/data/buildings.ts` | `BUILDING_DEFS`: byggnadstyper (vad de tränar, HP, storlek, avlämningsplats, kostnad, byggtid). `CONSTRUCTION_CONFIG` (start-HP, extra arbetares takt) | 3, 4, 5, 6 |
 | `src/data/production.ts` | `PRODUCTION_CONFIG`: längsta produktionskö | 5 |
 | `src/data/setup.ts` | `START_CONFIG`: startbyggnad, startenheter, startresurser, befolkningstak | 3, 4 |
-| `src/data/ai.ts` | `AI_CONFIG`: beslutstakt, antal arbetare, andel på trä, flest soldater, försvarsradie, anfallsvågor | 9 |
+| `src/data/ai.ts` | `AI_CONFIG` (nivån Medel): beslutstakt, antal arbetare, andel på trä, flest soldater, tillväxt, försvarsradie, anfallsvågor. `AI_LEVELS`: de tre svårighetsgraderna. `Difficulty`, `DIFFICULTIES`, `DEFAULT_DIFFICULTY` | 9 |
 | `src/data/ui.ts` | `UI_CONFIG`: dragtröskel, orderring, blinktid vid nekad order, träffblink, utfall, bortoning, skärmskakning, varningstid, pekstyrningens tröskel, hålltid och ring | 3, 5, 7, 10 |
 | `src/data/strings.ts` | `STRINGS`: all speltext | 3 |
 | `src/sim/state.ts` | Typerna `GameState`, `PlayerState`, `Unit`, `UnitTask`, `Building`, `Entity`, `PlayerId`, `SimEvent` | 2, 3, 4, 7 |
@@ -88,7 +88,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/map/mapgen.ts` | `generateMap`: kartgenerering, inklusive grottor och startdammen; `fishingSites` och `hasFishingSite` | 2, 7 |
 | `src/render/scenes/GameScene.ts` | Skapar spelet, vyerna och styrningen, driver simuleringen, registrerar testgränssnittet | 1, 2, 3 |
 | `src/render/scenes/UiScene.ts` | Gränssnittet ovanpå spelet: resursraden, markeringspanelen, kommandopanelen, knapparna "Bas" och "Avmarkera", varningstext, startskärm och slutskärm | 3, 4, 5, 7, 10 |
-| `src/render/session.ts` | "Spela igen": laddar om sidan och låter den nya sidan hoppa över startskärmen | 10 |
+| `src/render/session.ts` | "Spela igen": laddar om sidan och låter den nya sidan hoppa över startskärmen. Minns den valda svårighetsgraden så länge fliken är öppen (`rememberLevel`, `rememberedLevel`) | 10 |
 | `src/render/views/MapView.ts` | Ritar mark, vatten och strand, träd, bärsnår och klippor, det tömda källor lämnar kvar, och fiskeplatsernas märken | 1, 2, 4 |
 | `src/render/scenery/scenery.ts` | Miljöns regler som rena funktioner: vilken bild en ruta får, bärsnårets lägen, vad en tömd källa lämnar, vattenrutans strandbitar | – |
 | `src/render/scenery/SceneryLibrary.ts`, `assets.ts` | Laddar miljöns atlas och färgar den per spelare (grottans vimpel) | – |
@@ -386,7 +386,7 @@ motsvarande längre tid.
   upptagen ruta (`standsOnTakenTile`, som i närstrid) stannar den där den
   är och kastar när nedräkningen är 0: `launchProjectile` med
   `throwDamage` (kastets skada plus Vapen), och `attackCooldown` sätts
-  till `throwTicks` (36 steg). Annars går den dit `throwingPath` säger,
+  till `throwTicks` (28 steg). Annars går den dit `throwingPath` säger,
   och räknar om vägen var 10:e steg som i närstrid.
 - **`throwingPath`** väljer den ruta som ligger närmast enheten bland dem
   som (a) i sin helhet är inom räckvidd, alltså har mitten minst en halv
@@ -522,8 +522,35 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
 ### Datormotståndaren
 
 - `createGame` tar `options.ai`, en lista över sidor som datorn spelar.
-  Standard är `[1]`. En sådan sida får `players[i].ai = { attackers,
-  waveTicks }`.
+  Standard är `[1]`. En sådan sida får `players[i].ai = { level,
+  attackers, waveTicks, towersPlaced, woodSurplus }`.
+- **Svårighetsgrader.** `AiState.level` är `easy`, `medium` eller `hard`
+  och pekar ut sidans inställningar i `AI_LEVELS` (`src/data/ai.ts`).
+  `AI_LEVELS.medium` är `AI_CONFIG`; de andra två är `AI_CONFIG` med
+  några värden utbytta. `runAi` slår upp nivån för varje sida och skickar
+  dess `AiConfig` till allt den gör; ingen funktion i `ai.ts` läser
+  `AI_CONFIG` direkt, utom `waveAt` som förval. Två datorstyrda sidor kan
+  alltså spela på olika nivåer i samma match, vilket mätningarna
+  använder. `createGame` tar `options.difficulty` (förval
+  `DEFAULT_DIFFICULTY`, Medel). `setDifficulty(state, nivå)` i `game.ts`
+  byter nivå på alla datorstyrda sidor, men bara innan första steget:
+  startskärmen kommer efter att spelet har skapats. Ingen nivå har något
+  värde som ger resurser eller rabatt; det finns inget sådant att ställa
+  in.
+- **Tillväxt** (`sizeWanted`). `AiConfig.growth` är en lista med steg
+  `{ after, targetWorkers, maxSoldiers, barracks }`. Från `after`
+  sekunder in i matchen gäller stegets antal i stället för nivåns
+  `targetWorkers`, `maxSoldiers` och `barracks`. Fler kaserner byggs
+  efter Kastbanan, vid basen.
+- **Trä som inte används** (`woodWorkersWanted`). Med minst
+  `surplus.above` (400) trä i lager sätts `AiState.woodSurplus`, och då
+  vill sidan ha andelen `surplus.woodShare` (0,2) av arbetarna på trä i
+  stället för `woodShare` (0,4). Vid högst `surplus.below` (150) släcks
+  den. `assignIdleWorkers` flyttar sedan arbetare: är fler på trä än
+  önskat går de sista till bär nära basen eller en ledig plats på en
+  Odling eller i en Fiskehytta (finns ingen plats står de kvar på trä
+  tills en Odling är byggd); är färre på trä än önskat, också med dem som
+  bygger eller lagar inräknade, går de sista mat-arbetarna till skogen.
 - `runAi` körs först i varje steg men gör bara något var 20:e steg (en gång
   per sekund). Allt den gör går via `applyCommand`, och den betalar samma
   kostnader som spelaren.
@@ -540,8 +567,11 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
      Platsen ska ha en ruta fri mark runt om, så att inget stängs in.
      Sist **Odlingar**, innan bären tar slut: har bärsnåren inom
      `AI_CONFIG.fields.berryRadius` (14) rutor från huvudbyggnaden mindre
-     än `startWhenFoodLeft` (600) mat kvar vill den ha en Odling för varje
-     `foodPerField` (150) som fattas, högst `max` (5), en i taget.
+     än `startWhenFoodLeft` (600) mat kvar vill den ha platser för så stor
+     andel av sina mat-arbetare som bären har sjunkit under 600
+     (`placesWanted`: alla när bären är slut), högst `max` (30), en
+     byggnad i taget. Mat-arbetarna är alla arbetare utom dem den vill ha
+     på trä just nu.
      **Fiskehytta före Odling:** finns en plats vid vatten högst
      `AI_CONFIG.fishing.reach` (18) rutor från huvudbyggnaden, mätt från
      hyttans mitt, bygger den en hytta där, högst `fishing.max` (1). En
@@ -611,12 +641,19 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
   torn sprids de `spread` (50) grader isär sett från huvudbyggnaden
   (`towerSpot`).
 - Vågorna står i `AI_CONFIG.waves`: 4 soldater vid 4:00–5:30, 6 vid
-  7:00–8:30, 8 vid 10:00–11:30, och därefter 10 soldater var 150:e sekund.
+  7:00–8:30, 8 vid 10:00–11:30. Därefter (`repeat`) kommer en våg var
+  120:e sekund: 10 soldater i den första och 2 fler i varje ny
+  (`grow`), högst 30 (`maxSize`). `waveAt(index, config)` räknar ut
+  vilken våg som helst på en nivå.
+- **Byggplats** (`findBuildSite`): den närmaste platsen inom
+  `buildSearchRadius` (22) rutor från där byggnaden önskas. Rutorna med
+  byggnader räknas ut en gång per sökning (`buildingTiles`).
 - AI:n läser vilka byggnader som är kasern och förråd ur `BUILDING_DEFS`
   (tränar soldater, respektive bara avlämningsplats), inte ur namnen.
 - Uppmätt: mot en spelare som inte gör något vinner den efter drygt 5
-  minuter. Två datorstyrda sidor avgör en match på 11,7–19,3 minuter
-  (frö 1–6, 2026-11-16).
+  minuter. Två datorstyrda sidor på Medel avgör en match på
+  13,7–24,3 minuter (frö 1–6, 2026-11-16, efter balansändringarna; fem
+  av sex inom 10–20 minuter).
 
 ### Krigsdimma
 
@@ -891,6 +928,11 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
     blockeras. "Spela igen" laddar om sidan, med samma frö. En markering i
     webbläsarens sessionslagring (`session.ts`) gör att den omladdade sidan
     hoppar över startskärmen.
+  - **Svårighetsgraden** väljs på startskärmen. `GameScene.start(nivå)`
+    anropar `setDifficulty` på spelets tillstånd, som redan är skapat,
+    och sparar nivån i sessionslagringen (`rememberLevel`). `main.ts`
+    läser den vid nästa sidladdning: efter "Spela igen" spelas samma
+    nivå, och startskärmen visar den som vald.
   - Bakom startskärmen står matchen still: inga simuleringssteg körs,
     kameran går inte att flytta och alla tryck på kartan blockeras
     (`started` är falsk tills `start()` anropas).
@@ -963,9 +1005,15 @@ träd och bär, och exakt lika mycket av varje inom 8, 12, 16 och 24 rutor.
     egen rad under knapparna när en rad inte räcker. Panelens underkant
     ligger i linje med markeringspanelens när den står bredvid.
   - Startskärmen tonar ned spelet och visar titel, en kort beskrivning av
-    mål och kontroller, och knappen "Starta". Texten radbryts efter
-    skärmens bredd, och knappen placeras under texten hur många rader den
-    än blir (`startScreenLayout`).
+    mål och kontroller, tre knappar för svårighetsgraden under rubriken
+    "Svårighetsgrad", och knappen "Starta". Texten radbryts efter
+    skärmens bredd, och knapparna placeras under texten hur många rader
+    den än blir (`startScreenLayout`). Den valda nivån är blå med vit
+    kant, som den öppna fliken i byggmenyn; ett tryck på en nivå väljer
+    den utan att starta. Nivåknapparna är 112×44 px, smalare på en skärm
+    under 384 px. **På en skärm som är för låg** för att stapla allt (en
+    telefon i liggande läge) står "Starta" till höger om nivåerna i
+    stället för under.
   - **Ett tryck som gränssnittet agerar på når aldrig kartan.** `UiScene`
     ligger överst och får trycket först. När den agerar på det anropar den
     `input.stopPropagation()`, så att `GameScene` aldrig ser det. Att bara
@@ -1971,6 +2019,10 @@ URL-parametrar:
   `?test=1`.
 - `?ai=0` – ingen datormotståndare; den andra sidan står still. Fungerar
   bara tillsammans med `?test=1`.
+- `?level=easy`, `medium` eller `hard` – datorspelarens svårighetsgrad,
+  och den nivå startskärmen visar som vald. Fungerar bara tillsammans med
+  `?test=1`; ett okänt namn ger den nivå som är sparad i fliken, annars
+  Medel.
 - `?start=0` – ingen startskärm; matchen börjar direkt. Fungerar bara
   tillsammans med `?test=1`. `openGame` i `tests/e2e/helpers.ts` lägger
   till den om testet inte ber om startskärmen
@@ -2001,7 +2053,7 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `spawnUnit(type, owner, x, y)` | Skapar en enhet på en ruta och ger dess id. Genväg för tester; spelet gör aldrig så |
 | `getAlert()` | Varningstexten överst; tom när ingen visas |
 | `getOutcome()` | Slutskärmen: `visible`, `title`, `button` (`label`, mittpunkt `x`/`y`) |
-| `getStartScreen()` | Startskärmen: `visible`, `title`, `help`, `button` (`label`, mittpunkt `x`/`y`) |
+| `getStartScreen()` | Startskärmen: `visible`, `title`, `help`, `button` (`label`, mittpunkt `x`/`y`), `levelTitle` och `levels` (`id`, `label`, `chosen`, mittpunkt `x`/`y`) |
 | `getHudButtons()` | Knapparna under resursraden: `id` (`base` eller `deselect`), `label`, mittpunkt `x`/`y`, `width`, `height`. Tom medan startskärmen visas |
 | `getTouchMode()` | Vad fingret på kartan gör: `pending`, `held`, `pan`, `box`, eller `none` utan finger |
 | `getShakeCount()` | Antal skärmskakningar hittills |
@@ -2153,3 +2205,8 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | Efter MVP | Kollisionen är mjuk och bygger vidare på rutorna | Enheter står redan på var sin ruta när de stannar. Radier under en halv ruta gör att rutlogiken står kvar orörd, och en knuff som är långsammare än gångfart kan aldrig låsa en trängsel. |
 | Efter MVP | Anfallare som inte får plats väntar längre ut | Förut ställde de sig på samma ruta som en annan anfallare. Med kollision skulle de knuffas därifrån, hamna utom räckhåll, gå tillbaka och knuffas igen. |
 | Efter MVP | Gångens bildrutor stegas efter sträcka, inte tid | En fast takt passar bara en fart. Efter sträcka står fötterna stilla mot marken för alla raser och farter, utan att något behöver ställas in per enhet. |
+| Efter MVP | Svårighetsgraden är ett namn i datorspelarens minne; inställningarna slås upp i `AI_LEVELS` | Tillståndet förblir rena data som går att kopiera och jämföra, och två datorstyrda sidor kan ha olika nivå i samma match. Det är så nivåerna mäts mot varandra |
+| Efter MVP | Ingen nivå får resurser eller rabatt | GDD:ts princip att datorspelaren spelar med spelarens regler gäller alla nivåer. Det som skiljer är antal arbetare, arméns storlek och vågornas tid och storlek |
+| Efter MVP | Nivån sätts med `setDifficulty` när "Starta" trycks, inte genom att spelet skapas om | Spelet skapas innan startskärmen visas, eftersom kartan syns bakom den. Före första steget har nivån inte påverkat något, så den kan bytas; efter det vägrar funktionen |
+| Efter MVP | Datorspelaren växer efter klockan, inte efter hur det går för den | Ett fast schema är lätt att läsa i datafilen och ger samma match för samma frö. Att den växer också när den ligger under är avsikten: det är det som håller trycket uppe |
+| Efter MVP | "Trä i överflöd" är ett minne (`woodSurplus`) med två gränser | Med en enda gräns skulle arbetarna gå fram och tillbaka mellan skog och åker varje gång lagret passerade den |

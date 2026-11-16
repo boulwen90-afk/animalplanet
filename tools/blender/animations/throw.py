@@ -98,6 +98,6 @@ def pose(phase: float, ctx: Context) -> Pose:
     )
 
 
-# The game steps through the loop at the pace of the unit's throws: 1.8
-# seconds for a bear's javelin thrower, which is 0.15 seconds a frame.
-THROW = Animation("throw", frames=12, fps=6.67, loop=True, pose=pose)
+# The game steps through the loop at the pace of the unit's throws: 1.4
+# seconds for a bear's javelin thrower, which is 0.117 seconds a frame.
+THROW = Animation("throw", frames=12, fps=8.57, loop=True, pose=pose)

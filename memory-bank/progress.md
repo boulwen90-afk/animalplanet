@@ -8,19 +8,22 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 - **Björnrasen är byggd i fem steg** (lagning, vakttorn, smedja, kastbana
   med distansenhet, palissad och port), se sist i
   `implementation-plan.md`. Användaren har sett skärmdumpar efter varje
-  steg. Det femte väntar på granskning
-- **Senaste ändring (2026-11-16):** steg 5, palissad och port. Värdena
-  är förslag som väntar på användarens godkännande, liksom den tredje
-  fliken i byggmenyn ("Armé"). Steg 1, lagning (pull request 18), steg 2,
-  vakttorn (pull request 19), byggmenyns flikar (pull request 20), steg
-  3, smedja (pull request 21), och steg 4, kastbana och Ramkastare (pull
-  request 22), är mergade. Se "Efter MVP:n". Om den senaste ändringen är
-  mergad står i GitHub; den här raden säger det inte, eftersom den
-  skrivs innan det är avgjort
+  steg. Alla fem är mergade (pull request 18, 19, 21, 22 och 23;
+  byggmenyns flikar i pull request 20)
+- **Senaste ändring (2026-11-16):** balansen mot datorspelaren och tre
+  svårighetsgrader (Nybörjare, Medel, Proffs). Se "Efter MVP:n". Om
+  den senaste ändringen är mergad står i GitHub; den här raden säger det
+  inte, eftersom den skrivs innan det är avgjort
 - **Godkänt av användaren 2026-11-16:** datorspelaren har 10 Samlare
-  tills vidare ("Ja på allt")
-- **Står på tur:** balansen mot datorspelaren, som användaren sköt upp
-  till efter steg 5. Den är inte påbörjad
+  tills vidare ("Ja på allt"); den tredje fliken "Armé" i byggmenyn ("Ja
+  på alla."); Ramkastarens pris 45 mat och 25 trä och 1,4 s mellan
+  kasten ("1 ja"); svårighetsgradernas värden ("Ja på båda", på frågorna
+  om att merga pull request 24 och om att godkänna nivåernas värden
+  eller speltesta först; min tolkning är att värdena är godkända)
+- **Fortfarande förslag:** värdena i steg 3 (Smedjan), fem värden i steg
+  4 och värdena i steg 5 (palissad och port)
+- **Står på tur:** inget är beställt. Nästa ras väntar på användarens
+  besked
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare; björnkastaren kom med steg 4), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
@@ -838,6 +841,235 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Balansen mot datorspelaren och svårighetsgrader (2026-11-16)
+
+Steg 5, palissad och port (pull request 23), mergades först, efter grönt
+CI. Användaren svarade "Ja på alla." på tre frågor: att merga, att den
+tredje fliken "Armé" är godkänd, och att gå vidare med balansen.
+
+Jag mätte först och frågade sedan. Användarens svar (2026-11-16):
+
+1. Ramkastarens nya värden: "ja".
+2. Datorspelaren: "lagom i början, men klarar man det första så blir det
+   bara lättare hela tiden och till slut anfaller inte datorn längre. Hade
+   varit bra om man kunde välja nybörjare, medel och proffs. Nuvarande är
+   medel."
+3. Att korta matcher över 20 minuter: "Behövs inte, matcherna får gärna
+   pågå länge".
+
+**Skärmdumpar:** `docs/screenshots/svarighet-start.png` (startskärmen
+med de tre nivåerna, Medel vald), `svarighet-proffs.png` (Proffs vald),
+`svarighet-telefon.png` (390 px bred telefon),
+`svarighet-telefon-liggande.png` (telefon i liggande läge: "Starta"
+står till höger om nivåerna), och `svarighet-bas-easy.png`,
+`svarighet-bas-medium.png` och `svarighet-bas-hard.png` (datorspelarens
+bas 21 minuter in i en match på varje nivå, med krigsdimman av).
+
+**Grundorsaken till att datorspelaren mattades av**
+
+Mätt i 45 minuter långa matcher mot en sida som bara försvarar sig:
+datorspelarens mat stod på 0–65 medan dess trä växte till 3 800, och
+vågorna krympte till 4–8 soldater. Vågorna fortsatte gå varannan minut
+(19 vågor på 45 minuter); att den slutar anfalla helt gick inte att
+återskapa.
+
+- När bären nära basen var slut hade den **högst fyra platser** för mat
+  utan slut (en Fiskehytta med tre, och en Odling). Regeln var en Odling
+  för varje 150 mat bären sjönk under 600, och det blir fyra. Två av
+  dess sex mat-Samlare hamnade på trä.
+- **Ingenting flyttade Samlare från trä till mat**, hur mycket trä den än
+  hade.
+- Den hade **10 Samlare hela matchen**, och en Krigshall, som tränar en
+  soldat var 18:e sekund: aldrig fler än tio till en våg.
+- Vågorna efter den tredje var alltid 10 som mest, och gick med dem som
+  fanns.
+
+**Vad som gjordes**
+
+- **Ramkastaren:** 45 mat och 25 trä, 1,4 s mellan kasten
+  (`UNIT_DEFS.ramkastare`). Kastarens atlas är byggd om; bara
+  bildtakten i dess datafil ändrades, bilderna är oförändrade.
+- **Matekonomin** (`placesWanted`): platser för så stor andel av
+  mat-Samlarna som bären har sjunkit, alla när bären är slut.
+- **Trä i överflöd** (`AI_CONFIG.surplus`, `woodWorkersWanted`,
+  `AiState.woodSurplus`): vid 400 trä håller den 20 % av Samlarna på trä
+  i stället för 40 % och bygger Odlingar åt de andra; vid 150 går den
+  tillbaka.
+- **Tillväxt** (`AI_CONFIG.growth`, `sizeWanted`): fler Samlare, fler
+  soldater och fler Krigshallar efter bestämda tider.
+- **Vågor som växer** (`AI_CONFIG.repeat.grow` och `maxSize`, `waveAt`).
+- **Byggplats längre bort** (`buildSearchRadius` 22 i stället för 14):
+  på flera kartor blev basen full och den tredje Krigshallen byggdes
+  aldrig.
+- **Svårighetsgrader:** `Difficulty`, `AI_LEVELS`, `AiState.level`,
+  `createGame({ difficulty })`, `setDifficulty`. Hela `ai.ts` tar nivåns
+  inställningar som argument i stället för att läsa `AI_CONFIG`.
+- **Startskärmen:** tre knappar under rubriken "Svårighetsgrad"; valet
+  minns så länge fliken är öppen (`session.ts`), också över "Spela
+  igen". `?level=` i testläge.
+
+**Värden** (förslag när detta skrevs; godkända av användaren
+2026-11-16 med "Ja på båda"), alla i `src/data/ai.ts`
+
+| | Nybörjare | Medel | Proffs |
+|---|---|---|---|
+| Samlare från början | 7 | 10 (som förut) | 14 |
+| Soldater som mest | 10 | 20 (som förut) | 24 |
+| Våg 1 | 3 vid 6–8 min | 4 vid 4–5,5 min (som förut) | 5 vid 3,5–5 min |
+| Våg 2 | 4 vid 10–12 min | 6 vid 7–8,5 min (som förut) | 8 vid 6–7,5 min |
+| Våg 3 | 5 vid 14–16 min | 8 vid 10–11,5 min (som förut) | 11 vid 8,5–10 min |
+| Därefter | var 3:e min, 6 och +1 per våg, högst 12 | varannan min, 10 och +2, högst 30 | var 100:e s, 14 och +3, högst 45 |
+| Växer | 15 min: 10 Samlare, 14 soldater | 10 min: 16 / 30 / 2 Krigshallar. 20 min: 22 / 40. 30 min: 28 / 50 / 3 | 7 min: 20 / 36 / 2. 14 min: 28 / 50 / 3. 25 min: 34 / 70 / 4 |
+| Ramkastare | 1 på 3 | 1 på 2 (som förut) | 1 på 2 |
+| Vakttorn | 1 | 1 (som förut) | 2 |
+
+Gemensamt: trä i överflöd från 400, tillbaka vid 150, då 20 % på trä;
+byggplats inom 22 rutor.
+
+**Mätt** (matcher utan webbläsare)
+
+- Medel mot en sida som bygger upp sig som Medel men aldrig anfaller:
+  vågorna 4, 6, 8, 8, 7, 8, 11, 9, 16, 15, 18, 17, 14, 18, 20 på 36
+  minuter (frö 1); på frö 2 vann Medel efter 20,3 minuter. Förut: 4–8
+  från den fjärde vågen, och ingen vinst på 45 minuter.
+- Nybörjare mot samma sida: 3, 4, 5, 6, 7, 8, 9, 10 på 30 minuter, ingen
+  vinst (frö 1 och 2).
+- Proffs mot samma sida: vinst efter 20,6 och 14,3 minuter.
+- Medel mot Nybörjare: Medel vinner 8 av 8 (frö 1–4, båda sidor).
+- Proffs mot Medel: Proffs vinner 7 av 8.
+- Medel mot Medel, frö 1–6: 16,9, 13,7, 18,6, 16,6, 15,4 och 24,3
+  minuter. Fem av sex inom 10–20.
+- Ramkastaren, sten-sax-påse med nya värden: fyra river ett torn på
+  21,8 s (27,8); en Ramkrigare vinner en mot en med 78 liv kvar (80),
+  efter två spjut på vägen fram som förut.
+
+**Avstämning mot beställningen**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| Ramkastaren 45 mat + 25 trä, 1,4 s | Klar | |
+| Datorspelaren ska inte bli lättare och lättare | Klar | Vågorna växer; se mätningen |
+| ... och inte sluta anfalla | Delvis | Ett fullständigt stopp gick inte att återskapa, så det är inte visat att det är borta. Se nedan |
+| Välja Nybörjare, Medel och Proffs | Klar | På startskärmen; Medel förvalt |
+| Nuvarande är Medel | Klar, med ändringar | De tre första vågorna, 10 Samlare och 20 soldater är som förut. Efter tio minuter växer den, vilket är rättningen. Se avvikelserna |
+| Inte korta långa matcher | Klar | Inget är gjort för att korta dem |
+| Alla värden i datafilerna | Klar | |
+
+**Saknas eller avviker**
+
+- **Nivåerna är bara prövade dator mot dator.** Ingen nivå är prövad mot
+  en människa. (Värdena godkändes av användaren efter att detta
+  skrevs.) Om Nybörjare är lagom för
+  en nybörjare och Proffs svår nog för en van spelare vet jag inte.
+- **Medel är inte exakt den gamla datorspelaren.** De tre första vågorna
+  har samma tider och storlekar, men: Ramkastarna är billigare och
+  kastar snabbare; Odlingarna kommer tidigare när bären sinar; och efter
+  tio minuter växer den. Användaren kallade början "lagom"; jag har inte
+  kunnat pröva att den fortfarande känns så.
+- **"Slutar anfalla helt" är inte återskapat.** I mätningarna gick
+  vågorna hela tiden, men små. Två sätt den fortfarande kan stanna på,
+  som inte är ändrade: (1) förlorar den alla Samlare och har under 50
+  mat kan den inte träna nya, som en spelare i samma läge; (2) är alla
+  dess soldater ute i en våg som varken vinner eller kapitulerar, och
+  armén är fulltalig, finns ingen hemma att skicka. Det senare såg jag
+  bara när spelarens Storide gjordes oförstörbar för skärmdumparna.
+- **En match mellan två Medel tog 24,3 minuter** på frö 6 (förut 13,1).
+  Planens mål var 10–20 minuter; användaren har sagt att långa matcher
+  är i sin ordning. Testet för målet prövar frö 1–3, som håller.
+- **Nivån visas inte under matchen** eller på slutskärmen, och
+  startskärmen förklarar inte vad nivåerna innebär: bara namnen.
+- **Valet minns bara så länge fliken är öppen**, inte mellan besök.
+- **Nivåerna väljs med mus eller finger**, inte med tangentbordet (som
+  "Starta").
+- **På en telefon i liggande läge** står "Starta" till höger om
+  nivåerna, eftersom höjden inte räcker. Titeln ligger där över
+  resursraden, som den gjorde förut.
+- **`setDifficulty` anropas direkt av `GameScene`**, inte som ett
+  kommando. Spelet skapas innan startskärmen visas, och funktionen
+  vägrar efter första steget. Det är ett undantag från regeln att
+  renderingen bara ändrar tillståndet genom kommandon, av samma slag som
+  att den anropar `createGame`.
+- **Datorspelaren bygger fortfarande bara en Kastbana och ett Visthus.**
+  Med tre eller fyra Krigshallar hinner Kastbanan inte med sin andel, så
+  Ramkastarna blir färre än en på två. Odlingar långt från basen får
+  lång väg till närmaste avlämning.
+- **Ett torn som faller ersätts inte**, som förut, på alla nivåer.
+- **Mot en sida som aldrig anfaller växer datorspelarens lager igen** när
+  armén är fulltalig (1 650 mat efter 21 minuter på Medel). Det används
+  inte till något.
+- **Inte kontrollerat:** vad som händer med lasten hos en Samlare som
+  flyttas från trä till mat med trä i korgen.
+- **Inte mätt:** bilder per sekund sent i en match på Proffs, med 34
+  Samlare och upp till 70 soldater på datorspelarens sida. Stresstestet
+  från MVP:n gäller 120 enheter.
+- **Kastarens förhandsbilder är inte ombyggda.** En ombyggnad gav andra
+  byte i tolv förhandsbilder fast inget i figuren är ändrat (atlasens
+  bild blev identisk). Jag lät dem vara som de var och har inte utrett
+  varför förhandsbilderna inte blir byte för byte lika.
+- **Stöten på nära håll tar fortfarande 1,8 s**; bara kastet blev
+  snabbare.
+- **Inget ljud**, som i resten av spelet.
+- **Fortfarande förslag sedan tidigare:** värdena i steg 3 (Smedjan),
+  fem värden i steg 4 (stötens tid, spjutets fart, upptäcktsradien,
+  kollisionsradien, Kastbanans synfält) och värdena i steg 5 (palissad
+  och port).
+
+**Testresultat**
+
+- Vitest: 918 av 918 (43 filer). Första körningen föll ett äldre test,
+  se nedan.
+- Playwright: 178 av 178 i normal fart och 178 av 178 på en åtta gånger
+  långsammare processor (`E2E_CPU_THROTTLE=8`).
+- Lint och typkontroll utan anmärkning. Inga konsolfel, varken i
+  testerna eller när skärmdumparna togs.
+
+**Nya tester**
+
+- `src/sim/ai/levels.test.ts` (21): nivåerna finns och Medel är
+  förvald; ingen nivå får något gratis; varje nivå är hårdare än den
+  förra på varje punkt; tillväxtens steg; vågorna växer upp till taket;
+  första vågen på varje nivå går inom sitt fönster; Medel har tio
+  Samlare och en Krigshall till tio minuter och fler därefter; trä i
+  överflöd flyttar Samlare till mat och tillbaka; varje mat-Samlare får
+  en plats när bären är slut.
+- `src/sim/balance.test.ts`: en 24 minuter lång match mot en sida som
+  håller ut, där ingen våg efter de tre första får vara mindre än 6, den
+  största ska vara minst 16, och träet under 800. Den tar omkring en
+  minut att köra.
+- `tests/e2e/difficulty.spec.ts` (7): startskärmen visar tre nivåer med
+  Medel vald; ett tryck väljer utan att starta; nivåerna spelar olika
+  (7, 10 och 14 Samlare efter fem minuter); "Spela igen" och omladdning
+  behåller nivån; `?level=`; telefon stående och liggande.
+- `src/render/ui/layout.test.ts`: nivåknapparnas plats på fyra
+  skärmstorlekar.
+
+**Äldre tester som ändrades, och varför**
+
+- **`throwing.test.ts`:** kastens steg (var 28:e i stället för var
+  36:e), tiden för fyra kastare att riva ett torn (18–26 s i stället för
+  25–35), och rubriken på testet tre mot tre, som inte längre är "för
+  samma pris". Två nya tester låser priset och takten.
+- **`thrower.spec.ts`:** priset i byggmenyn och det som dras.
+- **`phase9-ai.spec.ts`:** datorspelarens minne har två nya fält
+  (`level`, `woodSurplus`).
+- **`ai.test.ts`, "bygger en Smedja":** testet väntade sig exakt en
+  Krigshall när Smedjan stod klar. På frö 3 blir Smedjan klar efter tio
+  minuter, då datorspelaren har börjat på sin andra. Det föll i den
+  första hela körningen och kräver nu minst en färdig Krigshall.
+- Inget test är avstängt, och ingen tidsgräns är höjd för ett befintligt
+  test.
+
+**Beslut och lärdomar**
+
+- **Mät först, fråga sedan.** Utan mätningen hade jag justerat vågornas
+  storlek. Felet låg i ekonomin: vågorna var små för att den inte hade
+  mat, inte för att datafilen sa så.
+- **En flaskhals i taget.** När maten kom fram visade det sig att en
+  Krigshall inte hinner träna mer än tio soldater per våg; när fler
+  Krigshallar skulle byggas visade det sig att basen var full.
+- **`MODE` är upptaget.** Mätskriptet läste miljövariabeln `MODE`, som
+  Vite sätter till `test`, och körde därför fel mätning första gången.
 
 ### Björnrasen komplett, steg 5: Palissad och port (2026-11-16)
 

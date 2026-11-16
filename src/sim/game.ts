@@ -1,3 +1,4 @@
+import { DEFAULT_DIFFICULTY, type Difficulty } from '../data/ai';
 import { BUILDING_DEFS } from '../data/buildings';
 import { MAP_CONFIG, MAP_GEN_CONFIG } from '../data/map';
 import { START_CONFIG } from '../data/setup';
@@ -23,6 +24,8 @@ export interface GameOptions {
   fog?: boolean;
   /** The sides played by the computer. Default: the opponent, side 1. */
   ai?: readonly PlayerId[];
+  /** How hard the computer plays. Default: the middle level. */
+  difficulty?: Difficulty;
   /**
    * Units a side has besides its starting ones, for measuring how the game
    * runs with many units. They stand on the free tiles nearest its main
@@ -45,12 +48,35 @@ export function createGame(
   const state = emptyState(seed, rng, map, options.fog ?? true);
   for (const player of options.ai ?? DEFAULT_AI_PLAYERS) {
     const side = state.players[player];
-    if (side) side.ai = { attackers: [], waveTicks: [], towersPlaced: 0 };
+    if (side) {
+      side.ai = {
+        level: options.difficulty ?? DEFAULT_DIFFICULTY,
+        attackers: [],
+        waveTicks: [],
+        towersPlaced: 0,
+        woodSurplus: false,
+      };
+    }
   }
   placeStartingEntities(state);
   if (options.extraUnits) placeExtraUnits(state, options.extraUnits);
   updateVisibility(state);
   return state;
+}
+
+/**
+ * Sets how hard the computer plays, on every side it plays. For the choice
+ * on the start screen, which comes after the game has been made: it does
+ * nothing once the match has begun.
+ *
+ * @returns True if the level was set.
+ */
+export function setDifficulty(state: GameState, difficulty: Difficulty): boolean {
+  if (state.tick > 0) return false;
+  for (const side of state.players) {
+    if (side.ai) side.ai.level = difficulty;
+  }
+  return true;
 }
 
 /** Places extra units for a side on the free tiles nearest the front of its main building. */

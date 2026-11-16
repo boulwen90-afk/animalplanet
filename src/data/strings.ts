@@ -148,6 +148,9 @@ export const STRINGS = {
   start: {
     title: 'AnimalPlanet',
     button: 'Starta',
+    /** Above the choice of how hard the computer opponent plays. */
+    levelTitle: 'Svårighetsgrad',
+    levels: { easy: 'Nybörjare', medium: 'Medel', hard: 'Proffs' },
     help: [
       'Samla mat och trä, bygg en Krigshall och träna Ramkrigare. Förstör fiendens Storide för att vinna.',
       'Mus: vänsterklick markerar, högerklick ger order. Piltangenter eller WASD flyttar kameran, H hoppar till basen.',

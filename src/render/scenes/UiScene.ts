@@ -1,4 +1,5 @@
 import { Scene, type GameObjects, type Input } from 'phaser';
+import { DEFAULT_DIFFICULTY, DIFFICULTIES, type Difficulty } from '../../data/ai';
 import { PRODUCTION_CONFIG } from '../../data/production';
 import { BUILDING_DEFS, type BuildingType } from '../../data/buildings';
 import { POPULATION_CONFIG } from '../../data/population';
@@ -66,8 +67,10 @@ export interface HudSource {
   restart(): void;
   /** False while the match waits behind the start screen. */
   isStarted(): boolean;
-  /** Leaves the start screen and begins the match. */
-  start(): void;
+  /** How hard the computer plays: what the start screen shows as chosen at first. */
+  getDifficulty(): Difficulty;
+  /** Leaves the start screen and begins the match against a computer that plays this hard. */
+  start(difficulty: Difficulty): void;
   /** The buttons to show under the resource bar; the first is drawn rightmost. */
   getHudButtons(): HudButton[];
   /** Presses one of those buttons. */
@@ -103,6 +106,10 @@ export interface StartScreenDisplay {
   title: string;
   help: string;
   button: { label: string; x: number; y: number };
+  /** The heading above the choice of level. */
+  levelTitle: string;
+  /** The levels to choose from, in order, with the centre of each one's button. */
+  levels: { id: Difficulty; label: string; chosen: boolean; x: number; y: number }[];
 }
 
 /** A button under the resource bar as it is drawn: its centre and its size. */
@@ -255,8 +262,13 @@ export class UiScene extends Scene {
   private startTitle!: GameObjects.Text;
   private startHelp!: GameObjects.Text;
   private startButton!: GameObjects.Text;
+  private startLevelTitle!: GameObjects.Text;
+  private startLevelTexts: GameObjects.Text[] = [];
   private startShown = false;
   private startButtonRect: ScreenRect = { x: 0, y: 0, width: 0, height: 0 };
+  private startLevelRects: ScreenRect[] = [];
+  /** The level chosen on the start screen. */
+  private startLevel: Difficulty = DEFAULT_DIFFICULTY;
 
   private loading!: GameObjects.Graphics;
   private loadingText!: GameObjects.Text;
@@ -395,6 +407,28 @@ export class UiScene extends Scene {
       .setOrigin(0.5)
       .setDepth(101)
       .setVisible(this.startShown);
+    this.startLevel = this.source.getDifficulty();
+    this.startLevelTitle = this.add
+      .text(0, 0, STRINGS.start.levelTitle, {
+        fontFamily: 'sans-serif',
+        fontSize: '14px',
+        color: '#a0aec0',
+      })
+      .setOrigin(0.5)
+      .setDepth(101)
+      .setVisible(this.startShown);
+    this.startLevelTexts = DIFFICULTIES.map((level) =>
+      this.add
+        .text(0, 0, STRINGS.start.levels[level], {
+          fontFamily: 'sans-serif',
+          fontSize: '16px',
+          fontStyle: 'bold',
+          color: TEXT_COLOR,
+        })
+        .setOrigin(0.5)
+        .setDepth(101)
+        .setVisible(this.startShown),
+    );
 
     // The end-of-game screen lies on top of everything else.
     this.outcome = this.add.graphics().setDepth(100).setVisible(false);
@@ -566,6 +600,17 @@ export class UiScene extends Scene {
         x: button.x + button.width / 2,
         y: button.y + button.height / 2,
       },
+      levelTitle: STRINGS.start.levelTitle,
+      levels: DIFFICULTIES.map((level, i) => {
+        const rect = this.startLevelRects[i] ?? { x: 0, y: 0, width: 0, height: 0 };
+        return {
+          id: level,
+          label: STRINGS.start.levels[level],
+          chosen: level === this.startLevel,
+          x: rect.x + rect.width / 2,
+          y: rect.y + rect.height / 2,
+        };
+      }),
     };
   }
 
@@ -682,6 +727,8 @@ export class UiScene extends Scene {
     this.startTitle.setVisible(false);
     this.startHelp.setVisible(false);
     this.startButton.setVisible(false);
+    this.startLevelTitle.setVisible(false);
+    for (const text of this.startLevelTexts) text.setVisible(false);
   }
 
   private updateAlert(): void {
@@ -708,12 +755,19 @@ export class UiScene extends Scene {
     // Nothing responds while the game is loading.
     if (this.loadingShown !== undefined) return;
 
-    // On the start screen only the "start" button responds.
+    // On the start screen only the levels and the "start" button respond.
     if (this.startShown) {
-      if (pressed && rectContains(this.startButtonRect, pointer.x, pointer.y)) {
+      const level = this.startLevelRects.findIndex((rect) =>
+        rectContains(rect, pointer.x, pointer.y),
+      );
+      if (pressed && DIFFICULTIES[level] !== undefined) {
+        this.claimPress();
+        this.startLevel = DIFFICULTIES[level];
+        this.layoutStartScreen();
+      } else if (pressed && rectContains(this.startButtonRect, pointer.x, pointer.y)) {
         this.claimPress();
         this.hideStartScreen();
-        this.source.start();
+        this.source.start(this.startLevel);
       }
       return;
     }
@@ -1045,9 +1099,11 @@ export class UiScene extends Scene {
     this.startHelp.setWordWrapWidth(wrapWidth);
     const layout = startScreenLayout(width, height, this.startHelp.height);
     this.startButtonRect = layout.button;
+    this.startLevelRects = layout.levels;
 
     this.startTitle.setFontSize(layout.title.size).setPosition(layout.title.x, layout.title.y);
     this.startHelp.setPosition(layout.body.x, layout.body.y);
+    this.startLevelTitle.setPosition(layout.levelTitle.x, layout.levelTitle.y);
     const { button } = layout;
     this.startButton.setPosition(button.x + button.width / 2, button.y + button.height / 2);
 
@@ -1059,5 +1115,17 @@ export class UiScene extends Scene {
     g.fillRoundedRect(button.x, button.y, button.width, button.height, 6);
     g.lineStyle(2, PANEL_EDGE, 1);
     g.strokeRoundedRect(button.x, button.y, button.width, button.height, 6);
+
+    // The levels: the chosen one is lit like the open tab of the build menu.
+    layout.levels.forEach((rect, i) => {
+      const chosen = DIFFICULTIES[i] === this.startLevel;
+      g.fillStyle(chosen ? TAB_ACTIVE_COLOR : SLOT_COLOR, 1);
+      g.fillRoundedRect(rect.x, rect.y, rect.width, rect.height, 6);
+      g.lineStyle(2, chosen ? 0xffffff : PANEL_EDGE, 1);
+      g.strokeRoundedRect(rect.x, rect.y, rect.width, rect.height, 6);
+      this.startLevelTexts[i]
+        ?.setPosition(rect.x + rect.width / 2, rect.y + rect.height / 2)
+        .setAlpha(chosen ? 1 : 0.7);
+    });
   }
 }
