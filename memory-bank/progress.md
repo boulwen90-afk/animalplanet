@@ -5,22 +5,22 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 ## Nuläge
 
 - **MVP:n är klar.** Alla tio faser är mergade till `main`
-- **Pågår: björnrasen görs komplett** i fem steg (lagning, vakttorn,
-  smedja, kastbana med distansenhet, palissad och port), se sist i
-  `implementation-plan.md`. Användaren ser skärmdumpar efter varje steg
-- **Senaste ändring (2026-11-16):** steg 4, Kastbana och Ramkastare.
-  Namn, vapen och värden är godkända av användaren som förslag att
-  justera efter att ha prövat; sex värden som tillkom under bygget, bland
-  dem att datorspelaren har 10 Samlare i stället för 8, är inte
-  godkända. Steg 1, lagning (pull request 18), steg 2, vakttorn (pull
-  request 19), byggmenyns flikar (pull request 20) och steg 3, smedja
-  (pull request 21), är mergade. Se "Efter MVP:n". Om den senaste
-  ändringen är mergad står i GitHub; den här raden säger det inte,
-  eftersom den skrivs innan det är avgjort
-- **Återstår av björnrasen:** steg 5, palissad och port
-- **Uppskjutet till efter steg 5:** balansen mot datorspelaren. Matcher
-  mellan två datorspelare tar 11,7–19,3 minuter på frö 1–6, mot målet
-  10–20
+- **Björnrasen är byggd i fem steg** (lagning, vakttorn, smedja, kastbana
+  med distansenhet, palissad och port), se sist i
+  `implementation-plan.md`. Användaren har sett skärmdumpar efter varje
+  steg. Det femte väntar på granskning
+- **Senaste ändring (2026-11-16):** steg 5, palissad och port. Värdena
+  är förslag som väntar på användarens godkännande, liksom den tredje
+  fliken i byggmenyn ("Armé"). Steg 1, lagning (pull request 18), steg 2,
+  vakttorn (pull request 19), byggmenyns flikar (pull request 20), steg
+  3, smedja (pull request 21), och steg 4, kastbana och Ramkastare (pull
+  request 22), är mergade. Se "Efter MVP:n". Om den senaste ändringen är
+  mergad står i GitHub; den här raden säger det inte, eftersom den
+  skrivs innan det är avgjort
+- **Godkänt av användaren 2026-11-16:** datorspelaren har 10 Samlare
+  tills vidare ("Ja på allt")
+- **Står på tur:** balansen mot datorspelaren, som användaren sköt upp
+  till efter steg 5. Den är inte påbörjad
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare; björnkastaren kom med steg 4), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull

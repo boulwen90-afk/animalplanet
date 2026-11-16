@@ -75,11 +75,13 @@ En match ska ta ungefär 10–20 minuter.
   "Befolkningstaket 200 är nått" när det hårda taket är nått.
 - **Nederkant:** markeringspanel (namn, liv, vad enheten gör) och
   kommandopanel (bygg-/träningsknappar med kostnad, produktionskö).
-- **Byggmenyn har två flikar** (beslutat av användaren 2026-11-15, när
-  menyn hade vuxit till sju knappar): **Ekonomi** (Visthus, Ide, Odling,
-  Fiskehytta) och **Försvar** (Krigshall, Vakttorn, Smedja). Menyn öppnas på
-  Ekonomi. Den flik man valde ligger kvar när man markerar om. Knappen
-  "Laga" finns sist under båda flikarna. Vilken flik en byggnad hör till
+- **Byggmenyn har tre flikar** (två beslutades av användaren 2026-11-15,
+  när menyn hade vuxit till sju knappar; den tredje kom 2026-11-16 med
+  palissaden, som förslag): **Ekonomi** (Visthus, Ide, Odling,
+  Fiskehytta), **Armé** (Krigshall, Smedja, Kastbana: det som tränar och
+  rustar soldater) och **Försvar** (Vakttorn, Palissad, Port: det som står
+  och försvarar marken). Menyn öppnas på Ekonomi. Den flik man valde ligger kvar när man markerar om. Knappen
+  "Laga" finns sist under alla flikarna. Vilken flik en byggnad hör till
   står i `BUILDING_DEFS` (`menu`). En flik är 108×40 px, stor nog att
   trycka på med ett finger.
 - Ingen minikarta i MVP:n.
@@ -230,15 +232,15 @@ justera efter att ha prövat; värdena ligger i `UNIT_DEFS.ramkastare`):
 
 ## 8. Byggnader (MVP)
 
-| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) | Fiskehytta | Vakttorn | Smedja | Kastbana |
-|---|---|---|---|---|---|---|---|---| --- |
-| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare | Fiske vid vatten, upp till 3 Samlare; avlämningsplats för fisk | Skjuter på fiender, ser långt | Uppgraderingar | Tränar Ramkastare |
-| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä | 100 trä | 120 trä | 150 trä | 130 trä |
-| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s | 25 s | 30 s | 35 s | 30 s |
-| Liv | 1500 | 400 | 700 | 300 | 200 | 350 | 500 | 600 | 500 |
-| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor | 2×2 rutor | 1×1 ruta | 2×2 rutor | 2×2 rutor |
-| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor | 5 rutor | 8 rutor | 5 rutor | 5 rutor |
-| Befolkningsplats | 5 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | 0 |
+| | Storide (huvudbyggnad) | Visthus (förråd) | Krigshall (kasern) | Ide (bostad) | Odling (åker) | Fiskehytta | Vakttorn | Smedja | Kastbana | Palissad | Port |
+|---|---|---|---|---|---|---|---|---| --- | --- | --- |
+| Funktion | Tränar Samlare, avlämningsplats | Avlämningsplats nära resurser | Tränar Ramkrigare | Ger befolkningsplats | Ger mat utan slut, 1 Samlare | Fiske vid vatten, upp till 3 Samlare; avlämningsplats för fisk | Skjuter på fiender, ser långt | Uppgraderingar | Tränar Ramkastare | Stänger vägen för alla | Släpper igenom egna enheter, stänger för fiendens |
+| Kostnad | – (finns från start) | 80 trä | 150 trä | 30 trä | 60 trä | 100 trä | 120 trä | 150 trä | 130 trä | 6 trä per del | 40 trä |
+| Byggtid (1 arbetare) | – | 20 s | 35 s | 15 s | 20 s | 25 s | 30 s | 35 s | 30 s | 4 s per del | 15 s |
+| Liv | 1500 | 400 | 700 | 300 | 200 | 350 | 500 | 600 | 500 | 250 | 400 |
+| Storlek | 3×3 rutor | 2×2 rutor | 3×3 rutor | 2×2 rutor | 2×2 rutor | 2×2 rutor | 1×1 ruta | 2×2 rutor | 2×2 rutor | 1×1 ruta per del | 1×1 ruta |
+| Synfält | 9 rutor | 5 rutor | 6 rutor | 4 rutor | 3 rutor | 5 rutor | 8 rutor | 5 rutor | 5 rutor | 2 rutor | 3 rutor |
+| Befolkningsplats | 5 | 0 | 0 | 5 | 0 | 0 | 0 | 0 | 0 | 0 | 0 |
 
 Bostaden heter olika för varje ras; björnarnas är Idet. Det byggs av
 Samlare. Det är en låg timmerstuga under ett djupt halmtak, med ljus i
@@ -354,6 +356,54 @@ ligger under fliken Försvar:
   Krigshallen, och gör inget annat.
 - 130 trä, 30 s byggtid, 500 liv, 2×2 rutor. Den kan lagas som andra
   byggnader.
+
+**Palissaden och porten** (infört 2026-11-16 på användarens begäran;
+värdena är förslag som väntar på godkännande och ligger i
+`BUILDING_DEFS.palissad`, `BUILDING_DEFS.port` och `CONSTRUCTION_CONFIG`)
+byggs av Samlare och ligger under fliken Försvar:
+- **En palissad är en rad spetsade pålar**, en del per ruta, med en list
+  i lagfärg. Ingen går igenom den, varken egna eller fiender.
+- **Den dras ut i en linje.** Med mus: tryck där muren ska börja, dra, och
+  släpp där den ska sluta; ett klick ger en enda del. På pekskärm: ett
+  tryck där den börjar, ett tryck där den slutar (ett nytt tryck flyttar
+  slutet), och ett tryck på linjen bygger. Medan linjen dras visas varje
+  del genomskinlig på sin ruta, och under linjens slut står hur många
+  delar det blir och vad de kostar ("8 delar · 48 trä").
+- **Linjen är tät.** Varje del ligger sida vid sida med nästa, aldrig
+  hörn mot hörn: en sned linje blir en trappa. Den blir högst 30 delar.
+- **Det som står i vägen byggs runt.** En ruta med ett träd, en klippa,
+  vatten, en byggnad eller en enhet får ingen del; den visas röd medan
+  linjen dras och kostar inget. Där en del av spelarens egen mur redan
+  står hoppas rutan över utan att märkas ut.
+- **Priset dras för hela linjen** när den placeras, 6 trä per del. Räcker
+  inte träet placeras ingenting, och träsiffran blinkar rött.
+- **Samlarna bygger delarna en i taget**, 4 s per del för en Samlare. De
+  börjar i den ände som ligger närmast och fortsätter själva med närmaste
+  ofärdiga del av muren tills allt står.
+- **Delarna ritas ihop:** i en rad längs med raden, och i ett hörn, en
+  korsning eller ensam som en fyrkant av pålar som raderna går in i.
+- **Porten** står på en ruta. **Spelarens egna enheter går igenom den,
+  fiendens gör det inte**, och det gäller också medan den byggs. Den får
+  ställas där en del av spelarens egen palissad står: delen tas bort och
+  porten byggs på dess plats (40 trä; inget fås tillbaka för delen). Den
+  vänder sig efter muren den står i.
+- **Murar skyddar inte mot det som flyger:** pilar och spjut går över.
+- Delar och portar kan **lagas** som andra byggnader (3 respektive 20 trä
+  för en full lagning), ryker och brinner när de är skadade, och **rivs
+  av fienden** som andra byggnader. Spelaren kan inte riva sina egna.
+
+**Enheter och murar** (regler som följer av palissaden):
+- **En mur som byggs tvärs över en enhets väg** leder om den: den får en
+  ny väg till samma mål, runt muren. En del kan inte placeras på en ruta
+  där en enhet står, så ingen enhet hamnar i muren.
+- **En mur som stänger vägen helt:** enheten går så nära målet den kan
+  och stannar där. Det gäller också en flyttorder till en plats som redan
+  är avstängd. (Förut stod en enhet kvar där den var när målet inte gick
+  att nå.)
+- **En mur eller port som faller**, och en port som sätts in i en mur:
+  enheter på väg tar den nya vägen om den är kortare.
+- Enheter som redan har stannat vid en mur minns inte vart de skulle. De
+  får en ny order när vägen är öppen.
 
 Byggregler:
 - Spelaren väljer byggnad i kommandopanelen och placerar en "spökbild" på
@@ -482,6 +532,10 @@ som spelaren (inget fusk med resurser):
 6. Skickar anfallsvågor mot spelarens Storide. Vågornas storlek och tidpunkt
    ligger i en datafil (t.ex. våg 1: 4 krigare tidigast vid 4 min, därefter
    större vågor).
+   **Stänger en mur vägen** för en soldat i en våg, så att den inte kan
+   ta sig fram till det den ska anfalla, anfaller den i stället den del av
+   fiendens mur eller port som står först i dess väg, och går vidare när
+   vägen är öppen. Datorspelaren bygger inga murar själv.
    Krigare i en våg **river först ett torn som når dem**: står en krigare
    inom ett fientligt torns räckvidd anfaller den tornet innan den går
    vidare mot Storidet. Fientliga krigare i närheten går fortfarande före.
@@ -532,6 +586,8 @@ krigsdimman. En svårighetsgrad.
 | Byggnad förstörs | Skärmen skakar 150 ms med 4 px amplitud om byggnaden är i bild |
 | Egen bas anfalls | Texten "Din bas anfalls!" i överkant i 3 s, högst en gång per 10 s |
 | Ogiltig byggplats | Spökbilden är röd; klick gör ingenting |
+| Palissad dras ut | Varje ruta i linjen blir grön med delens bild i 70 % täckning, eller röd där något står i vägen; under linjens slut står "8 delar · 48 trä". Linjen följer musen utan fördröjning |
+| Port placeras på en mur | Rutan är grön och porten visas vänd som muren; delen under tas bort när porten placeras |
 | För lite resurser | Resurssiffran som saknas blinkar rött i 300 ms; inget köas |
 | Kamera | Tangentpanorering 900 px/s; kantpanorering inom 20 px från skärmkanten; stannar vid kartans kant |
 | Orderrespons | En order syns på enheten (den börjar röra sig) inom 100 ms |
@@ -572,7 +628,8 @@ positioner så att rörelsen ser mjuk ut i 60 bilder/s.
 - Tidsåldrar, uppgraderingar, forskning
 - Distansenheter, belägringsvapen, hjältar/ledare som enheter
 - Torn, murar, fler byggnadstyper (Odlingen och Fiskehyttan tillkom
-  2026-11-14, se avsnitt 6 och 8)
+  2026-11-14, se avsnitt 6 och 8; torn, smedja, kastbana, palissad och
+  port tillkom 2026-11-15 och 2026-11-16, se avsnitt 8)
 - Båtar och allt annat på vatten
 - ~~Bostadshus som höjer befolkningstaket (planerat efter MVP, maxtak ca
   250)~~ Infört 2026-11-14 med ett hårt tak på 50, samma dag höjt till
