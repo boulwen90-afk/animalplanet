@@ -144,6 +144,9 @@ export const STRINGS = {
   loading: (percent: number) => `Laddar ${percent} %`,
   debug: {
     fps: (fps: number, units: number) => `${fps} bilder/s · ${units} enheter`,
+    /** How long a simulation step takes, in milliseconds: on average and the longest of late. */
+    step: (averageMs: number, largestMs: number) =>
+      `steg ${averageMs.toFixed(1).replace('.', ',')} ms (längst ${largestMs.toFixed(1).replace('.', ',')})`,
   },
   start: {
     title: 'AnimalPlanet',
