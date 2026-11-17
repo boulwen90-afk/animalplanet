@@ -107,7 +107,7 @@ export function nearestReachable(grid: PathGrid, from: Point, target: Point): Po
     const index = queue[head] as number;
     const x = index % grid.width;
     const y = (index - x) / grid.width;
-    const distance = (x - target.x) ** 2 + (y - target.y) ** 2;
+    const distance = (x - target.x) * (x - target.x) + (y - target.y) * (y - target.y);
     // The search visits tiles in order of steps from the start, so the first
     // tile found at a given distance is the one nearest to the start.
     if (distance < bestDistance) {

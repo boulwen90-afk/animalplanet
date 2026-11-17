@@ -5,6 +5,7 @@ import { UNIT_DEFS } from '../../data/units';
 import { isBuilding, isUnit, nearestBuildingTile, tileGapToBuilding, unitTile } from '../entities';
 import { isWater, tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
+import { length } from '../math';
 import { findPath, isPassable, reachableTiles, type PathGrid } from '../pathfinding/astar';
 import { PathGrids, buildPathGrid } from '../pathfinding/passability';
 import { resourceAt, takeFromSource } from '../resources';
@@ -220,7 +221,7 @@ export function shorePlaces(
           y - (corner.y + size - 1),
           0,
         ),
-        distance: Math.hypot(x + 0.5 - centre.x, y + 0.5 - centre.y),
+        distance: length(x + 0.5 - centre.x, y + 0.5 - centre.y),
       });
     }
   }

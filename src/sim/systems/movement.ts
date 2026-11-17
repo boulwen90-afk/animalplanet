@@ -1,6 +1,7 @@
 import { SIM_CONFIG } from '../../data/sim';
 import { UNIT_DEFS } from '../../data/units';
 import { isUnit } from '../entities';
+import { length } from '../math';
 import type { GameState, Unit } from '../state';
 
 /** Guards against stopping a hair short of a tile centre because of rounding. */
@@ -27,7 +28,7 @@ function moveUnit(unit: Unit): void {
     const targetY = next.y + 0.5;
     const dx = targetX - unit.x;
     const dy = targetY - unit.y;
-    const distance = Math.hypot(dx, dy);
+    const distance = length(dx, dy);
     if (distance <= budget + EPSILON) {
       unit.x = targetX;
       unit.y = targetY;

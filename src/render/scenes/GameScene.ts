@@ -14,6 +14,7 @@ import {
   type StepTime,
 } from '../../sim/clock';
 import { BUILDING_DEFS, BUILD_MENUS, type BuildMenu } from '../../data/buildings';
+import { checksum } from '../../sim/checksum';
 import { applyCommand, type CommandResult } from '../../sim/commands';
 import {
   buildingCentre,
@@ -624,6 +625,7 @@ export class GameScene extends Scene implements HudSource {
     this.testApi = installTestApi({
       getElapsedMs: () => this.elapsedTotal,
       getState: () => structuredClone(state),
+      getChecksum: () => checksum(state),
       advance: (steps) => this.runSteps(state, steps),
       spawnUnit: (type, owner, tileX, tileY) => {
         const unit = createUnit(state, type, owner, tileX, tileY);

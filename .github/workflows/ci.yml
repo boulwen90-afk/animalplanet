@@ -31,10 +31,15 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-      - name: Install browser
-        run: npx playwright install --with-deps chromium
+      # All tests run in Chromium. Firefox and WebKit run the determinism
+      # tests only: two players may use different browsers, and every engine
+      # must count the same.
+      - name: Install browsers
+        run: npx playwright install --with-deps chromium firefox webkit
       - name: Browser tests
         run: npm run e2e
+        env:
+          E2E_ALL_BROWSERS: '1'
       - name: Upload browser test results
         if: failure()
         uses: actions/upload-artifact@v7

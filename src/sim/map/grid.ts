@@ -1,5 +1,6 @@
 import { TERRAIN_DEFS, type Terrain } from '../../data/terrain';
 import type { UnitType } from '../../data/types';
+import { length } from '../math';
 import type { MapSize, Point } from './iso';
 
 /** A cave where one side's defeated units take refuge. See GDD section 15. */
@@ -59,7 +60,7 @@ export function mirrorTile(x: number, y: number, map: MapSize): Point {
 
 /** Straight-line distance between two tiles, in tiles. */
 export function tileDistance(ax: number, ay: number, bx: number, by: number): number {
-  return Math.hypot(ax - bx, ay - by);
+  return length(ax - bx, ay - by);
 }
 
 /** The four tiles sharing an edge with a tile. */

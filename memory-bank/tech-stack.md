@@ -10,7 +10,7 @@ Status: **Godkänd 2026-11-12.**
 | Spelmotor | Phaser 3 (senaste 3.x) | Endast rendering, inmatning och scener |
 | Byggverktyg | Vite | `base: '/animalplanet/'` för GitHub Pages |
 | Enhetstester | Vitest | Körs i Node, utan webbläsare |
-| Webbläsartester | Playwright (Chromium, headless) | Röktest + skärmdumpar |
+| Webbläsartester | Playwright (Chromium, headless; i CI också Firefox och WebKit för determinismtestet) | Röktest + skärmdumpar; samma räkning i tre motorer |
 | Kodkvalitet | ESLint + Prettier | ESLint förbjuder Phaser-import i `src/sim/` |
 | Pakethanterare | npm | `package-lock.json` checkas in |
 | Körmiljö | Node LTS | Låses i `.nvmrc` och används av CI |

@@ -359,10 +359,24 @@ som håller ut (`levels.test.ts`, `balance.test.ts`), webbläsartester för
 valet på startskärmen (`difficulty.spec.ts`), och matcher utan webbläsare
 där nivåerna möter varandra. Se `progress.md`.
 
-## Multiplayer för två spelare via lockstep (förslag 2026-11-16, väntar på godkännande)
+## Multiplayer för två spelare via lockstep (godkänd av användaren 2026-11-17)
 
-Ingenting av det här är byggt. Användaren bad om en undersökning och en
-plan; planen genomförs först när den är godkänd, en fas i taget.
+Användaren bad om en undersökning och en plan, och godkände planen med
+"Ja på allt" på tre frågor: att merga undersökningen, att godkänna planen
+och börja med fas M0, och om förbindelsen. Den sista frågan var "Supabase
+Realtime eller PeerJS, eller vill du pröva båda först som jag föreslår?";
+min tolkning av svaret är att **båda prövas först**, i fas M3, innan
+valet blir slutgiltigt. Planen genomförs en fas i taget.
+
+| Fas | Innehåll | Status |
+|---|---|---|
+| M0 | Samma resultat i alla webbläsare | Klar 2026-11-17, se `progress.md` |
+| M1 | Orderkö och turer, utan nätverk | Inte påbörjad |
+| M2 | Kontrollsummor som upptäcker att spelen glider isär | Inte påbörjad |
+| P | Prestanda med 400 enheter (P1–P4), efter användarens mätning | Inte påbörjad |
+| M3 | Förbindelse och lobby med rumskod | Inte påbörjad |
+| M4 | Väntan, paus, återanslutning och vinst när någon försvinner | Inte påbörjad |
+| M5 | Avslutning | Inte påbörjad |
 
 Principen: båda spelarna kör samma simulering, och **bara order skickas**
 mellan dem. Då måste samma frö och samma order ge samma spel, steg för
@@ -393,6 +407,7 @@ multiplayer").
   Deras sista decimal får skilja mellan webbläsarmotorer, och då glider
   spelen isär mellan t.ex. Chrome och Safari. Inte kunnat prövas här,
   där bara Chromium finns.
+  **Åtgärdat i fas M0.**
 - Order utförs i dag i samma ögonblick som spelaren ger dem. De måste
   gå genom en kö och utföras i ett bestämt steg hos båda.
 - Gränssnittet väntar sig svaret på en order direkt (t.ex. "för lite
