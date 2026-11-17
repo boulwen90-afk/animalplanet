@@ -8,6 +8,7 @@ import { isBuilding, isUnit } from './entities';
 import { createGame } from './game';
 import {
   createSession,
+  adoptState,
   delaySteps,
   isReady,
   receive,
@@ -16,6 +17,7 @@ import {
   submit,
   takeOutbox,
   turnOf,
+  type Message,
   type OrderMessage,
 } from './lockstep';
 import { createRng, nextFloat, nextInt, type RngState } from './rng';
@@ -28,6 +30,8 @@ vi.setConfig({ testTimeout: 300_000 });
 
 const SECOND = SIM_CONFIG.ticksPerSecond;
 const DELAY = LOCKSTEP_CONFIG.delayTurns * LOCKSTEP_CONFIG.stepsPerTurn;
+/** The seeds of the matches with faults in them. More for a longer run by hand: LOCKSTEP_SEEDS=1,2,3,4,5,6,7,8. */
+const FAULT_SEEDS = (process.env.LOCKSTEP_SEEDS ?? '1,2').split(',').map(Number);
 
 const unitsOf = (state: GameState, owner: number) =>
   state.entities.filter((e): e is Unit => isUnit(e) && e.owner === owner);
@@ -64,7 +68,9 @@ function twoPlayers(make: () => GameState) {
   /** Hands every waiting message straight to the other player. */
   const deliver = () => {
     for (const side of [0, 1] as const) {
-      for (const message of takeOutbox(sessions[side])) receive(sessions[1 - side]!, sent(message));
+      for (const message of takeOutbox(sessions[side])) {
+        receive(sessions[1 - side]!, sent(message), games[1 - side]);
+      }
     }
   };
   /** Runs one step on both sides with a perfect connection in between. */
@@ -311,7 +317,7 @@ describe('two players', () => {
   it('sends one message at the end of every turn, also when there are no orders', () => {
     const { games, sessions } = twoPlayers(fresh);
     for (let i = 0; i < DELAY; i++) step(sessions[0], games[0]);
-    const messages = takeOutbox(sessions[0]);
+    const messages = takeOutbox(sessions[0]) as OrderMessage[];
     expect(messages).toHaveLength(LOCKSTEP_CONFIG.delayTurns);
     // Nothing confirmed yet, so the second repeats the first turn.
     expect(messages.map((m) => m.turns.map((t) => t.turn))).toEqual([[0], [0, 1]]);
@@ -327,12 +333,13 @@ describe('two players', () => {
     expect(games[0].tick).toBe(400);
     expect(games[1].tick).toBe(400);
     for (const session of sessions) {
-      // A handful of turns are kept, not all hundred.
+      // A handful of turns are kept, not all hundred: those not yet carried
+      // out, and the last few that were.
       for (const player of [0, 1]) {
-        expect(Object.keys(session.turns[player]!).length).toBeLessThanOrEqual(4);
+        expect(Object.keys(session.turns[player]!).length).toBeLessThanOrEqual(8);
       }
       resend(session);
-      const [message] = takeOutbox(session);
+      const [message] = takeOutbox(session) as OrderMessage[];
       expect(message!.turns.length).toBeLessThanOrEqual(3);
     }
   });
@@ -363,7 +370,10 @@ describe('two players', () => {
       command: moveOrder(games[0], player),
     });
     const good: OrderMessage = {
+      kind: 'orders',
       player: 1,
+      epoch: 0,
+      checks: [],
       have: { 0: -1 },
       turns: [{ turn: 0, orders: [order(1, DELAY + 1)] }],
     };
@@ -382,6 +392,10 @@ describe('two players', () => {
       ],
       ['a turn that is no turn', { ...good, turns: [{ turn: -1, orders: [] }] }],
       ['no turns', { ...good, turns: undefined as unknown as [] }],
+      ['no checksums', { ...good, checks: undefined as unknown as [] }],
+      ['a checksum that is no number', { ...good, checks: [{ step: 20, sum: 0.5 }] }],
+      ['an epoch that is no epoch', { ...good, epoch: -1 }],
+      ['of no kind', { ...good, kind: 'other' as 'orders' }],
     ];
     for (const [what, message] of bad) {
       const before = sent(mine);
@@ -406,7 +420,7 @@ describe('two players', () => {
  * own random numbers.
  */
 class BadLine {
-  private readonly waiting: { due: number; to: 0 | 1; message: OrderMessage }[] = [];
+  private readonly waiting: { due: number; to: 0 | 1; message: Message }[] = [];
   lost = 0;
   carried = 0;
 
@@ -416,7 +430,7 @@ class BadLine {
     private readonly longest: number,
   ) {}
 
-  send(to: 0 | 1, message: OrderMessage, now: number): void {
+  send(to: 0 | 1, message: Message, now: number): void {
     if (nextFloat(this.rng) < this.loss) {
       this.lost++;
       return;
@@ -432,7 +446,7 @@ class BadLine {
     }
   }
 
-  arrived(now: number): { to: 0 | 1; message: OrderMessage }[] {
+  arrived(now: number): { to: 0 | 1; message: Message }[] {
     const due = this.waiting.filter((item) => item.due <= now);
     for (const item of due) this.waiting.splice(this.waiting.indexOf(item), 1);
     this.carried += due.length;
@@ -448,16 +462,37 @@ class BadLine {
  *
  * @returns How far each side got, and the checksum of each side's game after every step.
  */
-function playOverBadLine(seed: number, ticks: number, loss: number, longest: number) {
-  const { games, sessions } = twoPlayers(() => prepared(seed));
+function playOverBadLine(
+  seed: number,
+  ticks: number,
+  loss: number,
+  longest: number,
+  /** Something to do to the games at the start of a tick of the clock, such as breaking one. */
+  meddle?: (now: number, games: readonly [GameState, GameState]) => void,
+  trace = false,
+) {
+  const { games } = twoPlayers(() => prepared(seed));
+  const sessions = [
+    createSession({ humans: [0, 1], local: 0, trace }),
+    createSession({ humans: [0, 1], local: 1, trace }),
+  ] as const;
   const line = new BadLine(createRng(seed * 31 + 7), loss, longest);
   const whims = [createRng(seed * 101 + 1), createRng(seed * 211 + 2)];
   const sums: number[][] = [[], []];
   const stood = [0, 0];
   let longestWait = 0;
   let orders = 0;
+  let setBack = 0;
+  let setForward = 0;
   for (let now = 0; now < ticks; now++) {
-    for (const { to, message } of line.arrived(now)) receive(sessions[to], message);
+    meddle?.(now, games);
+    for (const { to, message } of line.arrived(now)) {
+      const was = games[to].tick;
+      receive(sessions[to], message, games[to]);
+      // A game taken over from the host: was this side ahead of the host, or behind?
+      if (games[to].tick < was) setBack++;
+      if (games[to].tick > was) setForward++;
+    }
     for (const side of [0, 1] as const) {
       // An order every half second or so, as the game stands on this side.
       if (now % 10 === side * 5) {
@@ -477,7 +512,7 @@ function playOverBadLine(seed: number, ticks: number, loss: number, longest: num
         line.send((1 - side) as 0 | 1, message, now);
     }
   }
-  return { games, sums, line, longestWait, orders };
+  return { games, sessions, sums, line, longestWait, orders, setBack, setForward };
 }
 
 describe('two players over a bad connection', () => {
@@ -537,5 +572,342 @@ describe('two players over a bad connection', () => {
     for (let i = 0; i < 100; i++) stepBoth();
     expect(games[0].tick).toBeGreaterThan(stoppedAt + 90);
     expect(checksum(games[0])).toBe(checksum(games[1]));
+  });
+});
+
+/**
+ * Brings two games to the same step over a perfect connection, so that
+ * they can be compared: whatever is on its way is delivered, and the one
+ * that is behind catches up.
+ */
+function settle(
+  games: readonly [GameState, GameState],
+  sessions: readonly [ReturnType<typeof createSession>, ReturnType<typeof createSession>],
+): void {
+  for (let round = 0; round < 200; round++) {
+    for (const side of [0, 1] as const) {
+      resend(sessions[side]);
+      for (const message of takeOutbox(sessions[side])) {
+        receive(sessions[1 - side]!, sent(message), games[1 - side]);
+      }
+    }
+    const [a, b] = games;
+    const idle = sessions.every((session) => session.stopped === null);
+    if (a.tick === b.tick && idle) return;
+    const behind = a.tick <= b.tick ? 0 : 1;
+    step(sessions[behind], games[behind]);
+  }
+  throw new Error('the games never came to the same step');
+}
+
+describe('finding out that the games have come apart', () => {
+  const fresh = () => prepared(5);
+  /** A fault of the kind a bug would give: one number in one game is off by a hair. */
+  const nudge = (state: GameState) => {
+    unitsOf(state, 0)[0]!.x += 1e-9;
+  };
+
+  it('a player alone takes no checksums', () => {
+    const state = createGame(1);
+    const session = createSession({ local: 0 });
+    for (let i = 0; i < 100; i++) step(session, state);
+    expect(session.checks).toEqual({ 0: {} });
+    expect(session.stopped).toBeNull();
+  });
+
+  it('once a second each player takes a checksum and sends it with its orders', () => {
+    const { games, sessions, stepBoth } = twoPlayers(fresh);
+    for (let i = 0; i < 70; i++) stepBoth();
+    for (const session of sessions) {
+      // Its own and the other's, for the same steps, and they are alike.
+      expect(Object.keys(session.checks[0]!)).toEqual(['20', '40', '60']);
+      expect(session.checks[1]).toEqual(session.checks[0]);
+      expect(session.stopped).toBeNull();
+      expect(session.divergences).toEqual([]);
+    }
+    expect(sessions[0].checks[0]![60]).not.toBe(sessions[0].checks[0]![40]);
+    expect(games[0].tick).toBe(70);
+    // A message carries the latest three, so that one lost message loses no checksum.
+    for (let i = 0; i < 30; i++) stepBoth();
+    resend(sessions[0]);
+    const [message] = takeOutbox(sessions[0]) as OrderMessage[];
+    expect(message!.checks.map((check) => check.step)).toEqual([60, 80, 100]);
+  });
+
+  it('keeps only the latest checksums', () => {
+    const { sessions, stepBoth } = twoPlayers(fresh);
+    for (let i = 0; i < 400; i++) stepBoth();
+    for (const session of sessions) {
+      for (const player of [0, 1]) {
+        expect(Object.keys(session.checks[player]!).length).toBeLessThanOrEqual(8);
+      }
+    }
+  });
+
+  it('a difference in one number in one game is found within a second, and both stop', () => {
+    // Whenever in the second the fault comes.
+    for (const faultAt of [41, 50, 59, 60]) {
+      const { games, sessions, stepBoth } = twoPlayers(fresh);
+      for (let i = 0; i < faultAt; i++) stepBoth();
+      nudge(games[1]);
+      expect(checksum(games[0])).not.toBe(checksum(games[1]));
+
+      let steps = 0;
+      while (sessions[1].divergences.length === 0 && steps < 100) {
+        stepBoth();
+        steps++;
+      }
+      // Found at the next checksum: no more than 20 steps after the fault.
+      expect(steps, `fault at ${faultAt}`).toBeLessThanOrEqual(LOCKSTEP_CONFIG.checkEvery);
+      for (const session of sessions) {
+        expect(
+          session.divergences.map((d) => d.step),
+          `fault at ${faultAt}`,
+        ).toEqual([60 + (faultAt === 60 ? 20 : 0)]);
+      }
+    }
+  });
+
+  it('the host then sends its game, the other takes it over, and they go on alike', () => {
+    const { games, sessions, stepBoth } = twoPlayers(fresh);
+    for (let i = 0; i < 50; i++) stepBoth();
+    nudge(games[1]);
+    // Past the next checksum, and on for ten seconds.
+    const sums: number[][] = [[], []];
+    for (let i = 0; i < 250; i++) {
+      stepBoth();
+      for (const side of [0, 1]) sums[side]!.push(checksum(games[side]!));
+    }
+    for (const session of sessions) {
+      expect(session.divergences).toHaveLength(1);
+      expect(session.stopped).toBeNull();
+      expect(session.snapshot).toBeNull();
+      expect(session.epoch).toBe(1);
+    }
+    expect(games[0].tick).toBe(games[1].tick);
+    expect(checksum(games[0])).toBe(checksum(games[1]));
+    // The stop was short: a handful of steps were lost, not seconds.
+    expect(games[0].tick).toBeGreaterThan(240);
+    // Alike from the take-over on.
+    expect(sums[0]!.slice(30)).toEqual(sums[1]!.slice(30));
+    // And the game that is left is the host's: its unit was never nudged.
+    expect(unitsOf(games[1], 0)[0]!.x).toBe(unitsOf(games[0], 0)[0]!.x);
+  });
+
+  it('it is the host’s game that is kept, also when the fault was in the host’s', () => {
+    const { games, sessions, stepBoth } = twoPlayers(fresh);
+    for (let i = 0; i < 50; i++) stepBoth();
+    const food = games[0].players[0]!.resources.food;
+    games[0].players[0]!.resources.food += 500;
+    for (let i = 0; i < 100; i++) stepBoth();
+    expect(sessions.map((session) => session.divergences.length)).toEqual([1, 1]);
+    expect(checksum(games[0])).toBe(checksum(games[1]));
+    expect(games[1].players[0]!.resources.food).toBeGreaterThanOrEqual(food + 400);
+  });
+
+  it('no orders are taken while the games are being set right, and none are lost that were sealed', () => {
+    const { games, sessions, stepBoth, deliver } = twoPlayers(fresh);
+    for (let i = 0; i < 55; i++) stepBoth();
+    nudge(games[1]);
+    // An order from each side, given and sealed before the fault is found.
+    expect(submit(sessions[0], games[0], moveOrder(games[0], 0, 4))).toEqual({ ok: true });
+    expect(submit(sessions[1], games[1], moveOrder(games[1], 1, 4))).toEqual({ ok: true });
+    for (let i = 0; i < 4; i++) stepBoth();
+    expect(games[0].tick).toBe(59);
+    // The step that finds it. The other player stops, and waits for the host.
+    step(sessions[0], games[0]);
+    step(sessions[1], games[1]);
+    deliver();
+    expect(sessions[1].stopped).toBe('diverged');
+    expect(submit(sessions[1], games[1], moveOrder(games[1], 1, 2))).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+    expect(step(sessions[1], games[1])).toBe(false);
+
+    // The host sends its game and waits; then both go on.
+    expect(step(sessions[0], games[0])).toBe(false);
+    expect(sessions[0].stopped).toBe('resyncing');
+    expect(submit(sessions[0], games[0], moveOrder(games[0], 0, 2))).toEqual({
+      ok: false,
+      reason: 'invalid',
+    });
+    deliver();
+    deliver();
+    expect(sessions.map((session) => session.stopped)).toEqual([null, null]);
+    const carriedOut: string[][] = [[], []];
+    for (let i = 0; i < 20; i++) {
+      stepBoth();
+      for (const side of [0, 1]) {
+        for (const o of sessions[side]!.outcomes) carriedOut[side]!.push(`${o.player}@${o.step}`);
+      }
+    }
+    // Both orders were carried out in both games, in their own steps.
+    expect(carriedOut[0]).toEqual(['0@63', '1@63']);
+    expect(carriedOut[1]).toEqual(['0@63', '1@63']);
+    expect(checksum(games[0])).toBe(checksum(games[1]));
+  });
+
+  it('with copies kept, the player whose game was replaced can say where it differed', () => {
+    const make = (trace: boolean) => {
+      const games = [fresh(), fresh()] as const;
+      const sessions = [
+        createSession({ humans: [0, 1], local: 0, trace }),
+        createSession({ humans: [0, 1], local: 1, trace }),
+      ] as const;
+      const stepBoth = () => {
+        for (const side of [0, 1] as const) step(sessions[side], games[side]);
+        for (const side of [0, 1] as const) {
+          for (const message of takeOutbox(sessions[side])) {
+            receive(sessions[1 - side]!, sent(message), games[1 - side]);
+          }
+        }
+      };
+      return { games, sessions, stepBoth };
+    };
+    const traced = make(true);
+    for (let i = 0; i < 50; i++) traced.stepBoth();
+    traced.games[1].players[1]!.resources.wood += 7;
+    for (let i = 0; i < 60; i++) traced.stepBoth();
+    expect(traced.sessions[1].divergences).toHaveLength(1);
+    expect(traced.sessions[1].divergences[0]!.step).toBe(60);
+    expect(traced.sessions[1].divergences[0]!.where).toMatch(
+      /^state\.players\.1\.resources\.wood: \d+ against \d+$/,
+    );
+    expect(checksum(traced.games[0])).toBe(checksum(traced.games[1]));
+    // A few copies at the most.
+    expect(traced.sessions[0].kept.length).toBeLessThanOrEqual(3);
+
+    // Without copies the fault is found and mended all the same, but not placed.
+    const plain = make(false);
+    for (let i = 0; i < 50; i++) plain.stepBoth();
+    plain.games[1].players[1]!.resources.wood += 7;
+    for (let i = 0; i < 60; i++) plain.stepBoth();
+    expect(plain.sessions[1].divergences).toEqual([{ step: 60 }]);
+    expect(plain.sessions[1].kept).toEqual([]);
+    expect(checksum(plain.games[0])).toBe(checksum(plain.games[1]));
+  });
+
+  it('a checksum from before the games were set right is not held against the new game', () => {
+    const { games, sessions, stepBoth } = twoPlayers(fresh);
+    for (let i = 0; i < 50; i++) stepBoth();
+    nudge(games[1]);
+    // The other player's message with the checksum of its faulty game, kept back.
+    for (let i = 0; i < 9; i++) stepBoth();
+    step(sessions[1], games[1]);
+    const late = (takeOutbox(sessions[1]) as OrderMessage[]).map(sent);
+    expect(late.some((message) => message.checks.some((check) => check.step === 60))).toBe(true);
+    for (let i = 0; i < 60; i++) stepBoth();
+    expect(sessions[0].epoch).toBe(1);
+    expect(sessions[0].divergences).toHaveLength(1);
+    // It comes now, long after.
+    for (const message of late) expect(receive(sessions[0], message, games[0])).toBe(true);
+    for (let i = 0; i < 40; i++) stepBoth();
+    expect(sessions[0].divergences).toHaveLength(1);
+    expect(sessions[0].stopped).toBeNull();
+    expect(checksum(games[0])).toBe(checksum(games[1]));
+  });
+
+  it('refuses a game that does not come from the host, and takes the same game only once', () => {
+    const { games, sessions, stepBoth } = twoPlayers(fresh);
+    for (let i = 0; i < 30; i++) stepBoth();
+    const [host, other] = sessions;
+    const state: Message = { kind: 'state', player: 1, epoch: 1, state: sent(games[1]) };
+    // The host takes nobody's game.
+    const before = checksum(games[0]);
+    expect(receive(host, sent(state), games[0])).toBe(false);
+    expect(checksum(games[0])).toBe(before);
+    expect(host.epoch).toBe(0);
+
+    // The other takes the host's, when it is given its own game to put it in.
+    const fromHost: Message = { kind: 'state', player: 0, epoch: 1, state: sent(games[0]) };
+    expect(receive(other, sent(fromHost))).toBe(false);
+    expect(
+      receive(other, sent({ ...fromHost, state: 'nothing' } as unknown as Message), games[1]),
+    ).toBe(false);
+    expect(other.epoch).toBe(0);
+    expect(receive(other, sent(fromHost), games[1])).toBe(true);
+    expect(other.epoch).toBe(1);
+    // The same again changes nothing, but is answered: the host may not have heard.
+    games[1].players[1]!.resources.food += 1;
+    const changed = checksum(games[1]);
+    takeOutbox(other);
+    expect(receive(other, sent(fromHost), games[1])).toBe(true);
+    expect(checksum(games[1])).toBe(changed);
+    expect(takeOutbox(other)).toHaveLength(1);
+  });
+
+  it.each([
+    ['a good connection', 0, 2],
+    ['a fifth lost, up to 300 ms on the way', 0.2, 6],
+    ['half lost, up to a second on the way', 0.5, 20],
+  ] as const)('faults over %s: found, mended, and alike in the end', (_name, loss, longest) => {
+    let setBack = 0;
+    let setForward = 0;
+    for (const seed of FAULT_SEEDS) {
+      // A fault every ten seconds or so, by turns in the other player's game and the host's.
+      const whims = createRng(seed * 977 + 5);
+      const faults = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => ({
+        at: n * 200 + nextInt(whims, -60, 60),
+        side: (n % 2) as 0 | 1,
+      }));
+      const played = playOverBadLine(seed, 90 * SECOND, loss, longest, (now, games) => {
+        for (const { at, side } of faults) {
+          if (now === at) games[side].players[side]!.resources.wood += 3;
+        }
+      });
+      const { games, sessions } = played;
+      settle(games, sessions);
+      expect(checksum(games[0]), `seed ${seed}`).toBe(checksum(games[1]));
+      for (const session of sessions) {
+        // Every fault was found, and none was found that was not there. Two
+        // faults in the same second are found as one.
+        expect(session.divergences.length, `seed ${seed}`).toBeGreaterThanOrEqual(4);
+        expect(session.divergences.length, `seed ${seed}`).toBeLessThanOrEqual(faults.length);
+        expect(session.epoch, `seed ${seed}`).toBe(sessions[0].divergences.length);
+        expect(session.stopped, `seed ${seed}`).toBeNull();
+      }
+      // The match got on in spite of it all.
+      expect(games[0].tick, `seed ${seed}`).toBeGreaterThan(loss >= 0.5 ? 250 : 900);
+      expect(played.orders, `seed ${seed}`).toBeGreaterThan(50);
+      setBack += played.setBack;
+      setForward += played.setForward;
+    }
+    // Over a connection that delays, the other player is sometimes ahead of
+    // the host when it takes its game over, and sometimes behind: both ways
+    // were played.
+    if (loss > 0) {
+      expect(setBack).toBeGreaterThan(0);
+      expect(setForward).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('making a game the same as another, in place', () => {
+  it('gives the same game, and whoever held the game, its map or its lists still holds the right thing', () => {
+    const mine = prepared(6);
+    const theirs = prepared(6);
+    for (let i = 0; i < 300; i++) tick(theirs);
+    theirs.players[0]!.resources.food = 12345;
+    const want = checksum(theirs);
+    const copy = sent(theirs);
+
+    const { map } = mine;
+    const { terrain, resourceAmount, caves } = map;
+    adoptState(mine, copy);
+    expect(checksum(mine)).toBe(want);
+    expect(mine.tick).toBe(300);
+    // The same objects as before, with the other game in them.
+    expect(mine.map).toBe(map);
+    expect(mine.map.terrain).toBe(terrain);
+    expect(mine.map.resourceAmount).toBe(resourceAmount);
+    expect(mine.map.caves).toBe(caves);
+    expect(terrain).toEqual(theirs.map.terrain);
+    // And it plays on as the other does.
+    for (let i = 0; i < 100; i++) {
+      tick(mine);
+      tick(theirs);
+    }
+    expect(checksum(mine)).toBe(checksum(theirs));
   });
 });

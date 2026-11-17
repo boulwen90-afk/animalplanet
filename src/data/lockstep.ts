@@ -18,4 +18,12 @@ export const LOCKSTEP_CONFIG = {
    * mends itself with the next one.
    */
   maxTurnsPerMessage: 50,
+  /**
+   * How often the players compare their games: each takes a checksum of its
+   * whole game state after every this many steps and sends it along. 20
+   * steps are once a second.
+   */
+  checkEvery: 20,
+  /** How many of its latest checksums a message carries, so that a lost one is repeated. */
+  checksPerMessage: 3,
 } as const;

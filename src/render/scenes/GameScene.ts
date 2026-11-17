@@ -175,7 +175,13 @@ export class GameScene extends Scene implements HudSource {
       extraUnits: stressUnits(stress, this.options.stressMode),
     });
     this.state = state;
-    this.session = createSession({ local: this.local, delayTurns: this.options.delayTurns });
+    this.session = createSession({
+      local: this.local,
+      delayTurns: this.options.delayTurns,
+      // In test mode copies of the game are kept, so that a match that comes
+      // apart can say where.
+      trace: this.options.testMode,
+    });
     if (stress > 0) startStress(state, this.options.stressMode);
 
     const scenery = new SceneryLibrary(this, PLAYER_COLORS);
@@ -404,6 +410,8 @@ export class GameScene extends Scene implements HudSource {
   }
 
   getAlert(): string | undefined {
+    // In a match between two players: their games have come apart and are being set right.
+    if (this.session?.stopped) return STRINGS.hud.outOfStep;
     return this.elapsedTotal < this.alertUntil ? STRINGS.hud.baseUnderAttack : undefined;
   }
 

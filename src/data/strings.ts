@@ -131,6 +131,8 @@ export const STRINGS = {
     surrendered: 'Har kapitulerat',
     caveCount: (inside: number, capacity: number) => `${inside}/${capacity}`,
     baseUnderAttack: 'Din bas anfalls!',
+    /** Shown while a match between two players stands still because their games have come apart and are being set right. */
+    outOfStep: 'Spelen har glidit isär – synkar om',
     victory: 'Seger',
     defeat: 'Nederlag',
     playAgain: 'Spela igen',
