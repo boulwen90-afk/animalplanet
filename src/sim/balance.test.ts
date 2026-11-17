@@ -29,13 +29,20 @@ const storideOf = (state: GameState, owner: number) =>
  * for the numbers in src/data/; a change there that breaks one shows up here.
  */
 describe('balance', () => {
-  it('a match between two computer players takes 10 to 20 minutes', () => {
+  it('a match between two computer players takes 10 to 25 minutes', () => {
+    // The goal of the MVP was 10 to 20 minutes. Since the computer player
+    // grows during the match (2026-11-16) some matches take a little longer,
+    // which the user has said is as it should be. A match is also sensitive
+    // to the last digit of a distance: when the simulation's arithmetic was
+    // made the same for all browsers (2026-11-17), seed 3 went from 18.6 to
+    // 20.2 minutes. Of twelve seeds, eight are decided within 20 minutes
+    // and all within 25.
     for (const seed of SEEDS) {
       const state = createGame(seed, undefined, undefined, { ai: [0, 1] });
-      advance(state, 20 * MINUTE);
+      advance(state, 25 * MINUTE);
       expect(state.winner, `seed ${seed}`).not.toBeNull();
       expect(state.tick, `seed ${seed}`).toBeGreaterThan(10 * MINUTE);
-      expect(state.tick, `seed ${seed}`).toBeLessThan(20 * MINUTE);
+      expect(state.tick, `seed ${seed}`).toBeLessThan(25 * MINUTE);
     }
   });
 

@@ -159,6 +159,9 @@ test.describe('difficulty levels', () => {
   });
 
   test('?level= sets the level in test mode, and an unknown name gives Medel', async ({ page }) => {
+    // The game is loaded three times here; see the note on the test of the
+    // whole way in phase10-touch-start.spec.ts.
+    test.slow();
     const errors = trackConsoleErrors(page);
     await openGame(page, '&level=hard');
     expect(await levelOf(page)).toBe('hard');

@@ -1,6 +1,7 @@
 import { SIM_CONFIG } from '../../data/sim';
 import { COLLISION_CONFIG, UNIT_DEFS } from '../../data/units';
 import { hasSurrendered, isUnit, unitDestination, unitTile } from '../entities';
+import { cos, length, sin } from '../math';
 import { findPath } from '../pathfinding/astar';
 import { PathGrids, nearestFreeTiles } from '../pathfinding/passability';
 import type { GameState, Unit } from '../state';
@@ -56,14 +57,14 @@ export function separateUnits(state: GameState): void {
           const room = UNIT_DEFS[a.type].radius + UNIT_DEFS[b.type].radius;
           let nx = b.x - a.x;
           let ny = b.y - a.y;
-          const distance = Math.hypot(nx, ny);
+          const distance = length(nx, ny);
           if (distance >= room) continue;
           if (distance < 1e-6) {
             // On the very same spot: pick a direction from their ids, so that
             // the same game always plays out the same way.
             const angle = (a.id * 7 + b.id * 13) * 2.399963;
-            nx = Math.cos(angle);
-            ny = Math.sin(angle);
+            nx = cos(angle);
+            ny = sin(angle);
           } else {
             nx /= distance;
             ny /= distance;
@@ -124,9 +125,9 @@ export function separateUnits(state: GameState): void {
 
 /** A push no longer than `limit`. */
 function capped(dx: number, dy: number, limit: number): [number, number] {
-  const length = Math.hypot(dx, dy);
-  if (length <= limit) return [dx, dy];
-  return [(dx * limit) / length, (dy * limit) / length];
+  const size = length(dx, dy);
+  if (size <= limit) return [dx, dy];
+  return [(dx * limit) / size, (dy * limit) / size];
 }
 
 /**

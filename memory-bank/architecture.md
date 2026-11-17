@@ -84,6 +84,9 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/clock.ts` | Fast tidssteg: gör om bildrutetid till ett helt antal steg. `StepTimes`: hur lång tid stegen tog, mätt av den som kör dem | 2 |
 | `src/sim/stress.ts` | Stresskörningar: `stressUnits` (extra enheter delade på båda sidor) och `startStress` (deras första order) i lägena `still`, `gather` och `fight` | Efter MVP |
 | `src/sim/determinism.test.ts` | Samma frö och samma inspelade order ger samma spel, steg för steg: kontrollsumma av hela spelläget efter varje steg | Efter MVP |
+| `src/sim/math.ts` | Räkning som ger samma svar i alla JavaScript-motorer: `length`, `sin` och `cos`, byggda av de fyra räknesätten, kvadratrot och rest | M0 |
+| `src/sim/checksum.ts` | `checksum` (32 bitar över hela spelläget, tal bit för bit) och `firstDifference` (var två lägen först skiljer sig) | M0 |
+| `tests/e2e/determinism.spec.ts` | Varje webbläsarmotor spelar tre matcher och jämför sin kontrollsumma varje spelsekund med Nodes. Körs i Chromium, Firefox och WebKit i CI | M0 |
 | `src/sim/rng.ts` | Frösatt slumpgenerator (mulberry32) och `parseSeed` | 2 |
 | `src/sim/map/iso.ts` | Isometrisk matematik: ruta ↔ världspixlar, begränsning till kartan | 1 |
 | `src/sim/map/grid.ts` | Typerna `GameMap` och `Cave`, rutuppslag, gångbarhet, spegling, avstånd, `isReachable` | 2, 7 |
@@ -896,19 +899,39 @@ måste samma frö och samma order ge samma spel i varje steg.
   bilden ställer (`lookAround`); det andra spelas rakt igenom.
   Uppspelningen jämförs också med den inspelade matchen, och varje order
   ska ge samma svar som när den spelades in.
-- **Kontrollsumman** (`checksum` i testet) går igenom hela spelläget och
+- **Kontrollsumman** (`checksum` i `src/sim/checksum.ts`) går igenom hela spelläget och
   tar med varje tal bit för bit, så att en skillnad i sista decimalen
   syns. Vid en skillnad säger `firstDifference` var.
 - Testet är skalbart: `DETERMINISM_SEEDS=1,2,3` och
   `DETERMINISM_MINUTES=40`. Förvalt är två frön och åtta minuter.
-- **Kända risker mellan webbläsarmotorer**, inte åtgärdade:
-  `Math.hypot` (i `tileDistance`, `moveUnit`, `separateUnits`,
-  `shootFromBuildings` och `gathering.ts`), `Math.sin` och `Math.cos` (i
-  `separateUnits`, för två enheter på exakt samma punkt) och
-  `Math.atan2`, `sin` och `cos` i datorspelarens `towerSpot`. Standarden
-  bestämmer inte deras sista decimal. I V8 ger `Math.hypot(a, b)` ett
-  annat tal än `Math.sqrt(a * a + b * b)` för 38 % av två miljoner
-  slumpade par, vilket visar att resultatet beror på hur motorn räknar.
+- **Risker mellan webbläsarmotorer, åtgärdade i fas M0 (2026-11-17).**
+  Simuleringen använde `Math.hypot` (i `tileDistance`, `moveUnit`,
+  `separateUnits`, `shootFromBuildings` och `gathering.ts`), `Math.sin`
+  och `Math.cos` (i `separateUnits`, för två enheter på exakt samma
+  punkt), `Math.atan2`, `sin` och `cos` i datorspelarens `towerSpot`, och
+  potensoperatorn `**` i `nearestReachable`. Standarden bestämmer inte
+  deras sista decimal. I V8 ger `Math.hypot(a, b)` ett annat tal än
+  `Math.sqrt(a * a + b * b)` för 38 % av två miljoner slumpade par,
+  vilket visar att resultatet beror på hur motorn räknar.
+  - Nu räknar simuleringen med `length`, `sin` och `cos` ur
+    `src/sim/math.ts`. De använder bara de fyra räknesätten, `Math.sqrt`
+    och rest (`%`), som standarden bestämmer exakt. Sinus och cosinus
+    förs till inom ett kvarts varv och summeras ur sin potensserie
+    (tolv led, omkring femton siffrors noggrannhet).
+  - `towerSpot` tar inte längre någon vinkel av riktningen mot fienden:
+    den normerar riktningen och vrider den med `cos` och `sin` av
+    tornets andel av spridningen.
+  - **En lintregel håller dem borta.** I `src/sim/` (utom testerna) är
+    `Math.hypot`, `sin`, `cos`, `tan`, `atan2` och de andra
+    transcendenta funktionerna, `**`, `Date` och `performance`
+    förbjudna (`eslint.config.js`). Regeln hittade `**` i
+    `nearestReachable`, som min genomläsning hade missat.
+  - **Tre motorer jämförs i CI** (`tests/e2e/determinism.spec.ts`):
+    varje webbläsare spelar tre matcher bakom startskärmen, med
+    `advance`, och ger `getChecksum()` efter varje spelsekund. Testet
+    spelar samma match i Node och jämför. Playwright kör alla tester i
+    Chromium och, med `E2E_ALL_BROWSERS=1`, det här testet också i
+    Firefox och WebKit.
 - **Det som inte går genom order:** `createGame` med sina val (frö,
   dimma, datorspelare, svårighetsgrad, extra enheter), `setDifficulty`
   före första steget, och testgränssnittets `spawnUnit` och `setLife`.
@@ -2107,6 +2130,7 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `camera.centerTile` | Rutkoordinat (decimal) för punkten mitt i bilden |
 | `elapsedMs` | Summan av all bildrutetid spelet har bearbetat (varje bildruta högst 100 ms). Går långsammare än väggklockan på en långsam maskin |
 | `getState()` | En kopia av hela `GameState`, även det spelaren inte ser. Vad spelaren ser står i `players[0].visibility` |
+| `getChecksum()` | Kontrollsumman av hela spelläget, räknad av webbläsaren själv (`checksum`). Två webbläsare som har spelat samma match ger samma tal |
 | `advance(n)` | Kör `n` simuleringssteg direkt |
 | `spawnUnit(type, owner, x, y)` | Skapar en enhet på en ruta och ger dess id. Genväg för tester; spelet gör aldrig så |
 | `getAlert()` | Varningstexten överst; tom när ingen visas |

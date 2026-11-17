@@ -17,6 +17,7 @@ import {
 } from '../entities';
 import { inBounds, isWalkable, isWater, tileDistance } from '../map/grid';
 import type { Point } from '../map/iso';
+import { cos, length, sin } from '../math';
 import { resourceAmountAt, resourceAt } from '../resources';
 import type { AiState, Building, Entity, GameState, PlayerId, Unit } from '../state';
 import { reachableTiles, type PathGrid } from '../pathfinding/astar';
@@ -388,11 +389,20 @@ function towerSpot(
   const towards = enemy
     ? buildingCentre(enemy)
     : { x: state.map.width / 2, y: state.map.height / 2 };
-  const facing = Math.atan2(towards.y - centre.y, towards.x - centre.x);
-  const angle = facing + ((index - (max - 1) / 2) * spread * Math.PI) / 180;
+  // The direction to the enemy as a vector of length one, turned by this
+  // tower's share of the spread. No angle is taken of the direction itself:
+  // that would need a function that engines are free to round as they like.
+  const dx = towards.x - centre.x;
+  const dy = towards.y - centre.y;
+  const far = length(dx, dy);
+  const facingX = far > 0 ? dx / far : 1;
+  const facingY = far > 0 ? dy / far : 0;
+  const turn = ((index - (max - 1) / 2) * spread * Math.PI) / 180;
+  const across = cos(turn);
+  const along = sin(turn);
   return {
-    x: Math.round(centre.x + Math.cos(angle) * distance),
-    y: Math.round(centre.y + Math.sin(angle) * distance),
+    x: Math.round(centre.x + (facingX * across - facingY * along) * distance),
+    y: Math.round(centre.y + (facingX * along + facingY * across) * distance),
   };
 }
 

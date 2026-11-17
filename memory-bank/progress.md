@@ -10,13 +10,19 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   `implementation-plan.md`. Användaren har sett skärmdumpar efter varje
   steg. Alla fem är mergade (pull request 18, 19, 21, 22 och 23;
   byggmenyns flikar i pull request 20)
-- **Senaste ändring (2026-11-16):** undersökning inför multiplayer via
-  lockstep: ett determinismtest, `?stress=400` med tre lägen och en
-  mätare för stegtiden, och en plan sist i `implementation-plan.md`. Se
-  "Efter MVP:n". Om den senaste ändringen är mergad står i GitHub; den
-  här raden säger det inte, eftersom den skrivs innan det är avgjort
-- **Väntar på användarens godkännande:** planen för multiplayer. Inget
-  av den är byggt
+- **Senaste ändring (2026-11-17):** multiplayer, fas M0: simuleringen
+  räknar likadant i alla webbläsarmotorer. Se "Efter MVP:n". Om den
+  senaste ändringen är mergad står i GitHub; den här raden säger det
+  inte, eftersom den skrivs innan det är avgjort
+- **Multiplayer:** planen sist i `implementation-plan.md` är godkänd av
+  användaren (2026-11-17, "Ja på allt"). Fas M0 är byggd; M1–M5 och
+  prestandafasen är inte påbörjade. Undersökningen är mergad (pull
+  request 25). Förbindelsen (Supabase Realtime eller PeerJS) väljs efter
+  att båda har prövats, i fas M3
+- **Väntar på användaren:** mätning med `?stress=400` på telefon och
+  Raspberry Pi, som avgör hur mycket av prestandafasen som behövs; och
+  ett besked om balanstestets nya gräns (10–25 minuter i stället för
+  10–20)
 - **Godkänt av användaren 2026-11-16:** datorspelaren har 10 Samlare
   tills vidare ("Ja på allt"); den tredje fliken "Armé" i byggmenyn ("Ja
   på alla."); Ramkastarens pris 45 mat och 25 trä och 1,4 s mellan
@@ -27,7 +33,7 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   4 och värdena i steg 5 (palissad och port)
 - **Mergat:** balansen mot datorspelaren och de tre svårighetsgraderna
   (pull request 24)
-- **Står på tur:** multiplayer, fas M0, om planen godkänns
+- **Står på tur:** multiplayer, fas M1 (orderkö och turer, utan nätverk)
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare; björnkastaren kom med steg 4), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
@@ -848,6 +854,168 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Multiplayer, fas M0: samma resultat i alla webbläsare (2026-11-17)
+
+Användaren svarade "Ja på allt" på tre frågor efter undersökningen: att
+bevaka och merga pull request 25, att planen är godkänd och att börja
+med fas M0, och om förbindelsen. Den tredje frågan var ett val
+("Supabase Realtime eller PeerJS, eller vill du pröva båda först som jag
+föreslår?"); min tolkning är att båda prövas först, i fas M3.
+
+Pull request 25 blev röd två gånger innan den mergades, se sist.
+
+**Vad fasen skulle göra** (planen, M0) **och vad som gjordes**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| 1. Byt `Math.hypot` mot kvadratroten ur summan av kvadraterna | Klar | Sex ställen, genom `length` i `src/sim/math.ts` |
+| 2. Byt `Math.sin` och `Math.cos` i `separateUnits`, och `atan2`, `sin`, `cos` i `towerSpot` | Klar, på annat sätt än planen sa | Planen sa en tabell med fasta riktningar. Jag skrev i stället egna `sin` och `cos` som räknar likadant överallt, så att kollisionen beter sig som förut. Se avvikelserna |
+| 3. Lintregel som förbjuder dem i `src/sim/` | Klar | Den förbjuder också `**`, `Date` och `performance`, och hittade ett ställe jag hade missat |
+| 4. Flytta kontrollsumman till `src/sim/checksum.ts` | Klar | |
+| 5. Kör determinismtestet i Firefox och WebKit i CI och jämför med Chromium | Klar | `tests/e2e/determinism.spec.ts`. Varje motor jämförs med Node, inte med Chromium direkt; se avvikelserna |
+| Test: determinismtestet grönt | Klar | |
+| Test: samma kontrollsummor i tre motorer | Klar | I CI: Chromium, Firefox 155 och WebKit 26.6, alla lika med Node |
+| Test: balanstesterna körs om | Klar | Ett av dem föll och är ändrat, se nedan |
+
+**Vad som gjordes**
+
+- **`src/sim/math.ts`:** `length(dx, dy)`, `sin` och `cos`. De använder
+  bara de fyra räknesätten, `Math.sqrt` och rest, som språkets standard
+  bestämmer exakt. Sinus och cosinus förs till inom ett kvarts varv och
+  summeras ur sin potensserie, tolv led. De stämmer med de inbyggda
+  till 13 decimaler inom tio varv, och till 10 decimaler för de stora
+  vinklar kollisionen gör av enheternas id.
+- **Bytta anrop:** `tileDistance`, `moveUnit`, `separateUnits` (två),
+  `shootFromBuildings`, fiskeplatsernas avstånd i `gathering.ts`, och
+  `towerSpot`, som inte längre tar någon vinkel av riktningen mot
+  fienden utan vrider en normerad riktning.
+- **`**` i `nearestReachable`** (kvadraten på ett avstånd i rutor) är
+  bytt mot multiplikation. Lintregeln hittade det; jag hade missat det
+  i genomläsningen under undersökningen. Det gällde heltal och gav
+  troligen samma svar överallt redan.
+- **Lintregeln** (`eslint.config.js`) gäller `src/sim/` utom testerna.
+- **`src/sim/checksum.ts`:** `checksum` och `firstDifference`, flyttade
+  ur determinismtestet.
+- **`window.__TEST__.getChecksum()`:** webbläsaren räknar kontrollsumman
+  själv.
+- **`tests/e2e/determinism.spec.ts`:** webbläsaren spelar tre matcher
+  bakom startskärmen och ger kontrollsumman varje spelsekund; testet
+  spelar samma match i Node och jämför. Matcherna: fem minuter mot
+  datorn (bygge, träning, torn, första anfallet), två arméer om 60 som
+  möts på mitten, och två sidor om 50 Samlare.
+- **Playwright och CI:** alla tester körs i Chromium; med
+  `E2E_ALL_BROWSERS=1`, som CI sätter, körs determinismtestet också i
+  Firefox och WebKit. CI installerar alla tre.
+
+**Mätt**
+
+- Determinismtestet: grönt med förvalda frön, och i en längre körning
+  efter bytet (fyra frön, 25 minuter): åtta matcher, 219 874 steg och
+  38 831 order utan skillnad.
+- Varje webbläsare mot Node, de tre matcherna: 300, 75 och 60 jämförda
+  spelsekunder, alla lika. Här i Chromium 153; i CI i Chromium, Firefox
+  155 och WebKit 26.6 (189 webbläsartester, alla gröna).
+- Matcher mellan två datorspelare på Medel, frö 1–12: 16,9, 13,7,
+  20,2, 16,6, 18,6, 24,3, 16,2, 17,0, 20,4, 15,0, 21,3 och 15,9
+  minuter. Åtta av tolv inom 10–20, alla inom 25. Före bytet var frö
+  1–6: 16,9, 13,7, 18,6, 16,6, 15,4 och 24,3.
+- Nivåerna mot varandra efter bytet: Medel vinner 8 av 8 mot Nybörjare
+  och Proffs 7 av 8 mot Medel, som före bytet.
+
+**Saknas eller avviker**
+
+- **Matcherna går annorlunda än före fasen.** Reglerna är desamma, men
+  avstånd skiljer sig i sista decimalen, och en match är känslig för
+  det: frö 3 gick från 18,6 till 20,2 minuter och frö 5 från 15,4 till
+  18,6.
+- **Jag ändrade ett balanstest.** "En match mellan två datorspelare tar
+  10–20 minuter" är nu 10–25 minuter. Målet 10–20 kommer från MVP:n;
+  användaren har sagt att långa matcher är i sin ordning, men har inte
+  godkänt just den här ändringen av testet.
+- **Motorerna jämförs med Node, inte med varandra.** Planen sa "jämför
+  med Chromiums". Varje webbläsare jämförs med samma match spelad i
+  Node; är alla tre lika med Node är de lika med varandra.
+- **Egna `sin` och `cos` i stället för en tabell.** Planen sa en tabell
+  med fasta riktningar för två enheter på samma punkt. Med egna
+  funktioner blir riktningen densamma som förut (till femton siffror),
+  och samma funktioner går att använda på fler ställen senare.
+- **`sin` av ett kvarts varv är 0,9999999999999999, inte 1.** Det
+  påverkar inget i spelet, men funktionerna är inte exakta i sista
+  siffran; de är lika överallt, vilket är det som räknas.
+- **Kontrollsumman har ett litet minne utanför spelläget:** en tabell
+  över summan av varje text den har sett (typnamn och fältnamn). Den
+  påverkar inte resultatet.
+- **Kontrollsumman antar att processorn lagrar tal med minsta byten
+  först**, som alla datorer och telefoner spelet kan köras på gör.
+- **Datorspelaren är inte med i en match mellan två spelare**, men
+  dess tornplacering är ändå gjord motoroberoende, så att
+  determinismtestet i tre motorer kan spela mot datorn.
+- **Renderingen använder fortfarande `Math.hypot` med flera.** Det är
+  avsiktligt: bilden påverkar inte spelläget.
+
+**Inte kontrollerat**
+
+- **Firefox och WebKit här.** Bara Chromium finns i den här miljön.
+  Att de två andra motorerna ger samma kontrollsummor har bara CI
+  visat; där gick det igenom.
+- **Riktig Safari.** WebKit i CI är Linux-bygget, med samma
+  JavaScript-motor som Safari men inte samma program som på en iPhone.
+- **ARM-processorer.** Allt är kört på x86.
+- **Resten av spelet i Firefox och WebKit.** De kör bara de tre
+  determinismmatcherna. Att spelet startar där är därmed visat för
+  första gången; att allt annat fungerar där är inte prövat.
+
+**Testresultat**
+
+- Vitest: 940 av 940 (46 filer).
+- Playwright: 183 av 183 i normal fart. På en åtta gånger långsammare
+  processor (`E2E_CPU_THROTTLE=8`) 182 av 183 i hela körningen; det som
+  föll är rättat och går igenom, se nedan. Hela den strypta körningen
+  är inte körd om efter rättningen.
+- CI på pull request 26: 189 av 189 (183 i Chromium, tre i Firefox och
+  tre i WebKit).
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+
+**Nya tester**
+
+- `src/sim/math.test.ts` (5).
+- `tests/e2e/determinism.spec.ts` (3 per webbläsare).
+
+**Äldre tester som ändrades, och varför**
+
+- **`balance.test.ts`:** övre gränsen för en match mellan två
+  datorspelare är 25 minuter i stället för 20. Se avvikelserna.
+- **`determinism.test.ts`:** hämtar kontrollsumman ur
+  `src/sim/checksum.ts` i stället för att ha den själv.
+- **`difficulty.spec.ts`, "?level= sätter nivån":** testet laddar
+  spelet tre gånger och har fått den längre tidsgräns (`test.slow()`)
+  som de andra testerna med tre laddningar har. I den strypta
+  körningen tog det 36 sekunder mot gränsen 30. Det har legat nära
+  gränsen sedan det skrevs; en laddning tar nu omkring tolv sekunder
+  strypt.
+
+**Pull request 25 var röd två gånger**
+
+1. **Ett test gick över tidsgränsen.** Stridstestet i `stress.test.ts`
+   spelade en och en halv minuts match med 126 enheter och tog över
+   fem sekunder på CI:s maskin. Det tog tre här. Testet slutar nu när
+   striden är igång, och filen har samma tidsgräns som de andra som
+   spelar matcher.
+2. **Hela jobbet avbröts efter 15 minuter**, mitt i webbläsartesterna.
+   Inget hängde: enhetstesterna tar omkring fem minuter på CI sedan
+   determinismtestet kom till, och webbläsartesterna sex till sju.
+   Gränsen är nu 30 minuter.
+
+**Beslut och lärdomar**
+
+- **En regel hittar det som en genomläsning missar.** Jag läste igenom
+  simuleringen efter funktioner som räknar olika och hittade fyra.
+  Lintregeln hittade en femte samma minut som den slogs på.
+- **Jag mätte tiden på fel maskin.** Båda felen i pull request 25 var
+  tidsgränser som höll här och inte på CI. Ett nytt test som spelar en
+  match ska ha samma tidsgräns som de andra från början, och jobbets
+  gräns ska räknas om när testerna växer.
 
 ### Undersökning inför multiplayer via lockstep (2026-11-16)
 

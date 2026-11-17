@@ -50,6 +50,7 @@ export interface TestApiSource {
   getCamera(): TestCameraInfo;
   getElapsedMs(): number;
   getState(): GameState;
+  getChecksum(): number;
   advance(steps: number): void;
   spawnUnit(type: UnitType, owner: PlayerId, tileX: number, tileY: number): number;
   setLife(id: number, life: number): void;
@@ -98,6 +99,11 @@ export interface TestApi {
   readonly elapsedMs: number;
   /** A copy of the complete game state. */
   getState(): GameState;
+  /**
+   * A checksum of the complete game state, counted by this browser. Two
+   * browsers that have played the same match give the same number.
+   */
+  getChecksum(): number;
   /** Runs `steps` simulation steps immediately, on top of the real-time ones. */
   advance(steps: number): void;
   /**
@@ -222,6 +228,7 @@ export function installTestApi(source: TestApiSource): TestApi {
       return source.getElapsedMs();
     },
     getState: () => source.getState(),
+    getChecksum: () => source.getChecksum(),
     advance: (steps) => source.advance(steps),
     spawnUnit: (type, owner, tileX, tileY) => source.spawnUnit(type, owner, tileX, tileY),
     getAlert: () => source.getAlert(),

@@ -2,6 +2,7 @@ import { BUILDING_DEFS } from '../../data/buildings';
 import { SIM_CONFIG } from '../../data/sim';
 import { buildingCentre, hasSurrendered, isBuilding, isUnit } from '../entities';
 import { tileDistance } from '../map/grid';
+import { length } from '../math';
 import { buildPathGrid } from '../pathfinding/passability';
 import type { Building, Entity, GameState, Projectile, Unit } from '../state';
 import { collapse, isAttackable, provoke } from './combat';
@@ -93,7 +94,7 @@ export function flyProjectiles(state: GameState): void {
     const aim = isUnit(target) ? { x: target.x, y: target.y } : buildingCentre(target);
     const dx = aim.x - projectile.x;
     const dy = aim.y - projectile.y;
-    const distance = Math.hypot(dx, dy);
+    const distance = length(dx, dy);
     if (distance > projectile.speed) {
       projectile.x += (dx / distance) * projectile.speed;
       projectile.y += (dy / distance) * projectile.speed;
