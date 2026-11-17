@@ -15,7 +15,7 @@ import {
 } from '../../sim/clock';
 import { BUILDING_DEFS, BUILD_MENUS, type BuildMenu } from '../../data/buildings';
 import { checksum } from '../../sim/checksum';
-import { applyCommand, type CommandResult } from '../../sim/commands';
+import { applyCommand, type Command, type CommandResult } from '../../sim/commands';
 import {
   buildingCentre,
   createUnit,
@@ -26,6 +26,7 @@ import {
 } from '../../sim/entities';
 import { missingResources } from '../../sim/economy';
 import { createGame, setDifficulty } from '../../sim/game';
+import { createSession, step, submit, type Session } from '../../sim/lockstep';
 import { startStress, stressUnits, type StressMode } from '../../sim/stress';
 import { tileToWorld, worldToTileExact } from '../../sim/map/iso';
 import { buildPathGrid } from '../../sim/pathfinding/passability';
@@ -38,7 +39,6 @@ import {
   updateVisibility,
   visibleEntities,
 } from '../../sim/systems/visibility';
-import { tick } from '../../sim/tick';
 import { installTestApi, type TestApi } from '../../testing/testHooks';
 import { BuildingLibrary } from '../buildings/BuildingLibrary';
 import { CharacterLibrary } from '../characters/CharacterLibrary';
@@ -90,20 +90,28 @@ export interface GameSceneOptions {
   stress: number;
   /** What the units of a stress run do (set with ?stressmode=). */
   stressMode: StressMode;
+  /** The side the person at the screen plays: 0 unless ?side=1 in test mode. */
+  side: PlayerId;
+  /**
+   * How many turns after it is given the player's order is carried out. 0
+   * against the computer; set with ?lockstep=N in test mode, to try the
+   * delay that a match between two players has.
+   */
+  delayTurns: number;
 }
 
-/** The side the person at the screen plays. */
 /** The fishing places on the shore are worked out again every this many frames. */
 const FISHING_PLACES_EVERY = 20;
 /** The picture the mouse pointer turns into over a building that can be repaired, and the point of it that points: the hammer's head. */
 const REPAIR_POINTER = { frame: 'icon_repair', hotspot: { x: 0.8, y: 0.2 } } as const;
 
-const LOCAL_PLAYER: PlayerId = 0;
-/** The side the computer plays. */
-const OPPONENT: PlayerId = 1;
-
 export class GameScene extends Scene implements HudSource {
   private state: GameState | undefined;
+  /** The side the person at the screen plays, and the other side. */
+  private readonly local: PlayerId;
+  private readonly opponent: PlayerId;
+  /** The turns of the match: every order the player gives goes through it. */
+  private session!: Session;
   private readonly stepClock = createStepClock();
   private readonly stepTimes = createStepTimes();
   private cameraController!: CameraController;
@@ -145,6 +153,8 @@ export class GameScene extends Scene implements HudSource {
   constructor(private readonly options: GameSceneOptions) {
     super('Game');
     this.started = !options.startScreen;
+    this.local = options.side;
+    this.opponent = options.side === 0 ? 1 : 0;
   }
 
   preload(): void {
@@ -160,11 +170,12 @@ export class GameScene extends Scene implements HudSource {
     const stress = this.options.stress;
     const state = createGame(this.options.seed, MAP_CONFIG, MAP_GEN_CONFIG, {
       fog: this.options.fog,
-      ai: this.options.ai ? [OPPONENT] : [],
+      ai: this.options.ai ? [this.opponent] : [],
       difficulty: this.options.difficulty,
       extraUnits: stressUnits(stress, this.options.stressMode),
     });
     this.state = state;
+    this.session = createSession({ local: this.local, delayTurns: this.options.delayTurns });
     if (stress > 0) startStress(state, this.options.stressMode);
 
     const scenery = new SceneryLibrary(this, PLAYER_COLORS);
@@ -178,7 +189,7 @@ export class GameScene extends Scene implements HudSource {
       new CharacterLibrary(this, PLAYER_COLORS),
       buildingArt,
       new DamageView(this, MAP_CONFIG, scenery.textureKey()),
-      LOCAL_PLAYER,
+      this.local,
     );
     this.repairPointer = scenery.pointer(
       this,
@@ -196,26 +207,26 @@ export class GameScene extends Scene implements HudSource {
 
     this.selectionController = new SelectionController(this, {
       getState: () => state,
-      getVisibleEntities: () => visibleEntities(state, LOCAL_PLAYER),
-      isExplored: (x, y) => isTileExplored(state, LOCAL_PLAYER, x, y),
-      issue: (command) => applyCommand(state, command),
+      getVisibleEntities: () => visibleEntities(state, this.local),
+      isExplored: (x, y) => isTileExplored(state, this.local, x, y),
+      issue: (command) => this.issue(command),
       isOverHud: (x, y) => this.isOverHud(x, y),
       isPlacing: () => this.placementController.active,
-      player: LOCAL_PLAYER,
+      player: this.local,
       tileSize: MAP_CONFIG,
       view: this.selectionView,
     });
 
-    this.placementView = new PlacementView(this, MAP_CONFIG, buildingArt, LOCAL_PLAYER);
+    this.placementView = new PlacementView(this, MAP_CONFIG, buildingArt, this.local);
     // Created after the selection controller: see PlacementController.
     this.placementController = new PlacementController(this, {
       getState: () => state,
-      issue: (command) => applyCommand(state, command),
+      issue: (command) => this.issue(command),
       onRefused: (result) => (this.scene.get('Ui') as UiScene).showRefusal(result),
       isOverHud: (x, y) => this.isOverHud(x, y),
       getBuilderIds: (type) =>
-        builderUnitIds(this.selectionController.selection, state.entities, LOCAL_PLAYER, type),
-      player: LOCAL_PLAYER,
+        builderUnitIds(this.selectionController.selection, state.entities, this.local, type),
+      player: this.local,
       tileSize: MAP_CONFIG,
       view: this.placementView,
     });
@@ -274,27 +285,27 @@ export class GameScene extends Scene implements HudSource {
     const { worldView } = this.cameras.main;
     this.mapView.update(
       state.map,
-      (index) => isTileExplored(state, LOCAL_PLAYER, index % width, Math.floor(index / width)),
+      (index) => isTileExplored(state, this.local, index % width, Math.floor(index / width)),
       worldView,
     );
     this.updateFishingPlaces(state);
     this.caveView.update(
       state.map,
-      LOCAL_PLAYER,
-      (cave) => isTileExplored(state, LOCAL_PLAYER, cave.x, cave.y),
-      (cave) => isTileVisible(state, LOCAL_PLAYER, cave.x, cave.y),
+      this.local,
+      (cave) => isTileExplored(state, this.local, cave.x, cave.y),
+      (cave) => isTileVisible(state, this.local, cave.x, cave.y),
     );
     this.entityView.update(
       state,
       alpha,
       this.selectionController.selection,
       this.elapsedTotal,
-      (entity) => isEntityVisibleTo(state, LOCAL_PLAYER, entity),
+      (entity) => isEntityVisibleTo(state, this.local, entity),
     );
     this.projectileView.update(state, alpha, this.elapsedTotal, (x, y) =>
-      isTileVisible(state, LOCAL_PLAYER, x, y),
+      isTileVisible(state, this.local, x, y),
     );
-    const seen = state.players[LOCAL_PLAYER]?.visibility;
+    const seen = state.players[this.local]?.visibility;
     if (seen) this.fogView?.update(seen);
     this.selectionView.update(elapsed);
 
@@ -318,8 +329,16 @@ export class GameScene extends Scene implements HudSource {
     for (let i = 0; i < steps && state.winner === null; i++) {
       // Only the step itself is timed: what the picture does with it is not.
       const before = performance.now();
-      tick(state);
+      // The orders that are due are carried out, and then the game moves on.
+      if (!step(this.session, state)) break;
       recordStep(this.stepTimes, performance.now() - before);
+      // An order of the player's that looked fine when it was given but was
+      // refused when its turn came: say why, as if it had been refused at once.
+      for (const outcome of this.session.outcomes) {
+        if (outcome.player === this.local && !outcome.result.ok) {
+          (this.scene.get('Ui') as UiScene).showRefusal(outcome.result);
+        }
+      }
       for (const event of state.events) this.onSimEvent(state, event);
     }
   }
@@ -332,7 +351,7 @@ export class GameScene extends Scene implements HudSource {
       case 'buildingAttacked':
         // Warn the player, but not more often than the cooldown allows.
         if (
-          event.owner === LOCAL_PLAYER &&
+          event.owner === this.local &&
           this.elapsedTotal >= this.lastAlertAt + UI_CONFIG.alertCooldownMs
         ) {
           this.lastAlertAt = this.elapsedTotal;
@@ -341,26 +360,26 @@ export class GameScene extends Scene implements HudSource {
         break;
       case 'projectileHit':
         // What lands out of sight is not shown.
-        if (isTileVisible(state, LOCAL_PLAYER, Math.floor(event.x), Math.floor(event.y))) {
+        if (isTileVisible(state, this.local, Math.floor(event.x), Math.floor(event.y))) {
           this.entityView.flash(event.targetId);
           const target = state.entities.find((entity) => entity.id === event.targetId);
           this.projectileView.showHit(event.x, event.y, landHeight(target));
         }
         break;
       case 'upgradeDone':
-        if (event.owner === LOCAL_PLAYER) {
+        if (event.owner === this.local) {
           const name = STRINGS.hud.upgradeLevel(STRINGS.upgrades[event.upgrade], event.level);
           (this.scene.get('Ui') as UiScene).showMessage(STRINGS.hud.upgradeReady(name));
         }
         break;
       case 'repairPaused':
-        if (event.owner === LOCAL_PLAYER) {
+        if (event.owner === this.local) {
           (this.scene.get('Ui') as UiScene).showRepairPaused();
         }
         break;
       case 'buildingCollapsed':
         // A collapse hidden by the fog of war must not give itself away.
-        if (event.owner === LOCAL_PLAYER || isTileVisible(state, LOCAL_PLAYER, event.x, event.y)) {
+        if (event.owner === this.local || isTileVisible(state, this.local, event.x, event.y)) {
           this.shakeIfOnScreen(event.x, event.y);
         }
         break;
@@ -391,7 +410,7 @@ export class GameScene extends Scene implements HudSource {
   getOutcome(): 'victory' | 'defeat' | undefined {
     const winner = this.state?.winner;
     if (winner === null || winner === undefined) return undefined;
-    return winner === LOCAL_PLAYER ? 'victory' : 'defeat';
+    return winner === this.local ? 'victory' : 'defeat';
   }
 
   restart(): void {
@@ -406,6 +425,17 @@ export class GameScene extends Scene implements HudSource {
     return this.loadProgress;
   }
 
+  /**
+   * Gives an order from the player. Every order goes this way: through the
+   * turns of the match, which carry it out at once against the computer and
+   * some turns later against another player. The answer is what happened,
+   * or with a delay what would happen if it were carried out now.
+   */
+  private issue(command: Command): CommandResult {
+    if (!this.state) return { ok: false, reason: 'invalid' };
+    return submit(this.session, this.state, command);
+  }
+
   getUnitCount(): number {
     return this.state?.entities.filter(isUnit).length ?? 0;
   }
@@ -415,7 +445,7 @@ export class GameScene extends Scene implements HudSource {
   }
 
   getDifficulty(): Difficulty {
-    return this.state?.players[OPPONENT]?.ai?.level ?? this.options.difficulty;
+    return this.state?.players[this.opponent]?.ai?.level ?? this.options.difficulty;
   }
 
   start(difficulty: Difficulty): void {
@@ -455,17 +485,17 @@ export class GameScene extends Scene implements HudSource {
 
   getSelectionInfo(): SelectionInfo | undefined {
     if (!this.state) return undefined;
-    return describeSelection(this.state.entities, this.selectionController.selection, LOCAL_PLAYER);
+    return describeSelection(this.state.entities, this.selectionController.selection, this.local);
   }
 
   getResourceBarInfo(): ResourceBarInfo | undefined {
-    const stock = this.state?.players[LOCAL_PLAYER];
+    const stock = this.state?.players[this.local];
     if (!this.state || !stock) return undefined;
     return {
       food: stock.resources.food,
       wood: stock.resources.wood,
-      population: reservedPopulation(this.state, LOCAL_PLAYER),
-      populationRoom: populationRoom(this.state, LOCAL_PLAYER),
+      population: reservedPopulation(this.state, this.local),
+      populationRoom: populationRoom(this.state, this.local),
     };
   }
 
@@ -474,15 +504,15 @@ export class GameScene extends Scene implements HudSource {
     return describeCommandPanel(
       this.state.entities,
       this.selectionController.selection,
-      LOCAL_PLAYER,
+      this.local,
       this.buildMenu,
-      this.state.players[LOCAL_PLAYER]?.upgrades,
+      this.state.players[this.local]?.upgrades,
     );
   }
 
   getSelectionStats(): string | undefined {
     if (!this.state) return undefined;
-    return describeStats(this.state, this.selectionController.selection, LOCAL_PLAYER);
+    return describeStats(this.state, this.selectionController.selection, this.local);
   }
 
   selectCommandTab(index: number): void {
@@ -493,14 +523,14 @@ export class GameScene extends Scene implements HudSource {
   activateButton(index: number): CommandResult {
     const info = this.getCommandPanelInfo();
     const action = info?.buttons[index]?.action;
-    const stock = this.state?.players[LOCAL_PLAYER];
+    const stock = this.state?.players[this.local];
     if (!this.state || !info || !action || !stock) return { ok: false, reason: 'invalid' };
 
     if (action.kind === 'train') {
       if (info.buildingId === undefined) return { ok: false, reason: 'invalid' };
-      return applyCommand(this.state, {
+      return this.issue({
         type: 'train',
-        player: LOCAL_PLAYER,
+        player: this.local,
         buildingId: info.buildingId,
         unit: action.unit,
       });
@@ -508,9 +538,9 @@ export class GameScene extends Scene implements HudSource {
 
     if (action.kind === 'research') {
       if (info.buildingId === undefined) return { ok: false, reason: 'invalid' };
-      return applyCommand(this.state, {
+      return this.issue({
         type: 'research',
-        player: LOCAL_PLAYER,
+        player: this.local,
         buildingId: info.buildingId,
         upgrade: action.upgrade,
       });
@@ -521,13 +551,13 @@ export class GameScene extends Scene implements HudSource {
         (entity): entity is Building => entity.id === action.buildingId && isBuilding(entity),
       );
       if (!target) return { ok: false, reason: 'invalid' };
-      const result = applyCommand(this.state, {
+      const result = this.issue({
         type: 'repair',
-        player: LOCAL_PLAYER,
+        player: this.local,
         unitIds: repairerUnitIds(
           this.selectionController.selection,
           this.state.entities,
-          LOCAL_PLAYER,
+          this.local,
         ),
         buildingId: target.id,
       });
@@ -549,10 +579,10 @@ export class GameScene extends Scene implements HudSource {
   cancelQueuedUnit(index: number): CommandResult {
     const info = this.getCommandPanelInfo();
     if (!this.state || info?.buildingId === undefined) return { ok: false, reason: 'invalid' };
-    return applyCommand(this.state, {
+    return this.issue({
       // The same press cancels a unit in a queue of units and an upgrade in a queue of upgrades.
       type: info.queueOf === 'upgrades' ? 'cancelResearch' : 'cancelTrain',
-      player: LOCAL_PLAYER,
+      player: this.local,
       buildingId: info.buildingId,
       index,
     });
@@ -560,7 +590,7 @@ export class GameScene extends Scene implements HudSource {
 
   /** Centre of the tile the player's main building is centred on. */
   private playerStartTile(state: GameState): [number, number] {
-    const start = state.map.startPositions[LOCAL_PLAYER];
+    const start = state.map.startPositions[this.local];
     return start ? [start.x + 0.5, start.y + 0.5] : [MAP_CONFIG.width / 2, MAP_CONFIG.height / 2];
   }
 
@@ -610,7 +640,7 @@ export class GameScene extends Scene implements HudSource {
         isBuilding(entity) &&
         entity.complete &&
         BUILDING_DEFS[entity.type].work?.places === 'shore' &&
-        isEntityVisibleTo(state, LOCAL_PLAYER, entity),
+        isEntityVisibleTo(state, this.local, entity),
     );
     if (huts.length === 0) {
       this.mapView.showFishingPlaces([]);
@@ -661,6 +691,7 @@ export class GameScene extends Scene implements HudSource {
       getScenery: (tileX, tileY) => this.mapView.describe(tileX, tileY),
       getObjectCount: () => this.mapView.objectCount,
       command: (command) => applyCommand(state, command),
+      issue: (command) => this.issue(command),
       getSelection: () => [...this.selectionController.selection],
       getHud: () => (this.scene.get('Ui') as UiScene).getDisplay(),
       getResourceBar: () => (this.scene.get('Ui') as UiScene).getResourceBarDisplay(),
