@@ -983,7 +983,7 @@ försöker köra ett steg per 50 ms)
 
 **Testresultat**
 
-- Vitest: 965 av 965 (48 filer).
+- Vitest: 965 av 965 (47 filer).
 - Playwright: 190 av 190 i normal fart och 190 av 190 på en åtta gånger
   långsammare processor (`E2E_CPU_THROTTLE=8`).
 - CI på pull request 27: grön, med determinismmatcherna också i Firefox
