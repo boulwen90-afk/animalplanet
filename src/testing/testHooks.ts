@@ -74,6 +74,7 @@ export interface TestApiSource {
   getScenery(tileX: number, tileY: number): SceneryInfo;
   getObjectCount(): number;
   command(command: Command): CommandResult;
+  issue(command: Command): CommandResult;
   getSelection(): number[];
   getHud(): HudDisplay;
   getResourceBar(): ResourceBarDisplay;
@@ -175,8 +176,18 @@ export interface TestApi {
   getScenery(tileX: number, tileY: number): SceneryInfo;
   /** How many trees, bushes and rocks are drawn on the map. */
   getObjectCount(): number;
-  /** Sends a command to the simulation, exactly as player input and the AI do, and returns its result. */
+  /**
+   * Carries out a command in the simulation at once, for any side, and
+   * returns its result. A shortcut for tests: the player's own orders go
+   * through `issue`.
+   */
   command(command: Command): CommandResult;
+  /**
+   * Gives an order as the player's input does: through the turns of the
+   * match. With a delay (?lockstep=N) it is carried out that many turns
+   * later, and the answer is what it would answer now.
+   */
+  issue(command: Command): CommandResult;
   /** Ids of the selected entities. */
   getSelection(): number[];
   /** What the selection panel shows right now. */
@@ -252,6 +263,7 @@ export function installTestApi(source: TestApiSource): TestApi {
     getScenery: (tileX, tileY) => source.getScenery(tileX, tileY),
     getObjectCount: () => source.getObjectCount(),
     command: (command) => source.command(command),
+    issue: (command) => source.issue(command),
     getSelection: () => source.getSelection(),
     getHud: () => source.getHud(),
     getResourceBar: () => source.getResourceBar(),

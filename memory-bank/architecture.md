@@ -85,6 +85,10 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/stress.ts` | Stresskörningar: `stressUnits` (extra enheter delade på båda sidor) och `startStress` (deras första order) i lägena `still`, `gather` och `fight` | Efter MVP |
 | `src/sim/determinism.test.ts` | Samma frö och samma inspelade order ger samma spel, steg för steg: kontrollsumma av hela spelläget efter varje steg | Efter MVP |
 | `src/sim/math.ts` | Räkning som ger samma svar i alla JavaScript-motorer: `length`, `sin` och `cos`, byggda av de fyra räknesätten, kvadratrot och rest | M0 |
+| `src/sim/lockstep.ts` | Turer och orderkö för lockstep: `createSession`, `submit` (ge en order), `step` (utför det som är dags och stega spelet), `receive` (ta emot den andras order), `isReady`, `resend`, `takeOutbox` | M1 |
+| `src/data/lockstep.ts` | `LOCKSTEP_CONFIG`: steg per tur, turers fördröjning, flest turer per meddelande | M1 |
+| `src/sim/testOrders.ts` | Två skriptade spelare för tester: `prepared` (ett spel där båda sidor har en liten bas) och `scriptedOrder` (en order av slumpat slag) | M1 |
+| `tests/e2e/lockstep.spec.ts` | Order genom turerna i webbläsaren: direkt mot datorn, 8 steg senare med `?lockstep=2`; och att spela sida 1 med `?side=1` | M1 |
 | `src/sim/checksum.ts` | `checksum` (32 bitar över hela spelläget, tal bit för bit) och `firstDifference` (var två lägen först skiljer sig) | M0 |
 | `tests/e2e/determinism.spec.ts` | Varje webbläsarmotor spelar tre matcher och jämför sin kontrollsumma varje spelsekund med Nodes. Körs i Chromium, Firefox och WebKit i CI | M0 |
 | `src/sim/rng.ts` | Frösatt slumpgenerator (mulberry32) och `parseSeed` | 2 |
@@ -224,7 +228,16 @@ Terrängtyper: `grass` (gångbar), `tree`, `berries`, `rock`, `water` (blockerar
 ### Kommandon
 
 `applyCommand(state, command)` är den enda vägen in i simuleringen för
-spelare, AI och tester. Kommandon utförs direkt, mellan två steg.
+spelare, AI och tester. Ett kommando utförs i samma ögonblick som
+`applyCommand` anropas. **Spelarens order anropar inte `applyCommand`
+själva**: de går genom turerna i `src/sim/lockstep.ts` (se "Turer och
+orderkö" nedan), som anropar `applyCommand` när orderns steg är inne.
+Datorspelaren anropar det inifrån steget, och testgränssnittets
+`command` direkt.
+
+`checkCommand(state, command)` svarar vad ett kommando skulle svara om
+det utfördes nu, utan att utföra det: det körs på en kopia av spelläget
+(`structuredClone`, 1,7 ms med 400 enheter).
 
 Svaret är en `CommandResult`: `{ ok: true }`, eller `{ ok: false, reason }`
 där `reason` är `insufficientResources` (med `missing`, listan över resurser
@@ -257,6 +270,58 @@ Så fördelas en grupp vid `move`:
    andra enheter står eller är på väg hoppas över.
 3. Varje enhet tar den lediga ruta som ligger närmast den själv och får sin
    väg med `findPath`.
+
+### Turer och orderkö (`lockstep.ts`, fas M1)
+
+I en match mellan två spelare kör var och en simuleringen, och bara order
+skickas. Spelen håller sig lika så länge båda utför samma order i samma
+steg. En order utförs därför inte när den ges.
+
+- **Turer.** Matchen delas i turer om `stepsPerTurn` (4) steg, 200 ms.
+- **Fördröjning.** En order som ges i steg s utförs i steg s +
+  `delayTurns` × `stepsPerTurn` (2 × 4 = 8 steg, 400 ms), hos båda.
+  Mot datorn är fördröjningen 0: ordern utförs direkt, och inget skickas.
+  Det är samma kod i båda fallen (`submit`).
+- **Försegling.** När en tur är slut förseglas de order som gavs under
+  den och läggs i `outbox` som ett `OrderMessage`. Turen `delayTurns`
+  senare kan inte börja förrän varje spelares förseglade order från den
+  här har kommit (`isReady`); `step` svarar då falskt och ändrar inget.
+- **Ordning.** Order för samma steg utförs sida för sida i `humans`
+  ordning (sida 0 före sida 1), och varje sidas i den ordning de gavs.
+- **Meddelandet** bär avsändarens sida, hur långt avsändaren har den
+  andras order (`have`), och alla avsändarens förseglade turer som
+  mottagaren inte har bekräftat, äldst först, högst
+  `maxTurnsPerMessage` (50). Ett meddelande som tappas, kommer sent,
+  två gånger eller i fel ordning gör därför ingen skada: nästa lagar
+  det. `resend` lägger meddelandet i `outbox` igen, för den som står
+  stilla och väntar.
+- **`receive` litar inte på avsändaren.** Ett meddelande avvisas helt om
+  det kommer från en sida som inte är en annan spelares, bär en order
+  för någon annans enheter, eller en order utanför den tur den måste
+  höra till.
+- **Svaret på en order.** Med fördröjning svarar `submit` vad ordern
+  skulle svara nu (`checkCommand`). En order som skulle avvisas nu
+  skickas inte. Vad som verkligen hände står i `session.outcomes` när
+  orderns steg har körts.
+- **Tillståndet** (`Session`) är ren data, skild från `GameState` och
+  inte med i kontrollsumman. Turer som har utförts och bekräftats
+  glöms.
+- Att skicka meddelandena är inte den här modulens sak. I testerna gör
+  en förbindelse i minnet det (`BadLine` i `lockstep.test.ts`), som
+  tappar, fördröjer, dubblar och kastar om.
+
+I spelet (`GameScene`):
+
+- Alla spelarens order går genom `GameScene.issue`, som anropar
+  `submit`. Det gäller markeringens högerklick, placeringen av
+  byggnader, och kommandopanelens knappar och kö.
+- `runSteps` anropar `step` i stället för `tick`. Efter varje steg visas
+  spelarens egna order som avvisades först när de utfördes
+  (`showRefusal`), på samma sätt som en order som avvisas direkt.
+- Vilken sida spelaren har är `options.side` (`this.local`), inte
+  längre en konstant. Den andra sidan är `this.opponent`.
+- Ännu finns ingen förbindelse och inget sätt att starta en match mellan
+  två spelare. Fördröjningen går att pröva ensam med `?lockstep=2`.
 
 ### Vägsökning
 
@@ -936,7 +1001,8 @@ måste samma frö och samma order ge samma spel i varje steg.
   dimma, datorspelare, svårighetsgrad, extra enheter), `setDifficulty`
   före första steget, och testgränssnittets `spawnUnit` och `setLife`.
   Allt annat som ändrar spelläget under en match är `applyCommand` och
-  `tick`.
+  `tick`. Sedan fas M1 når spelarens order `applyCommand` bara genom
+  `lockstep.ts`.
 
 ### Kartgenerering (`generateMap`)
 
@@ -2107,6 +2173,11 @@ URL-parametrar:
   början). Slår även på räknaren. Fungerar utan `?test=1`.
   Befolkningstaket gäller inte de extra enheterna. (Till och med
   2026-11-16 fick spelaren alla N, och datorspelaren spelade.)
+- `?side=1` – spelaren har sida 1 och datorn sida 0. Fungerar bara
+  tillsammans med `?test=1`.
+- `?lockstep=N` – spelarens order utförs N turer (N × 4 steg) efter att
+  de gavs, som i en match mellan två spelare; högst 20. Fungerar bara
+  tillsammans med `?test=1`.
 - `?stressmode=still`, `gather` eller `fight` – vad stresskörningens
   enheter gör. `gather` gäller när inget annat sägs.
   - `still`: Samlare som står där de ställdes.
@@ -2131,6 +2202,7 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `elapsedMs` | Summan av all bildrutetid spelet har bearbetat (varje bildruta högst 100 ms). Går långsammare än väggklockan på en långsam maskin |
 | `getState()` | En kopia av hela `GameState`, även det spelaren inte ser. Vad spelaren ser står i `players[0].visibility` |
 | `getChecksum()` | Kontrollsumman av hela spelläget, räknad av webbläsaren själv (`checksum`). Två webbläsare som har spelat samma match ger samma tal |
+| `issue(command)` | Ger en order som spelarens inmatning gör: genom turerna. Med `?lockstep=N` utförs den N turer senare, och svaret är vad den skulle svara nu |
 | `advance(n)` | Kör `n` simuleringssteg direkt |
 | `spawnUnit(type, owner, x, y)` | Skapar en enhet på en ruta och ger dess id. Genväg för tester; spelet gör aldrig så |
 | `getAlert()` | Varningstexten överst; tom när ingen visas |
@@ -2153,7 +2225,7 @@ innan spelet är byggt: vad laddningsstapeln visar (`visible`, `percent`,
 | `setLife(id, life)` | Sätter livet på en enhet eller byggnad till ett tal över 0, som efter en träff eller en lagning. För tester som behöver en skadad byggnad utan att spela en strid först |
 | `getScenery(tileX, tileY)` | Vad miljön ritar på en ruta: `object` (bilden av det som står där och syns, t.ex. `tree_2` eller `bush_few`, annars `null`), `lying` (bilderna som ligger på marken: `stump`, `bush_bare`, `fishing_place`) och `water` (vattenrutans bilder i ritordning: vattnet och dess strandbitar) |
 | `getObjectCount()` | Antal stående föremål i miljön som ritas just nu, efter att de utanför bilden har dolts |
-| `command(cmd)` | Skickar ett kommando till simuleringen och ger tillbaka dess `CommandResult` |
+| `command(cmd)` | Utför ett kommando i simuleringen direkt, för vilken sida som helst, och ger tillbaka dess `CommandResult`. En genväg för tester; spelarens egna order går genom `issue` |
 | `getSelection()` | Id för markerade entiteter |
 | `getHud()` | Vad markeringspanelen visar: `visible`, `title`, `detail` |
 | `getResourceBar()` | Texterna i resursraden: `food`, `wood`, `population` |
@@ -2292,3 +2364,9 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | Efter MVP | Nivån sätts med `setDifficulty` när "Starta" trycks, inte genom att spelet skapas om | Spelet skapas innan startskärmen visas, eftersom kartan syns bakom den. Före första steget har nivån inte påverkat något, så den kan bytas; efter det vägrar funktionen |
 | Efter MVP | Datorspelaren växer efter klockan, inte efter hur det går för den | Ett fast schema är lätt att läsa i datafilen och ger samma match för samma frö. Att den växer också när den ligger under är avsikten: det är det som håller trycket uppe |
 | Efter MVP | "Trä i överflöd" är ett minne (`woodSurplus`) med två gränser | Med en enda gräns skulle arbetarna gå fram och tillbaka mellan skog och åker varje gång lagret passerade den |
+| M1 | En order får sitt steg när den ges, inte bara sin tur | Med bara turen skulle en order utföras mellan 200 och 400 ms efter att den gavs, beroende på var i turen den gavs. Med steget är det alltid 8 steg, 400 ms |
+| M1 | Förhandssvaret på en order ges genom att utföra den på en kopia av spelläget | Varje ordertyp prövar sina villkor mitt i sitt utförande. Att dela upp alla tolv i "pröva" och "utför" vore en stor omskrivning med risk att de två glider isär. En kopia kostar 1,7 ms med 400 enheter, och en spelare ger några order i sekunden som mest |
+| M1 | En order som skulle avvisas nu skickas inte | Spelaren får samma besked som mot datorn, direkt. Läget kan ha ändrats om 400 ms, men då får spelaren ge ordern igen |
+| M1 | Varje meddelande upprepar de turer som inte är bekräftade | Då behövs ingen särskild begäran om omsändning, och inget antagande om att förbindelsen levererar säkert eller i ordning. Supabase Broadcast gör inte det |
+| M1 | Turerna ligger utanför `GameState` | Spelläget ska vara detsamma hos båda spelarna; vad den ena har hunnit ta emot är det inte. Kontrollsumman gäller därför bara spelläget |
+| M1 | Spel mot datorn går genom samma kö, med fördröjningen 0 | En väg in för spelarens order, inte två. Alla befintliga tester prövar därmed också kön |

@@ -176,6 +176,15 @@ export type CommandResult =
 
 const OK: CommandResult = { ok: true };
 
+/**
+ * What a command would answer if it were carried out now, without carrying
+ * it out: the game is left as it was. For the interface, when an order is
+ * not carried out the moment it is given.
+ */
+export function checkCommand(state: GameState, command: Command): CommandResult {
+  return applyCommand(structuredClone(state), command);
+}
+
 export function applyCommand(state: GameState, command: Command): CommandResult {
   switch (command.type) {
     case 'move':

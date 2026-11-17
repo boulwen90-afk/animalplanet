@@ -8,6 +8,9 @@ import { parseSeed } from './sim/rng';
 import { DEFAULT_STRESS_MODE, STRESS_MODES } from './sim/stress';
 import { installLoadingProbe } from './testing/testHooks';
 
+/** The longest delay ?lockstep=N gives, in turns. */
+const MAX_DELAY_TURNS = 20;
+
 /** The most extra units ?stress=N gives. */
 const STRESS_MAX = 500;
 
@@ -44,6 +47,14 @@ const stressMode =
   STRESS_MODES.find((mode) => mode === params.get('stressmode')) ?? DEFAULT_STRESS_MODE;
 const debug = params.get('debug') === '1' || stress > 0;
 
+// In test mode: ?side=1 lets the person at the screen play the other side
+// (the computer then plays side 0), and ?lockstep=N carries the player's
+// orders out N turns after they are given, as in a match between two players.
+const side = testMode && params.get('side') === '1' ? 1 : 0;
+const delayTurns = testMode
+  ? Math.min(MAX_DELAY_TURNS, Math.max(0, Math.floor(Number(params.get('lockstep')) || 0)))
+  : 0;
+
 const gameScene = new GameScene({
   testMode,
   seed,
@@ -53,6 +64,8 @@ const gameScene = new GameScene({
   startScreen,
   stress,
   stressMode,
+  side,
+  delayTurns,
 });
 const uiScene = new UiScene(gameScene, { debug });
 if (testMode) installLoadingProbe(() => uiScene.getLoadingDisplay());

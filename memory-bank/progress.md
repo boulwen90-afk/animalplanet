@@ -10,19 +10,20 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   `implementation-plan.md`. Användaren har sett skärmdumpar efter varje
   steg. Alla fem är mergade (pull request 18, 19, 21, 22 och 23;
   byggmenyns flikar i pull request 20)
-- **Senaste ändring (2026-11-17):** multiplayer, fas M0: simuleringen
-  räknar likadant i alla webbläsarmotorer. Se "Efter MVP:n". Om den
-  senaste ändringen är mergad står i GitHub; den här raden säger det
-  inte, eftersom den skrivs innan det är avgjort
+- **Senaste ändring (2026-11-17):** multiplayer, fas M1: spelarens order
+  går genom turer och en orderkö. Mot datorn märks inget; det går ännu
+  inte att spela två. Se "Efter MVP:n". Om den senaste ändringen är
+  mergad står i GitHub; den här raden säger det inte, eftersom den
+  skrivs innan det är avgjort
 - **Multiplayer:** planen sist i `implementation-plan.md` är godkänd av
-  användaren (2026-11-17, "Ja på allt"). Fas M0 är byggd; M1–M5 och
-  prestandafasen är inte påbörjade. Undersökningen är mergad (pull
-  request 25). Förbindelsen (Supabase Realtime eller PeerJS) väljs efter
-  att båda har prövats, i fas M3
+  användaren (2026-11-17, "Ja på allt"). Fas M0 är mergad (pull request
+  26) och M1 byggd; M2–M5 och prestandafasen är inte påbörjade.
+  Förbindelsen (Supabase Realtime eller PeerJS) väljs efter att båda har
+  prövats, i fas M3
+- **Godkänt av användaren 2026-11-17:** balanstestets gräns 10–25
+  minuter för en match mellan två datorspelare ("Ja på alla")
 - **Väntar på användaren:** mätning med `?stress=400` på telefon och
-  Raspberry Pi, som avgör hur mycket av prestandafasen som behövs; och
-  ett besked om balanstestets nya gräns (10–25 minuter i stället för
-  10–20)
+  Raspberry Pi, som avgör hur mycket av prestandafasen som behövs
 - **Godkänt av användaren 2026-11-16:** datorspelaren har 10 Samlare
   tills vidare ("Ja på allt"); den tredje fliken "Armé" i byggmenyn ("Ja
   på alla."); Ramkastarens pris 45 mat och 25 trä och 1,4 s mellan
@@ -33,7 +34,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   4 och värdena i steg 5 (palissad och port)
 - **Mergat:** balansen mot datorspelaren och de tre svårighetsgraderna
   (pull request 24)
-- **Står på tur:** multiplayer, fas M1 (orderkö och turer, utan nätverk)
+- **Står på tur:** multiplayer, fas M2 (kontrollsummor som upptäcker att
+  spelen glider isär)
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare; björnkastaren kom med steg 4), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
@@ -854,6 +856,166 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Multiplayer, fas M1: orderkö och turer, utan nätverk (2026-11-17)
+
+Fas M0 (pull request 26) mergades först, efter grönt CI. Användaren
+svarade "Ja på alla" på tre frågor: att merga pull request 26, att
+balanstestet får tillåta 10–25 minuter i stället för 10–20, och den
+tredje, som var ett val ("Ska jag gå vidare med fas M1 nu, eller vänta
+på din mätning med `?stress=400`?"). Min tolkning är att M1 skulle göras
+nu; den beror inte på mätningen.
+
+**Skärmdumpar:** inga. Fasen syns inte på skärmen: mot datorn beter sig
+spelet som förut, och det finns ännu inget sätt att starta en match
+mellan två spelare. Det som går att se är fördröjningen med
+`?test=1&lockstep=2`, och den är en fördröjning, inte en bild.
+
+**Avstämning mot planen**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| 1. `src/sim/lockstep.ts`, ren logik: turer om 4 steg | Klar | |
+| ... en order utförs i början av tur T + 2 | Klar, noggrannare än planen | Ordern får sitt steg, inte bara sin tur: alltid 8 steg efter att den gavs. Se avvikelserna |
+| ... en tur körs först när båda spelarnas order har kommit | Klar | `isReady`; `step` svarar falskt och ändrar inget |
+| ... fast ordning: sida 0 före sida 1, varje sidas i den ordning de gavs | Klar | |
+| ... värdena i `src/data/` | Klar | `LOCKSTEP_CONFIG` |
+| 2. All inmatning genom en enda `issue(order)` | Klar | Sex ställen i `GameScene` |
+| ... spel mot datorn genom samma kö med fördröjningen 0 | Klar | |
+| 3. Förhandskontroll direkt (`checkCommand`) | Klar | På en kopia av spelläget |
+| ... det verkliga utfallet som en händelse när ordern utförs | Klar | `session.outcomes`; spelet visar de avvisade |
+| 4. Spelarens sida är en inställning | Klar | `?side=1` i testläge |
+| Test: två spel i samma process över en förbindelse som fördröjer, kastar om och tappar | Klar | Samma kontrollsumma efter varje steg, inte bara varje tur |
+| Test: alla befintliga tester gröna utan ändring i spel mot datorn | Klar | Inget äldre test ändrades för spelets skull |
+| Mätbart: en order syns hos båda 400 ms efter att den gavs, ±50 ms | Klar | 8 steg i logiken; 8–9 steg från knapptrycket i webbläsaren |
+
+**Vad som gjordes**
+
+- **`src/sim/lockstep.ts`:** `createSession`, `submit`, `step`,
+  `isReady`, `receive`, `resend`, `takeOutbox`. Ren data och ren logik;
+  att skicka meddelanden ligger utanför.
+- **`src/data/lockstep.ts`:** 4 steg per tur, 2 turers fördröjning,
+  högst 50 turer per meddelande.
+- **`checkCommand`** i `commands.ts`.
+- **`GameScene`:** `issue` för alla spelarens order; `runSteps` anropar
+  `step`; avvisade order visas när de utförs; `this.local` och
+  `this.opponent` i stället för konstanterna.
+- **`main.ts`:** `?side=1` och `?lockstep=N`, bara i testläge.
+- **Testgränssnittet:** `issue(command)`.
+- **`src/sim/testOrders.ts`:** de skriptade spelarna, flyttade ur
+  determinismtestet så att två tester kan använda dem.
+
+**Hur meddelandena tål en dålig förbindelse**
+
+Varje meddelande bär alla avsändarens turer som mottagaren inte har
+bekräftat, och säger hur långt avsändaren har mottagarens. Ett tappat
+meddelande lagas av nästa. Den som står stilla och väntar skickar sitt
+meddelande igen.
+
+**Mätt** (två skriptade spelare, 90 spelsekunder, två frön; varje sida
+försöker köra ett steg per 50 ms)
+
+| Förbindelse | Spelen lika efter varje steg | Hur långt matchen hann |
+|---|---|---|
+| Inget tappas, 50–100 ms på vägen | Ja | Full fart: minst 1 780 av 1 800 steg |
+| Inget tappas, upp till 500 ms | Ja | Omkring 1 440 steg, 80 % av full fart; längsta väntan 0,5 s |
+| En femtedel tappas, upp till 300 ms | Ja | Omkring 1 440 steg, 80 %; längsta väntan 1,25 s |
+| Hälften tappas, upp till en sekund | Ja | 700–760 steg, 40 %; längsta väntan 3,2 s |
+
+- **Fördröjningen måste vara längre än vägen.** Med upp till 500 ms på
+  vägen och 400 ms fördröjning hinner ordern inte alltid fram i tid, och
+  matchen går då i 80 % av full fart. Planens fas M3 mäter vägen och
+  väljer fördröjningen efter den.
+- En förbindelse som bryts helt stoppar båda spelen på samma steg, högst
+  12 steg efter brottet, och de går vidare i takt när den är tillbaka.
+- I webbläsaren med `?lockstep=2`: från knapptrycket på "Träna Samlare"
+  tills arbetaren syns i kön går 9 eller 10 steg (åtta försök), också på
+  en åtta gånger långsammare processor. Ordern utförs alltså 400–450 ms
+  efter trycket.
+- `checkCommand` tar 1,7 ms med 400 enheter och 0,5 ms i början av en
+  match.
+
+**Saknas eller avviker**
+
+- **Det går inte att spela två ännu.** Ingen förbindelse, ingen lobby.
+  Fasen är grunden; den syns först i M3.
+- **En order får sitt steg, inte bara sin tur.** Planen sa att en order
+  som ges under tur T utförs i början av tur T + 2. Då hade den utförts
+  mellan 200 och 400 ms efter att den gavs. Nu är det alltid 8 steg.
+- **En order som skulle avvisas nu skickas inte.** Planen sa inget om
+  det. Spelaren får beskedet direkt, som mot datorn.
+- **Två order kan båda se bra ut och den ena avvisas senare.** Den som
+  trycker två gånger med mat till en får det andra beskedet 400 ms
+  senare. Mot datorn märks det inte.
+- **Förhandssvaret kopierar hela spelläget.** Det kostar 1,7 ms per
+  order med 400 enheter. Det räcker gott för en spelare, men är inget
+  att göra för varje bildruta.
+- **Turerna är inte med i spelläget eller kontrollsumman**, och sparas
+  inte med det. Återanslutning (M4) måste skicka dem för sig.
+- **Datorspelarens order går inte genom kön.** Den ger dem inifrån
+  steget, som förut. I en match mellan två spelare är den inte med.
+- **Testgränssnittets `command` går förbi kön**, för vilken sida som
+  helst. De flesta webbläsartester använder det. Spelarens egna order
+  prövas genom kön av de tester som klickar, och av de nya.
+- **Ingen som skickar om.** `resend` finns, men bara testerna anropar
+  det. I spelet behövs det först när det finns en förbindelse.
+- **Meddelandet har ingen version och ingen kontrollsumma.** Det är M2
+  och M3.
+- **Fler än två spelare är inte prövat**, fast logiken inte räknar med
+  just två.
+- **Den som spelar sida 1 har de röda figurerna.** Färgen följer sidan,
+  inte vem som sitter vid skärmen.
+- **`?side=1` och `?lockstep=N` finns bara i testläge.**
+- **Stegtiden i räknaren** inkluderar nu att utföra de order som är
+  dags, inte bara själva steget.
+- **Inget ljud**, som i resten av spelet.
+
+**Inte kontrollerat**
+
+- **En riktig förbindelse.** Den dåliga förbindelsen i testerna är ett
+  slumptal som bestämmer om och när ett meddelande kommer fram.
+- **Två webbläsare mot varandra.** Båda spelen i testerna kör i samma
+  process.
+- **Hur 400 ms känns att spela med.** Jag kan mäta fördröjningen, inte
+  uppleva den. `?test=1&lockstep=2` på den publicerade sidan visar den.
+- **Firefox och WebKit** kör bara determinismmatcherna, inte de nya
+  testerna.
+
+**Testresultat**
+
+- Vitest: 965 av 965 (47 filer).
+- Playwright: 190 av 190 i normal fart och 190 av 190 på en åtta gånger
+  långsammare processor (`E2E_CPU_THROTTLE=8`).
+- CI på pull request 27: grön, med determinismmatcherna också i Firefox
+  och WebKit.
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+
+**Nya tester**
+
+- `src/sim/lockstep.test.ts` (25): förhandskontrollen; en spelare utan
+  fördröjning, också mot en match med order utförda direkt; fördröjningen
+  på exakt 8 steg var än i turen ordern ges; order som avvisas direkt
+  och order som avvisas först när de utförs; två spelare i takt;
+  ordningen mellan sidorna; väntan på den andras order; ett meddelande
+  per tur; bekräftelser och glömska; meddelanden två gånger, sent och i
+  fel ordning; åtta slag av meddelanden som avvisas; fyra dåliga
+  förbindelser; och en som bryts.
+- `tests/e2e/lockstep.spec.ts` (7).
+
+**Äldre tester som ändrades, och varför**
+
+- **`determinism.test.ts`:** hämtar de skriptade spelarna ur
+  `src/sim/testOrders.ts`. Inget i vad testet prövar är ändrat.
+
+**Beslut och lärdomar**
+
+- **Fallet utan fördröjning är ett eget fall.** Min första version lät
+  också den ensamma spelaren vänta på sin egen turs order, som då aldrig
+  behövs. Testet för en ensam spelare fångade det direkt.
+- **Jag skrev fel text i ett test och trodde först att spelet hade
+  fel.** Meddelandet lyder "Ingen plats – bygg ett Ide", med litet b.
+  Jag kontrollerade simuleringen innan jag ändrade något, och felet låg
+  i testet.
 
 ### Multiplayer, fas M0: samma resultat i alla webbläsare (2026-11-17)
 

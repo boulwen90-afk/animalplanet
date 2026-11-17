@@ -371,7 +371,7 @@ valet blir slutgiltigt. Planen genomförs en fas i taget.
 | Fas | Innehåll | Status |
 |---|---|---|
 | M0 | Samma resultat i alla webbläsare | Klar 2026-11-17, se `progress.md` |
-| M1 | Orderkö och turer, utan nätverk | Inte påbörjad |
+| M1 | Orderkö och turer, utan nätverk | Klar 2026-11-17, se `progress.md` |
 | M2 | Kontrollsummor som upptäcker att spelen glider isär | Inte påbörjad |
 | P | Prestanda med 400 enheter (P1–P4), efter användarens mätning | Inte påbörjad |
 | M3 | Förbindelse och lobby med rumskod | Inte påbörjad |
