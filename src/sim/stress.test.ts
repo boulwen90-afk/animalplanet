@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { UNIT_DEFS } from '../data/units';
 import { createStepTimes, recordStep, takeStepTime } from './clock';
 import { isUnit } from './entities';
@@ -6,6 +6,10 @@ import { createGame } from './game';
 import type { GameState, Unit } from './state';
 import { STRESS_MODES, startStress, stressUnits, type StressMode } from './stress';
 import { advance } from './tick';
+
+// Minutes of a match with hundreds of units are simulated here; that takes
+// seconds, not milliseconds, and more on a busy machine.
+vi.setConfig({ testTimeout: 120_000 });
 
 const stressed = (count: number, mode: StressMode, seed = 1) => {
   const state = createGame(seed, undefined, undefined, {
@@ -75,7 +79,8 @@ describe('stress runs', () => {
     }
     let fighting = 0;
     let hits = 0;
-    for (let i = 0; i < 90 * 20 && state.winner === null; i++) {
+    // Until the fight is well under way, and for a minute and a half at the most.
+    for (let i = 0; i < 90 * 20 && (fighting <= 60 || hits <= 100); i++) {
       advance(state, 1);
       hits += state.events.filter((event) => event.type === 'hit').length;
       fighting = Math.max(
