@@ -18,7 +18,7 @@ import type { Point } from '../map/iso';
 import { approachPath } from '../pathfinding/approach';
 import { findPath, reachableTiles, type PathGrid } from '../pathfinding/astar';
 import { PathGrids } from '../pathfinding/passability';
-import { rerouteForOpening } from '../pathfinding/reroute';
+import { isPathOpen, rerouteForOpening } from '../pathfinding/reroute';
 import type { Building, Entity, GameState, PlayerId, Unit } from '../state';
 import { throwDamage, unitArmor, unitDamage } from '../upgrades';
 import { launchProjectile } from './projectiles';
@@ -82,14 +82,109 @@ export function isAttackable(state: GameState, entity: Entity, player: PlayerId)
 /** Runs one simulation step of fighting for every unit. */
 export function resolveCombat(state: GameState): void {
   const grids = new PathGrids(state);
+  // The units that want to look for a path to their target this step.
+  const seekers: Unit[] = [];
   // Copy the list: units and buildings can leave the game while looping.
   for (const unit of state.entities.filter(isUnit)) {
     if (state.winner !== null) return;
     if (!state.entities.includes(unit) || hasSurrendered(unit)) continue;
     if (unit.attackCooldown > 0) unit.attackCooldown--;
     if (unit.task.kind === 'idle' && unit.path.length === 0) acquireTarget(state, unit);
-    if (unit.task.kind === 'attack') pursueOrStrike(state, unit, grids);
+    if (unit.task.kind === 'attack' && pursueOrStrike(state, unit, grids)) seekers.push(unit);
   }
+  seekPaths(state, seekers, grids);
+}
+
+/**
+ * Lets the units that want a path to their target look for one, but no more
+ * than `searchesPerStep` of them in one step: those that have waited longest
+ * first, and of those the oldest unit. The others keep the path they have,
+ * or stand, and are among the first in the next step.
+ *
+ * Without the limit an army ordered to attack looked for its paths in one
+ * and the same step, and again every half second after: with 400 units
+ * that step took longer than three steps have.
+ */
+function seekPaths(state: GameState, seekers: Unit[], grids: PathGrids): void {
+  const waited = (unit: Unit) => (unit.task.kind === 'attack' ? -unit.task.repathTicks : 0);
+  seekers.sort((a, b) => waited(b) - waited(a) || a.id - b.id);
+  for (const unit of seekers.slice(0, COMBAT_CONFIG.searchesPerStep)) {
+    // An earlier one in the list may have ended the match, or this unit's fight.
+    if (state.winner !== null) return;
+    if (unit.task.kind !== 'attack' || !state.entities.includes(unit)) continue;
+    const target = state.entities.find((entity) => entity.id === targetIdOf(unit));
+    if (target) seekPath(state, unit, target, grids);
+  }
+}
+
+function targetIdOf(unit: Unit): number | undefined {
+  return unit.task.kind === 'attack' ? unit.task.targetId : undefined;
+}
+
+/**
+ * The tile a target is on: for a building its corner. A unit that has
+ * found a path to a target need not look again while the target is still
+ * there.
+ */
+function aimOf(state: GameState, target: Entity): number {
+  const tile = isBuilding(target) ? { x: target.x, y: target.y } : unitTile(target);
+  return tile.y * state.map.width + tile.x;
+}
+
+/**
+ * Counts down to the next time a unit on its way to a target may look for a
+ * new path, and says whether that time has come. A unit that has a path and
+ * is not waiting for a place looks again only if the target has moved to
+ * another tile since, or something has come to stand in the way; a unit
+ * without a path, or one that waits for a place by the target, looks every
+ * time.
+ */
+function isDueToSeek(state: GameState, unit: Unit, target: Entity, grids: PathGrids): boolean {
+  const task = unit.task;
+  if (task.kind !== 'attack') return false;
+  task.repathTicks--;
+  if (unit.path.length === 0 && !task.waiting) return true;
+  if (task.repathTicks > 0) return false;
+  if (
+    !task.waiting &&
+    task.aim === aimOf(state, target) &&
+    isPathOpen(grids.for(unit.owner), unitTile(unit), unit.path)
+  ) {
+    // The target stands where it stood and nothing has come in the way: the path still leads there.
+    task.repathTicks = repathSteps();
+    return false;
+  }
+  return true;
+}
+
+/** How many steps a unit waits between two looks for a new path. */
+function repathSteps(): number {
+  return Math.max(1, Math.round(COMBAT_CONFIG.repathInterval * SIM_CONFIG.ticksPerSecond));
+}
+
+/** Looks for a path for a unit to where it can strike or throw at its target, and sets it walking. */
+function seekPath(state: GameState, unit: Unit, target: Entity, grids: PathGrids): void {
+  const task = unit.task;
+  if (task.kind !== 'attack') return;
+  const ranged = UNIT_DEFS[unit.type].ranged;
+  const grid = grids.for(unit.owner);
+  let path: Point[] | undefined;
+  if (ranged && attackMode(unit, target) === 'throw') {
+    path = throwingPath(state, grid, unit, target, ranged.range);
+  } else {
+    const tiles = isBuilding(target) ? buildingTiles(target) : [unitTile(target)];
+    path = approachPath(state, grid, unit, tiles);
+  }
+  if (!path) {
+    // It cannot get to where it could strike or throw.
+    unit.task = { kind: 'idle' };
+    unit.path = [];
+    return;
+  }
+  unit.path = path;
+  task.waiting = path.length === 0;
+  task.aim = aimOf(state, target);
+  task.repathTicks = repathSteps();
 }
 
 /** Orders units to attack an enemy unit or building. */
@@ -178,54 +273,36 @@ function standsOnTakenTile(state: GameState, unit: Unit): boolean {
  * Strikes the target if it is within reach, and otherwise walks towards it.
  * A unit that fights from a distance throws instead, from within its range.
  */
-function pursueOrStrike(state: GameState, unit: Unit, grids: PathGrids): void {
+function pursueOrStrike(state: GameState, unit: Unit, grids: PathGrids): boolean {
   const task = unit.task;
-  if (task.kind !== 'attack') return;
+  if (task.kind !== 'attack') return false;
   const target = state.entities.find((entity) => entity.id === task.targetId);
   if (!target || !isAttackable(state, target, unit.owner)) {
     unit.task = { kind: 'idle' };
     unit.path = [];
-    return;
+    return false;
   }
 
   const ranged = UNIT_DEFS[unit.type].ranged;
-  if (ranged && attackMode(unit, target) === 'throw') {
-    pursueOrThrow(state, unit, target, ranged, grids);
-    return;
-  }
+  if (ranged && attackMode(unit, target) === 'throw')
+    return pursueOrThrow(state, unit, target, ranged, grids);
 
   // In reach, it stops and strikes. But not on a tile where somebody else
   // already stands: then it goes on to a place of its own.
   if (isInReach(unit, target) && !standsOnTakenTile(state, unit)) {
     unit.path = [];
     if (unit.attackCooldown === 0) strike(state, unit, target, grids);
-    return;
+    return false;
   }
-
-  // The target may be moving, so the path is renewed now and then. A unit
-  // that waits for a place by the target looks again at the same pace.
-  task.repathTicks--;
-  if ((unit.path.length > 0 || task.waiting) && task.repathTicks > 0) return;
-  const tiles = isBuilding(target) ? buildingTiles(target) : [unitTile(target)];
-  const path = approachPath(state, grids.for(unit.owner), unit, tiles);
-  if (!path) {
-    // It cannot get next to the target.
-    unit.task = { kind: 'idle' };
-    unit.path = [];
-    return;
-  }
-  unit.path = path;
-  task.waiting = path.length === 0;
-  task.repathTicks = Math.max(
-    1,
-    Math.round(COMBAT_CONFIG.repathInterval * SIM_CONFIG.ticksPerSecond),
-  );
+  // The target may be moving, so the path is renewed now and then.
+  return isDueToSeek(state, unit, target, grids);
 }
 
 /**
- * Throws at the target if it is within range, and otherwise walks to where
- * it is. The unit stops as soon as it is within range, as far from the
- * target as it can be; but not on a tile where somebody else already stands.
+ * Throws at the target if it is within range, and otherwise says whether
+ * the unit wants to look for a path to where it can throw from. The unit
+ * stops as soon as it is within range, as far from the target as it can
+ * be; but not on a tile where somebody else already stands.
  */
 function pursueOrThrow(
   state: GameState,
@@ -233,12 +310,12 @@ function pursueOrThrow(
   target: Entity,
   ranged: RangedDef,
   grids: PathGrids,
-): void {
+): boolean {
   const task = unit.task;
-  if (task.kind !== 'attack') return;
+  if (task.kind !== 'attack') return false;
   if (throwDistance(unit, target) <= ranged.range && !standsOnTakenTile(state, unit)) {
     unit.path = [];
-    if (unit.attackCooldown > 0) return;
+    if (unit.attackCooldown > 0) return false;
     launchProjectile(state, unit.owner, unit.id, { x: unit.x, y: unit.y }, target.id, {
       kind: ranged.projectile,
       damage: throwDamage(state, unit),
@@ -246,24 +323,9 @@ function pursueOrThrow(
     });
     unit.attackCooldown = throwTicks(unit);
     task.threw = true;
-    return;
+    return false;
   }
-
-  task.repathTicks--;
-  if ((unit.path.length > 0 || task.waiting) && task.repathTicks > 0) return;
-  const path = throwingPath(state, grids.for(unit.owner), unit, target, ranged.range);
-  if (!path) {
-    // There is nowhere it can throw from.
-    unit.task = { kind: 'idle' };
-    unit.path = [];
-    return;
-  }
-  unit.path = path;
-  task.waiting = path.length === 0;
-  task.repathTicks = Math.max(
-    1,
-    Math.round(COMBAT_CONFIG.repathInterval * SIM_CONFIG.ticksPerSecond),
-  );
+  return isDueToSeek(state, unit, target, grids);
 }
 
 /**

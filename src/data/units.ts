@@ -148,6 +148,13 @@ export const UNIT_DEFS: Record<UnitType, UnitDef> = {
 export const COMBAT_CONFIG = {
   /** A unit chasing a moving target looks for a new path this often, in seconds. */
   repathInterval: 0.5,
+  /**
+   * The most units that look for a path to their target in one simulation
+   * step. With more who want to, those that have waited longest go first
+   * and the rest wait for the next step. 40 a step is 400 in the half
+   * second between two looks: every unit a match can have.
+   */
+  searchesPerStep: 40,
 } as const;
 
 /** How units keep apart. See the separation system. */

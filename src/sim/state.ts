@@ -73,10 +73,20 @@ export interface RepairTask {
 export interface AttackTask {
   kind: 'attack';
   targetId: number;
-  /** Simulation steps until the unit may look for a new path to a target that has moved. */
+  /**
+   * Simulation steps until the unit may look for a new path to a target that
+   * has moved. Below zero while it waits for its turn to look: see
+   * COMBAT_CONFIG.searchesPerStep.
+   */
   repathTicks: number;
   /** True while every place by the target is taken and the unit waits nearby for one. */
   waiting?: boolean;
+  /**
+   * The tile the target was on when the unit last found a path to it, as an
+   * index into the map. While the target is still there the unit keeps its
+   * path instead of looking for a new one.
+   */
+  aim?: number;
   /**
    * For a unit that fights from a distance: true if its latest attack was a
    * throw, false if it was a strike at close quarters. The display shows
