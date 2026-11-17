@@ -372,7 +372,7 @@ valet blir slutgiltigt. Planen genomförs en fas i taget.
 |---|---|---|
 | M0 | Samma resultat i alla webbläsare | Klar 2026-11-17, se `progress.md` |
 | M1 | Orderkö och turer, utan nätverk | Klar 2026-11-17, se `progress.md` |
-| M2 | Kontrollsummor som upptäcker att spelen glider isär | Inte påbörjad |
+| M2 | Kontrollsummor som upptäcker att spelen glider isär | Klar 2026-11-17, se `progress.md` |
 | P | Prestanda med 400 enheter (P1–P4), efter användarens mätning | Inte påbörjad |
 | M3 | Förbindelse och lobby med rumskod | Inte påbörjad |
 | M4 | Väntan, paus, återanslutning och vinst när någon försvinner | Inte påbörjad |
@@ -537,6 +537,9 @@ inom en sekund; efter omsynkningen är kontrollsummorna lika igen.
    sida 0 och gästen sida 1. Ingen datorspelare.
 4. Fördröjningen mäts när spelarna har fått kontakt, och antalet turers
    fördröjning väljs efter den.
+5. Spelläget som skickas vid en omsynkning (fas M2) komprimeras eller
+   delas upp: det är upp till 184 KB, och Supabase tar högst 256 KB per
+   meddelande på gratisnivån. (Tillagt efter M2.)
 
 **Test:** två flikar i Playwright skapar och går med i ett rum och
 spelar en match i takt. Den riktiga tjänsten prövas av användaren på två

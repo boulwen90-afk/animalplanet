@@ -10,16 +10,16 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   `implementation-plan.md`. Användaren har sett skärmdumpar efter varje
   steg. Alla fem är mergade (pull request 18, 19, 21, 22 och 23;
   byggmenyns flikar i pull request 20)
-- **Senaste ändring (2026-11-17):** multiplayer, fas M1: spelarens order
-  går genom turer och en orderkö. Mot datorn märks inget; det går ännu
-  inte att spela två. Se "Efter MVP:n". Om den senaste ändringen är
-  mergad står i GitHub; den här raden säger det inte, eftersom den
-  skrivs innan det är avgjort
+- **Senaste ändring (2026-11-17):** multiplayer, fas M2: spelarna jämför
+  en kontrollsumma i sekunden, och ett spel som har glidit isär tar över
+  värdens spelläge. Det går ännu inte att spela två. Se "Efter MVP:n".
+  Om den senaste ändringen är mergad står i GitHub; den här raden säger
+  det inte, eftersom den skrivs innan det är avgjort
 - **Multiplayer:** planen sist i `implementation-plan.md` är godkänd av
-  användaren (2026-11-17, "Ja på allt"). Fas M0 är mergad (pull request
-  26) och M1 byggd; M2–M5 och prestandafasen är inte påbörjade.
-  Förbindelsen (Supabase Realtime eller PeerJS) väljs efter att båda har
-  prövats, i fas M3
+  användaren (2026-11-17, "Ja på allt"). Fas M0 och M1 är mergade (pull
+  request 26 och 27) och M2 byggd; M3–M5 och prestandafasen är inte
+  påbörjade. Förbindelsen (Supabase Realtime eller PeerJS) väljs efter
+  att båda har prövats, i fas M3
 - **Godkänt av användaren 2026-11-17:** balanstestets gräns 10–25
   minuter för en match mellan två datorspelare ("Ja på alla")
 - **Väntar på användaren:** mätning med `?stress=400` på telefon och
@@ -34,8 +34,9 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   4 och värdena i steg 5 (palissad och port)
 - **Mergat:** balansen mot datorspelaren och de tre svårighetsgraderna
   (pull request 24)
-- **Står på tur:** multiplayer, fas M2 (kontrollsummor som upptäcker att
-  spelen glider isär)
+- **Står på tur:** prestandafasen (P1–P4) eller fas M3 (förbindelse och
+  lobby). Planen lägger prestandan före M3, efter användarens mätning,
+  som inte är gjord
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare; björnkastaren kom med steg 4), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
@@ -856,6 +857,158 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Multiplayer, fas M2: kontrollsummor som upptäcker att spelen glider isär (2026-11-17)
+
+Fas M1 (pull request 27) mergades först, efter grönt CI. Användaren
+svarade "1 ja, 2 ja, 3 nej": merga pull request 27, gå vidare med M2,
+och nej, `?stress=400` är inte mätt på telefon och Raspberry Pi än.
+
+**Skärmdumpar:** inga. Fasen syns inte på skärmen förrän två spelare kan
+mötas (M3).
+
+**Avstämning mot planen**
+
+| Punkt | Status | Kommentar |
+|---|---|---|
+| 1. Var 20:e steg skickar varje spelare kontrollsumman med turens meddelande | Klar | De tre senaste följer med varje meddelande |
+| ... en kontrollsumma tar 0,4 ms med 400 enheter | Mätt under undersökningen | Inte mätt om |
+| 2. Skiljer de sig stannar båda spelen och visar "Spelen har glidit isär" | Klar i logiken; texten inte prövad i webbläsaren | Det finns ännu ingen andra spelare att glida isär från |
+| ... rummets värd skickar sitt spelläge, gästen laddar det, och spelet fortsätter | Klar | Värden är sida 0 tills M3 inför rum |
+| ... 21 KB komprimerat med 400 enheter | Inte gjort | Spelläget skickas okomprimerat. Komprimeringen hör till förbindelsen, M3 |
+| 3. I utvecklingsläge skrivs var lägena först skiljer sig | Delvis | Platsen räknas ut och sparas (`divergences[].where`) i testläge. Den skrivs inte ut någonstans än |
+| Test: ett fel som läggs in hos den ena upptäcks inom en sekund | Klar | Vid nästa kontrollsumma: högst 20 steg efter felet |
+| Test: efter omsynkningen är kontrollsummorna lika igen | Klar | Också över en förbindelse som tappar hälften |
+
+**Vad som gjordes**
+
+- **Kontrollsummor** (`check`, `compare` i `lockstep.ts`): efter vart
+  20:e steg tar varje spelare en kontrollsumma av hela spelläget. Varje
+  meddelande bär de tre senaste. Finns bådas för samma steg och de
+  skiljer sig, stannar matchen (`session.stopped`).
+- **Omsynkning:** värden skickar hela sitt spelläge (`StateMessage`) och
+  väntar. Den andra gör sitt spel likt värdens (`adoptState`), bekräftar,
+  och båda går vidare. Värden skickar om spelläget tills det är
+  bekräftat.
+- **Epoker:** varje omsynkning börjar en ny epok. Kontrollsummor från en
+  äldre epok hör till ett spel som är utbytt och jämförs inte.
+- **`adoptState`** byter spelläget på plats: den som håller i spelet,
+  kartan eller kartans listor håller fortfarande i rätt sak. Det behövs
+  för att bilden ska fortsätta rita rätt efter en omsynkning.
+- **Spår i testläge:** med `trace` sparas en kopia av spelet vid de tre
+  senaste kontrollsummorna. Värden skickar med sin kopia från steget där
+  felet hittades, och den andra kan då säga var dess spel skilde sig,
+  t.ex. `state.players.1.resources.wood: 4003 against 4000`.
+- **Meddelandena** har fått `kind` (`orders` eller `state`), `epoch` och
+  `checks`.
+- **Spelet:** `GameScene.getAlert` visar "Spelen har glidit isär – synkar
+  om" medan matchen står stilla av den orsaken.
+- **Värden:** 20 steg mellan kontrollsummorna och 3 per meddelande, i
+  `LOCKSTEP_CONFIG`.
+
+**Mätt**
+
+- Ett fel inlagt i steg 900 hittades i steg 919, vid kontrollsumman
+  efter steg 920: inom en sekund. Omsynkningen kostade ett steg av
+  1 800.
+- Ett ordermeddelande är 219 byte i median och 356 som mest (två
+  skriptade spelare som ger en order var i halvsekunden). Det skickas
+  fem i sekunden per spelare.
+- Spelläget som skickas vid en omsynkning var 86 KB med 133 enheter och
+  byggnader, okomprimerat. Med 400 enheter är det 184 KB.
+- **Fel över dåliga förbindelser:** åtta fel per match, omväxlande i
+  värdens och den andras spel, på tolv frön och tre förbindelser (bra;
+  en femtedel tappas; hälften tappas). Alla hittades och lagades, och
+  spelen var lika i slutet. I CI körs två frön.
+
+**Ett fel i min egen omsynkning, hittat av testet**
+
+En spelare kan ligga upp till åtta steg före värden när värdens
+spelläge kommer. Den backas då och spelar om de stegen. Min första
+version hade redan glömt de order som hörde till dem, så omspelningen
+gick utan dem, och spelen gled isär en gång till. Testet med en dålig
+förbindelse räknade fyra isärglidningar där tre fel var inlagda. Nu
+behålls en utförd tur fyra turer till.
+
+**Saknas eller avviker**
+
+- **Inget av det här går att se i spelet än.** Mot datorn tas inga
+  kontrollsummor, och det finns ingen andra spelare.
+- **Det är alltid värdens spel som behålls**, också när felet låg hos
+  värden. Två spelare kan inte avgöra vem som har rätt; med en tredje
+  hade majoriteten kunnat det.
+- **Spelläget skickas okomprimerat**, upp till 184 KB, och i testläge
+  dubbelt så mycket när spåret följer med. Supabases gräns på gratisnivån
+  är 256 KB per meddelande. M3 måste komprimera eller dela upp.
+- **Order som gavs men inte hunnit förseglas tappas** hos den som tar
+  över värdens spel, och inga order tas emot medan matchen står stilla.
+  Det rör som mest de senaste 200 ms.
+- **En order kan visas som avvisad två gånger** för den som backas och
+  spelar om några steg.
+- **Platsen för felet skrivs inte ut.** Den finns i
+  `session.divergences` i testläge. Var den ska visas bestäms när det
+  finns något att visa den i.
+- **Felet hittas, inte orsaken.** Kontrollsumman säger att spelen
+  skiljer sig efter ett visst steg, och spåret säger i vilket tal. Vad
+  som fick talet att skilja sig måste den som felsöker ta reda på.
+- **Två fel inom samma sekund hittas som ett.**
+- **En spelare som fuskar genom att ändra sitt spel** får det överskrivet
+  om den inte är värd. Är den värd skrivs den andras över. Det här är
+  inget skydd mot fusk.
+- **Fler än två spelare är inte prövat.**
+- **`adoptState` är inte prövad mot bilden.** Att kartan och figurerna
+  ritas rätt efter en omsynkning är inte kontrollerat; det kan prövas
+  först i M3.
+
+**Inte kontrollerat**
+
+- **Varningstexten i webbläsaren.** Det går inte att få två spel att
+  glida isär där än.
+- **En riktig förbindelse**, som i M1.
+- **Hur ofta det händer på riktigt.** Efter M0 ska det inte hända alls
+  mellan Chromium, Firefox och WebKit på x86. Riktig Safari och
+  ARM-processorer är inte prövade, och det är just där den här fasen
+  skulle visa sig behövas.
+
+**Testresultat**
+
+- Vitest: 979 av 979 (47 filer).
+- Playwright: 190 av 190 i normal fart och 190 av 190 på en åtta gånger
+  långsammare processor (`E2E_CPU_THROTTLE=8`).
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+
+**Nya tester** (`src/sim/lockstep.test.ts`, 14 nya, nu 39)
+
+- En ensam spelare tar inga kontrollsummor.
+- En kontrollsumma i sekunden, tre per meddelande, åtta sparade.
+- Ett fel i ett enda tal hittas vid nästa kontrollsumma, var i sekunden
+  det än kommer.
+- Värden skickar sitt spel, den andra tar över det, och spelen är lika
+  därefter; det är värdens spel som behålls också när felet var värdens.
+- Inga order tas emot under omsynkningen, och de som var förseglade
+  utförs i båda spelen i sina steg.
+- Med spår kan den som fick sitt spel utbytt säga var det skilde sig.
+- En gammal kontrollsumma som kommer sent ställer inte till något.
+- Ett spelläge som inte kommer från värden avvisas, och samma spelläge
+  tas bara emot en gång.
+- Åtta fel per match över tre sorters förbindelse.
+- `adoptState`: samma spel, samma objekt.
+
+**Äldre tester som ändrades, och varför**
+
+- **`lockstep.test.ts`:** meddelandena har fått `kind`, `epoch` och
+  `checks`, och `receive` får spelet som tredje argument. Ett test
+  väntade sig högst fyra sparade turer; nu sparas upp till åtta, se
+  felet ovan.
+
+**Beslut och lärdomar**
+
+- **Testet med den dåliga förbindelsen betalade sig.** Felet i
+  omsynkningen syntes inte med en perfekt förbindelse, där ingen spelare
+  ligger före den andra.
+- **Den som upptäcker felet måste säga det direkt.** Min första version
+  lät den andra spelaren vänta med sin kontrollsumma till nästa tur, som
+  aldrig kom, eftersom matchen stod stilla.
 
 ### Multiplayer, fas M1: orderkö och turer, utan nätverk (2026-11-17)
 

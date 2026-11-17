@@ -85,8 +85,8 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/stress.ts` | Stresskörningar: `stressUnits` (extra enheter delade på båda sidor) och `startStress` (deras första order) i lägena `still`, `gather` och `fight` | Efter MVP |
 | `src/sim/determinism.test.ts` | Samma frö och samma inspelade order ger samma spel, steg för steg: kontrollsumma av hela spelläget efter varje steg | Efter MVP |
 | `src/sim/math.ts` | Räkning som ger samma svar i alla JavaScript-motorer: `length`, `sin` och `cos`, byggda av de fyra räknesätten, kvadratrot och rest | M0 |
-| `src/sim/lockstep.ts` | Turer och orderkö för lockstep: `createSession`, `submit` (ge en order), `step` (utför det som är dags och stega spelet), `receive` (ta emot den andras order), `isReady`, `resend`, `takeOutbox` | M1 |
-| `src/data/lockstep.ts` | `LOCKSTEP_CONFIG`: steg per tur, turers fördröjning, flest turer per meddelande | M1 |
+| `src/sim/lockstep.ts` | Turer och orderkö för lockstep: `createSession`, `submit` (ge en order), `step` (utför det som är dags och stega spelet), `receive` (ta emot den andras order eller spelläge), `isReady`, `resend`, `takeOutbox`, `adoptState`. Kontrollsummor en gång i sekunden och omsynkning från värdens spelläge | M1, M2 |
+| `src/data/lockstep.ts` | `LOCKSTEP_CONFIG`: steg per tur, turers fördröjning, flest turer per meddelande, steg mellan kontrollsummorna, kontrollsummor per meddelande | M1, M2 |
 | `src/sim/testOrders.ts` | Två skriptade spelare för tester: `prepared` (ett spel där båda sidor har en liten bas) och `scriptedOrder` (en order av slumpat slag) | M1 |
 | `tests/e2e/lockstep.spec.ts` | Order genom turerna i webbläsaren: direkt mot datorn, 8 steg senare med `?lockstep=2`; och att spela sida 1 med `?side=1` | M1 |
 | `src/sim/checksum.ts` | `checksum` (32 bitar över hela spelläget, tal bit för bit) och `firstDifference` (var två lägen först skiljer sig) | M0 |
@@ -305,7 +305,44 @@ steg. En order utförs därför inte när den ges.
   orderns steg har körts.
 - **Tillståndet** (`Session`) är ren data, skild från `GameState` och
   inte med i kontrollsumman. Turer som har utförts och bekräftats
-  glöms.
+  glöms, fyra turer efter att de utfördes (se omsynkningen nedan).
+- **Kontrollsummor** (fas M2). Efter vart `checkEvery` (20) steg, en
+  gång i sekunden, tar varje spelare `checksum` av hela spelläget och
+  sparar den per steg. Varje meddelande bär avsändarens tre senaste
+  (`checksPerMessage`). Har båda en kontrollsumma för samma steg och de
+  skiljer sig har spelen glidit isär: `session.stopped` blir `diverged`,
+  `step` och `submit` vägrar, och händelsen läggs i
+  `session.divergences`. Den som upptäcker det och inte är värd skickar
+  sitt meddelande direkt, så att värden får veta. Mot datorn tas inga
+  kontrollsummor.
+- **Omsynkning.** Värden (`session.host`, förvalt den första sidan)
+  börjar en ny epok (`epoch`), skickar hela sitt spelläge som ett
+  `StateMessage` och väntar (`stopped` är `resyncing`); `resend` skickar
+  samma spelläge igen. Den andra gör sitt spel likt värdens
+  (`adoptState`), tar epoken, glömmer sina kontrollsummor och svarar med
+  ett vanligt meddelande. När värden får ett meddelande med den nya
+  epoken går båda vidare.
+  - Kontrollsummor jämförs bara inom samma epok: de äldre hör till ett
+    spel som är utbytt.
+  - Den som tar över kan ha legat upp till `delayTurns` turer före
+    värden. Den backas då och spelar om de stegen, och behöver deras
+    order igen; därför behålls utförda turer. Låg den efter förseglas
+    de turer den hoppar över som tomma.
+  - Order som gavs men inte hunnit förseglas tappas hos den som tar
+    över.
+- **`adoptState(target, source)`** byter ett spelläge mot ett annat på
+  plats: `target`, `target.map` och kartans listor (`terrain`,
+  `resourceAmount`, `startPositions`, `caves`) är samma objekt som
+  förut, med det andra spelets innehåll. Bilden håller i dem.
+- **Spår** (`trace`, på i testläge): en kopia av spelet sparas vid de tre
+  senaste kontrollsummorna. Värdens `StateMessage` bär dess kopia från
+  steget där felet hittades (`trace`), och den som tar över räknar ut
+  var dess eget spel skilde sig med `firstDifference` och sparar det i
+  `divergences[].where`.
+- **Meddelanden** är `OrderMessage` (`kind: 'orders'`) eller
+  `StateMessage` (`kind: 'state'`). `receive(session, message, state)`
+  tar emot båda; spelet behövs för ett `StateMessage`, som avvisas om
+  det inte kommer från värden.
 - Att skicka meddelandena är inte den här modulens sak. I testerna gör
   en förbindelse i minnet det (`BadLine` i `lockstep.test.ts`), som
   tappar, fördröjer, dubblar och kastar om.
@@ -320,6 +357,9 @@ I spelet (`GameScene`):
   (`showRefusal`), på samma sätt som en order som avvisas direkt.
 - Vilken sida spelaren har är `options.side` (`this.local`), inte
   längre en konstant. Den andra sidan är `this.opponent`.
+- `getAlert` visar "Spelen har glidit isär – synkar om" medan
+  `session.stopped` är satt. Det kan inte hända förrän det finns en
+  andra spelare.
 - Ännu finns ingen förbindelse och inget sätt att starta en match mellan
   två spelare. Fördröjningen går att pröva ensam med `?lockstep=2`.
 
@@ -2370,3 +2410,8 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | M1 | Varje meddelande upprepar de turer som inte är bekräftade | Då behövs ingen särskild begäran om omsändning, och inget antagande om att förbindelsen levererar säkert eller i ordning. Supabase Broadcast gör inte det |
 | M1 | Turerna ligger utanför `GameState` | Spelläget ska vara detsamma hos båda spelarna; vad den ena har hunnit ta emot är det inte. Kontrollsumman gäller därför bara spelläget |
 | M1 | Spel mot datorn går genom samma kö, med fördröjningen 0 | En väg in för spelarens order, inte två. Alla befintliga tester prövar därmed också kön |
+| M2 | Värdens spel behålls när spelen har glidit isär | Två spelare kan inte avgöra vem som har rätt. En bestämd regel gör att båda gör samma sak utan att förhandla |
+| M2 | Hela spelläget skickas, inte skillnaden | Skillnaden kräver att båda först jämför allt. Spelläget är 86–184 KB och skickas bara när något har gått fel |
+| M2 | Värden står stilla tills den andra har bekräftat | Då är det spelläge som skickades fortfarande värdens när det kommer fram, och det kan skickas igen oförändrat |
+| M2 | Epoker i stället för att rensa kön av meddelanden | Meddelanden kan komma sent och i fel ordning. Ett nummer på varje omsynkning gör att en gammal kontrollsumma känns igen var den än dyker upp |
+| M2 | Spelläget byts på plats (`adoptState`) | Bilden och inmatningen håller i spelet och dess karta. Ett nytt objekt hade krävt att alla som håller i det gamla fick veta det |
