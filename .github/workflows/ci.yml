@@ -14,6 +14,14 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    # Playwright's own image, with Chromium, Firefox and WebKit and the
+    # system packages they need already in it. Installing them in the job
+    # downloaded some 190 packages from Ubuntu's mirror, and when the mirror
+    # was slow that alone took longer than the whole job may. The version
+    # must be the one of @playwright/test in package.json.
+    container:
+      image: mcr.microsoft.com/playwright:v1.63.0-noble
+      options: --user 1001
     # The unit tests play whole matches, and the determinism test plays
     # several twice over: together with the browser tests that is about 13
     # minutes. The limit only has to catch a job that hangs.
@@ -33,9 +41,7 @@ jobs:
         run: npm run build
       # All tests run in Chromium. Firefox and WebKit run the determinism
       # tests only: two players may use different browsers, and every engine
-      # must count the same.
-      - name: Install browsers
-        run: npx playwright install --with-deps chromium firefox webkit
+      # must count the same. The browsers come with the image.
       - name: Browser tests
         run: npm run e2e
         env:

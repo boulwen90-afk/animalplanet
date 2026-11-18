@@ -24,6 +24,12 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
 - **Beställt av användaren 2026-11-17:** prestandafasen före mätningen
   ("Merge och 2 enligt rekommendation": merga pull request 28, och av de
   två vägarna vidare den jag rekommenderade, prestandan nu)
+- **Godkänt av användaren 2026-11-18** ("1 enligt rekommendation, 2 ja,
+  3 ja"): CI kör i Playwrights färdiga avbild; pull request 29 mergas
+  när CI är grönt; och det är i sin ordning att en match av tolv mellan
+  två Medel tar 26 minuter. Om fas M3 svarade användaren "låt mig
+  kontrollera hur vi skall göra": frågorna om körtidsberoenden,
+  Supabase-projekt och prövning på riktiga enheter är obesvarade
 - **Godkänt av användaren 2026-11-17:** balanstestets gräns 10–25
   minuter för en match mellan två datorspelare ("Ja på alla")
 - **Väntar på användaren:** mätning med `?stress=400` på telefon och
@@ -1029,6 +1035,17 @@ Det är en uträkning, inte en mätning. Ritningen tillkommer.
   (tolv matcher, över 365 000 steg, samma kontrollsumma i varje steg
   båda gångerna), och lockstep-testerna med åtta frön i stället för två
   (39 av 39).
+
+**CI bröts två gånger, av en orsak utanför ändringen**
+
+Jobbet avbröts vid sin gräns på 30 minuter, också när det kördes om.
+Steget som installerar webbläsarna hämtade omkring 190 systempaket från
+Ubuntus paketspegel, som då lämnade några kilobyte i sekunden: steget
+tog 24 respektive över 26 minuter mot ungefär en i vanliga fall. Lint,
+enhetstesterna och bygget gick igenom båda gångerna. På användarens
+besked kör jobbet nu i Playwrights egen avbild, där webbläsarna och
+paketen redan finns, så att CI inte beror på spegeln. Avbildens version
+står i `ci.yml` och måste ändras tillsammans med `@playwright/test`.
 
 **Nya tester**
 

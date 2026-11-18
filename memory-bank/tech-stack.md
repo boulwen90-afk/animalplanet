@@ -114,7 +114,10 @@ Mappar och filer skapas först i den fas som behöver dem.
 
 1. Arbete sker på en feature-branch per fas.
 2. `ci.yml` kör på varje pull request: `npm ci` → lint → Vitest →
-   typkontroll + bygge → Playwright.
+   typkontroll + bygge → Playwright. Jobbet kör i Playwrights egen
+   avbild (`mcr.microsoft.com/playwright:v1.63.0-noble`), där Chromium,
+   Firefox och WebKit och deras systempaket redan finns. Avbildens
+   version ska vara densamma som `@playwright/test` i `package.json`.
 3. När fasen är klar öppnas en pull request mot `main`. Du granskar och mergar.
 4. `deploy.yml` kör på push till `main`: lint, Vitest och bygge, och
    publicerar sedan `dist/` med `actions/upload-pages-artifact` och

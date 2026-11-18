@@ -2372,7 +2372,8 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | 1 | Webbläsartester mäter fart mot spelets egen tid (`elapsedMs`) | Varje bildruta begränsas till 100 ms. På GitHub-maskinerna tar en bildruta 100–250 ms, så mätt mot väggklockan gick kameran långsammare än 900 px/s och testerna fallerade ibland. |
 | 1 | Kameran begränsas via bildens mittpunkt, inte via kartans omslutande rektangel | Kartan är en romb. Med en rektangel som gräns visade hörnen nästan bara tomrum. |
 | 1 | TypeScript 6.0 i stället för 7 | typescript-eslint kräver TypeScript < 6.1. |
-| 1 | `@playwright/test` låst till 1.63.0 | Samma version som den förinstallerade webbläsaren i Claudes molnmiljö. CI installerar matchande Chromium själv. |
+| 1 | `@playwright/test` låst till 1.63.0 | Samma version som den förinstallerade webbläsaren i Claudes molnmiljö. CI installerade först matchande webbläsare själv; sedan 2026-11-18 kör jobbet i Playwrights avbild av samma version. |
+| P | CI kör i Playwrights avbild i stället för att installera webbläsarna | Installationen hämtade omkring 190 systempaket från Ubuntus paketspegel. När spegeln var långsam tog det steget över 26 minuter, och jobbet bröts vid 30 två gånger i rad. Avbilden har webbläsarna och paketen från början. Versionen i `ci.yml` måste följa `package.json` |
 | 1 | Speldata som typade TS-objekt (`as const`), inte JSON | Typkontroll av datat utan extra verktyg. |
 | 1 | Namngivna importer från Phaser (`import { Scene } from 'phaser'`) | Fungerar med Phasers ESM-bygge i Vite. |
 | 2 | Slumpgeneratorns tillstånd ligger i `GameState`, inte i en klass | Tillståndet ska gå att kopiera och jämföra som ren data, och två spel med samma frö ska förbli identiska. |
