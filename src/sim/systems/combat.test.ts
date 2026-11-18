@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BUILDING_DEFS } from '../../data/buildings';
 import { CAVE_CONFIG } from '../../data/map';
 import { SIM_CONFIG } from '../../data/sim';
-import { UNIT_DEFS } from '../../data/units';
+import { COMBAT_CONFIG, UNIT_DEFS } from '../../data/units';
 import { applyCommand } from '../commands';
 import {
   buildings,
@@ -678,5 +678,136 @@ describe('combat stays deterministic', () => {
       return state;
     };
     expect(run()).toEqual(run());
+  });
+});
+
+describe('looking for a path to a target, many at a time', () => {
+  const LIMIT = COMBAT_CONFIG.searchesPerStep;
+  /** A unit has looked for a path once it remembers where its target was. */
+  const hasLooked = (unit: Unit) => unit.task.kind === 'attack' && unit.task.aim !== undefined;
+
+  /** Two rows of soldiers far apart, each ordered to attack one of the other side. */
+  const armies = (each: number) => {
+    const state = openState(80, 60);
+    addCave(state, 0, 1, 1);
+    addCave(state, 1, 78, 58);
+    const mine: Unit[] = [];
+    const theirs: Unit[] = [];
+    for (let i = 0; i < each; i++) {
+      mine.push(createUnit(state, 'ramkrigare', 0, 4 + (i % 20), 4 + Math.floor(i / 20)));
+      theirs.push(createUnit(state, 'ramkrigare', 1, 56 + (i % 20), 40 + Math.floor(i / 20)));
+    }
+    return { state, mine, theirs };
+  };
+
+  it('no more than 40 units look in one step; the rest have their turn in the next steps', () => {
+    expect(LIMIT).toBe(40);
+    const { state, mine, theirs } = armies(100);
+    attack(state, mine, theirs[0]!);
+    const looked: number[] = [];
+    for (let i = 0; i < 4; i++) {
+      tick(state);
+      looked.push(mine.filter(hasLooked).length);
+    }
+    // 40 in each step until all have: nobody waits more than two steps.
+    expect(looked).toEqual([40, 80, 100, 100]);
+    expect(mine.every((unit) => unit.path.length > 0)).toBe(true);
+  });
+
+  it('fewer than 40 all look in the same step, as before', () => {
+    const { state, mine, theirs } = armies(30);
+    attack(state, mine, theirs[0]!);
+    tick(state);
+    expect(mine.filter(hasLooked)).toHaveLength(30);
+  });
+
+  it('those that have waited longest look first, so nobody is left without a turn', () => {
+    // 250 on each side, each chasing a unit that is on the move: all of them
+    // want a new path twice a second, which is more than there are turns.
+    const { state, mine, theirs } = armies(250);
+    mine.forEach((unit, i) => attack(state, [unit], theirs[i]!));
+    theirs.forEach((unit, i) => attack(state, [unit], mine[i]!));
+    const all = [...mine, ...theirs];
+    let most = 0;
+    let longestWait = 0;
+    let allHadLookedBy: number | undefined;
+    for (let step = 1; step <= 100; step++) {
+      const before = new Map(
+        all.map((unit) => [
+          unit.id,
+          { ticks: unit.task.kind === 'attack' ? unit.task.repathTicks : 0, path: unit.path },
+        ]),
+      );
+      tick(state);
+      let now = 0;
+      for (const unit of all) {
+        if (unit.task.kind !== 'attack') continue;
+        // A unit that has looked has a new path, and its count starts over.
+        // (The count also starts over for one that keeps its path.)
+        const was = before.get(unit.id)!;
+        if (unit.task.repathTicks > was.ticks && unit.path !== was.path) now++;
+        // Below zero, the count says how many steps the unit has waited for its turn.
+        longestWait = Math.max(longestWait, -unit.task.repathTicks);
+      }
+      most = Math.max(most, now);
+      if (allHadLookedBy === undefined && all.every(hasLooked)) allHadLookedBy = step;
+    }
+    expect(most).toBe(LIMIT);
+    // 500 units and 40 turns a step: the last of them had its first turn in
+    // the thirteenth step, and nobody ever waited longer than that.
+    expect(allHadLookedBy).toBe(13);
+    expect(longestWait).toBeGreaterThanOrEqual(10);
+    expect(longestWait).toBeLessThanOrEqual(13);
+  });
+
+  it('a unit on its way to a target that stands still keeps its path', () => {
+    const state = openState(40, 20);
+    addCave(state, 1, 38, 18);
+    const soldier = createUnit(state, 'ramkrigare', 0, 3, 10);
+    const hall = createBuilding(state, 'krigshall', 1, 30, 9);
+    attack(state, [soldier], hall);
+    tick(state);
+    const path = soldier.path;
+    const goal = path.at(-1);
+    expect(path.length).toBeGreaterThan(10);
+    // Three seconds on: six looks' worth of time, and it is the same path, shorter.
+    advance(state, 3 * SIM_CONFIG.ticksPerSecond);
+    expect(soldier.path).toBe(path);
+    expect(soldier.path.at(-1)).toEqual(goal);
+    expect(soldier.task.kind).toBe('attack');
+  });
+
+  it('and looks again when the target has moved to another tile', () => {
+    const state = openState(40, 20);
+    addCave(state, 1, 38, 18);
+    const soldier = createUnit(state, 'ramkrigare', 0, 3, 10);
+    const worker = createUnit(state, 'samlare', 1, 30, 10);
+    attack(state, [soldier], worker);
+    tick(state);
+    const path = soldier.path;
+    advance(state, SIM_CONFIG.ticksPerSecond);
+    expect(soldier.path).toBe(path);
+
+    applyCommand(state, { type: 'move', player: 1, unitIds: [worker.id], x: 30, y: 2 });
+    advance(state, 2 * SIM_CONFIG.ticksPerSecond);
+    expect(soldier.path).not.toBe(path);
+    // It is on its way to where the worker went.
+    expect(soldier.path.at(-1)!.y).toBeLessThan(8);
+  });
+
+  it('and when something has come to stand in its way', () => {
+    const state = openState(40, 20);
+    addCave(state, 1, 38, 18);
+    const soldier = createUnit(state, 'ramkrigare', 0, 3, 10);
+    const hall = createBuilding(state, 'krigshall', 1, 30, 9);
+    attack(state, [soldier], hall);
+    tick(state);
+    const path = soldier.path;
+    // A house put straight on its path, without the game being told.
+    createBuilding(state, 'ide', 1, 15, 9);
+    advance(state, SIM_CONFIG.ticksPerSecond);
+    expect(soldier.path).not.toBe(path);
+    advance(state, 20 * SIM_CONFIG.ticksPerSecond);
+    expect(hall.hp).toBeLessThan(BUILDING_DEFS.krigshall.hp);
   });
 });

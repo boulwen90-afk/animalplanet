@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Point } from '../map/iso';
-import { canStep, findPath, nearestReachable, type PathGrid } from './astar';
+import { canStep, findPath, nearestReachable, reachableTiles, type PathGrid } from './astar';
 
 /** Builds a grid from rows of characters: '.' is open, '#' is an obstacle. */
 function gridFromRows(rows: string[]): PathGrid {
@@ -234,5 +234,93 @@ describe('nearestReachable', () => {
   it('returns the target itself when it is reachable', () => {
     const grid = gridFromRows(['...']);
     expect(nearestReachable(grid, { x: 0, y: 0 }, { x: 2, y: 0 })).toEqual({ x: 2, y: 0 });
+  });
+});
+
+describe('what can be reached from a tile', () => {
+  /** The search outwards from a tile, as it was before regions: what the answer must be. */
+  const bySearching = (grid: PathGrid, from: Point): Uint8Array => {
+    const reached = new Uint8Array(grid.width * grid.height);
+    if (from.x < 0 || from.y < 0 || from.x >= grid.width || from.y >= grid.height) return reached;
+    const queue = [from.y * grid.width + from.x];
+    reached[queue[0]!] = 1;
+    for (let head = 0; head < queue.length; head++) {
+      const index = queue[head]!;
+      const x = index % grid.width;
+      const y = (index - x) / grid.width;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if ((dx === 0 && dy === 0) || !canStep(grid, x, y, dx, dy)) continue;
+          const next = (y + dy) * grid.width + (x + dx);
+          if (reached[next]) continue;
+          reached[next] = 1;
+          queue.push(next);
+        }
+      }
+    }
+    return reached;
+  };
+  /** A grid with obstacles scattered by a simple generator of its own. */
+  const scattered = (seed: number, share: number): PathGrid => {
+    const grid: PathGrid = { width: 24, height: 18, blocked: new Uint8Array(24 * 18) };
+    let s = seed;
+    for (let i = 0; i < grid.blocked.length; i++) {
+      s = (Math.imul(s, 1103515245) + 12345) >>> 0;
+      if ((s >>> 8) % 100 < share) grid.blocked[i] = 1;
+    }
+    return grid;
+  };
+
+  it('is the same from every tile, open or not, as searching outwards from it', () => {
+    for (const [seed, share] of [
+      [1, 10],
+      [2, 30],
+      [3, 45],
+      [4, 60],
+      [5, 0],
+      [6, 100],
+    ] as const) {
+      const grid = scattered(seed, share);
+      for (let y = -1; y <= grid.height; y++) {
+        for (let x = -1; x <= grid.width; x++) {
+          const got = reachableTiles(grid, { x, y });
+          const want = bySearching(grid, { x, y });
+          expect(Array.from(got), `seed ${seed}, from ${x},${y}`).toEqual(Array.from(want));
+        }
+      }
+    }
+  });
+
+  it('works the regions out once for a grid, and gives the same list to all who ask from one region', () => {
+    const grid = scattered(2, 30);
+    expect(grid.regions).toBeUndefined();
+    const open: Point[] = [];
+    for (let i = 0; i < grid.blocked.length; i++) {
+      if (grid.blocked[i] === 0) open.push({ x: i % grid.width, y: Math.floor(i / grid.width) });
+    }
+    const first = reachableTiles(grid, open[0]!);
+    const regions = grid.regions;
+    expect(regions).toBeDefined();
+    const lists = new Set(open.map((tile) => reachableTiles(grid, tile)));
+    expect(grid.regions).toBe(regions);
+    // One list per region, not one per tile.
+    expect(lists.size).toBeGreaterThan(1);
+    expect(lists.size).toBeLessThan(open.length / 2);
+    expect(lists.has(first)).toBe(true);
+    for (const tile of open) {
+      const list = reachableTiles(grid, tile);
+      expect(list[tile.y * grid.width + tile.x]).toBe(1);
+    }
+  });
+
+  it('counts a tile that is not open as reached from itself, with what lies around it', () => {
+    // A wall across the map with the asker standing in it: both sides can be reached.
+    const grid: PathGrid = { width: 5, height: 3, blocked: new Uint8Array(15) };
+    for (let y = 0; y < 3; y++) grid.blocked[y * 5 + 2] = 1;
+    const fromWall = reachableTiles(grid, { x: 2, y: 1 });
+    expect(Array.from(fromWall)).toEqual([1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1, 1]);
+    // From the left side only the left side.
+    const fromLeft = reachableTiles(grid, { x: 0, y: 0 });
+    expect(Array.from(fromLeft)).toEqual([1, 1, 0, 0, 0, 1, 1, 0, 0, 0, 1, 1, 0, 0, 0]);
   });
 });

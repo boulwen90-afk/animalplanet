@@ -5,6 +5,23 @@ export interface PathGrid {
   width: number;
   height: number;
   blocked: Uint8Array;
+  /**
+   * The grid's regions, worked out the first time somebody asks what can be
+   * reached from an open tile. See `reachableTiles`. A grid is not changed
+   * once it has been asked; whoever does so all the same must remove this.
+   */
+  regions?: Regions;
+}
+
+/**
+ * The open tiles of a grid divided into regions: within a region a unit can
+ * walk from any tile to any other, and between two regions it cannot.
+ */
+interface Regions {
+  /** The number of the region each tile belongs to; -1 for a tile that is not open. */
+  of: Int32Array;
+  /** For each region, once it has been asked for: 1 for every tile in it. */
+  tiles: (Uint8Array | undefined)[];
 }
 
 /** Cost of a step to an edge neighbour and to a diagonal neighbour (about 10 * sqrt 2). */
@@ -129,11 +146,65 @@ export function nearestReachable(grid: PathGrid, from: Point, target: Point): Po
 
 /**
  * Every tile a unit standing on `from` can walk to. The result has one entry
- * per tile, 1 where it can be reached; `from` itself counts.
+ * per tile, 1 where it can be reached; `from` itself counts. The result must
+ * not be changed: it is shared by everybody who asks from the same region.
+ *
+ * Walking is the same in both directions, so what can be reached from an
+ * open tile is exactly the region the tile lies in. The regions of a grid
+ * are worked out once, the first time this is asked, instead of the whole
+ * map being searched for every unit: with 400 units that search was four
+ * fifths of the time it took them to find their paths.
  */
 export function reachableTiles(grid: PathGrid, from: Point): Uint8Array {
+  if (from.x < 0 || from.y < 0 || from.x >= grid.width || from.y >= grid.height) {
+    return new Uint8Array(grid.width * grid.height);
+  }
+  const start = from.y * grid.width + from.x;
+  // From a tile that is not open, such as one a building has just been put
+  // on, the tiles around it may lie in several regions: search from there.
+  if (grid.blocked[start] !== 0) return searchFrom(grid, from);
+
+  const regions = (grid.regions ??= findRegions(grid));
+  const region = regions.of[start] as number;
+  let tiles = regions.tiles[region];
+  if (!tiles) {
+    tiles = new Uint8Array(regions.of.length);
+    for (let i = 0; i < tiles.length; i++) if (regions.of[i] === region) tiles[i] = 1;
+    regions.tiles[region] = tiles;
+  }
+  return tiles;
+}
+
+/** Numbers the regions of a grid: one search over the whole map. */
+function findRegions(grid: PathGrid): Regions {
+  const of = new Int32Array(grid.width * grid.height).fill(-1);
+  let count = 0;
+  const queue: number[] = [];
+  for (let first = 0; first < of.length; first++) {
+    if (grid.blocked[first] !== 0 || of[first] !== -1) continue;
+    of[first] = count;
+    queue.length = 0;
+    queue.push(first);
+    for (let head = 0; head < queue.length; head++) {
+      const index = queue[head] as number;
+      const x = index % grid.width;
+      const y = (index - x) / grid.width;
+      for (const [dx, dy] of STEPS) {
+        if (!canStep(grid, x, y, dx, dy)) continue;
+        const next = (y + dy) * grid.width + (x + dx);
+        if (of[next] !== -1) continue;
+        of[next] = count;
+        queue.push(next);
+      }
+    }
+    count++;
+  }
+  return { of, tiles: new Array<Uint8Array | undefined>(count) };
+}
+
+/** Every tile that can be reached from `from`, found by searching outwards from it. */
+function searchFrom(grid: PathGrid, from: Point): Uint8Array {
   const reached = new Uint8Array(grid.width * grid.height);
-  if (from.x < 0 || from.y < 0 || from.x >= grid.width || from.y >= grid.height) return reached;
   const queue: number[] = [from.y * grid.width + from.x];
   reached[queue[0] as number] = 1;
   for (let head = 0; head < queue.length; head++) {

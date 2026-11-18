@@ -1,10 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { BUILDING_DEFS, CONSTRUCTION_CONFIG } from '../../data/buildings';
 import { UNIT_DEFS } from '../../data/units';
 import { applyCommand } from '../commands';
 import { createBuilding, createUnit, unitTile } from '../entities';
 import { createGame } from '../game';
 import { EXPLORED, UNEXPLORED, VISIBLE, type GameState } from '../state';
+import { startStress, stressUnits } from '../stress';
 import { addCave, openState } from '../testUtils';
 import { advance, tick } from '../tick';
 import { canPlaceBuilding, placementProblem } from './construction';
@@ -360,5 +361,92 @@ describe('fog of war in a real game', () => {
     const storide = state.entities.find((e) => e.kind === 'building' && e.owner === 1)!;
     expect(isEntityVisibleTo(state, 0, storide)).toBe(true);
     expect(isTileVisible(state, 0, theirs.x, theirs.y)).toBe(true);
+  });
+});
+
+describe('the sight of many units', () => {
+  // Minutes of three matches are played here; that takes seconds.
+  vi.setConfig({ testTimeout: 120_000 });
+
+  /** What each side sees, worked out tile by tile around every unit and building: what the answer must be. */
+  const tileByTile = (state: GameState): number[][] =>
+    state.players.map((player, owner) => {
+      const tiles = player.visibility.map((v) => (v === VISIBLE ? EXPLORED : v));
+      const { width, height } = state.map;
+      for (const entity of state.entities) {
+        if (entity.owner !== owner) continue;
+        let x: number;
+        let y: number;
+        let radius: number;
+        if (entity.kind === 'unit') {
+          if (entity.task.kind === 'flee') continue;
+          x = Math.floor(entity.x) + 0.5;
+          y = Math.floor(entity.y) + 0.5;
+          radius = UNIT_DEFS[entity.type].sight;
+        } else {
+          const size = BUILDING_DEFS[entity.type].size;
+          x = entity.x + size / 2;
+          y = entity.y + size / 2;
+          radius = entity.complete ? BUILDING_DEFS[entity.type].sight : CONSTRUCTION_CONFIG.sight;
+        }
+        for (let ty = Math.floor(y - radius); ty <= Math.ceil(y + radius); ty++) {
+          for (let tx = Math.floor(x - radius); tx <= Math.ceil(x + radius); tx++) {
+            if (tx < 0 || ty < 0 || tx >= width || ty >= height) continue;
+            const dx = tx + 0.5 - x;
+            const dy = ty + 0.5 - y;
+            if (dx * dx + dy * dy <= radius * radius) tiles[ty * width + tx] = VISIBLE;
+          }
+        }
+      }
+      return tiles;
+    });
+
+  it('is the same, tile for tile, as looking at every tile around every unit and building', () => {
+    // A match against the computer, and two armies that meet: buildings of
+    // every size, sites, units by the edge of the map and units that have surrendered.
+    const games = [
+      createGame(1),
+      createGame(4, undefined, undefined, { ai: [0, 1] }),
+      createGame(2, undefined, undefined, { ai: [], extraUnits: stressUnits(120, 'fight') }),
+    ];
+    startStress(games[2]!, 'fight');
+    let compared = 0;
+    for (const state of games) {
+      for (let i = 0; i < 5 * 60 * 20 && state.winner === null; i++) {
+        tick(state);
+        if (i % 37 !== 0) continue;
+        // The step has already worked the sight out. Doing it over the old
+        // way and the new way from there must give the same.
+        const want = tileByTile(state);
+        updateVisibility(state);
+        state.players.forEach((player, owner) => {
+          expect(player.visibility, `step ${state.tick}, side ${owner}`).toEqual(want[owner]);
+        });
+        compared++;
+      }
+    }
+    expect(compared).toBeGreaterThan(300);
+    // The matches got somewhere: there were surrendered units and many buildings.
+    expect(games[1]!.entities.filter((e) => e.kind === 'building').length).toBeGreaterThan(15);
+  });
+
+  it('sees a circle: a unit in the open sees the same tiles as before, at the rim too', () => {
+    const state = openState(40, 40);
+    createUnit(state, 'samlare', 0, 20, 20);
+    updateVisibility(state);
+    const sight = UNIT_DEFS.samlare.sight;
+    const seen = (x: number, y: number) => state.players[0]!.visibility[y * 40 + x] === VISIBLE;
+    // Straight out to the full sight and no further; the corners of the square are not seen.
+    expect(seen(20 + sight, 20)).toBe(true);
+    expect(seen(20 + sight + 1, 20)).toBe(false);
+    expect(seen(20, 20 - sight)).toBe(true);
+    expect(seen(20, 20 - sight - 1)).toBe(false);
+    expect(seen(20 + sight, 20 + sight)).toBe(false);
+    // As many tiles as have their middle within the circle.
+    let want = 0;
+    for (let dy = -sight; dy <= sight; dy++) {
+      for (let dx = -sight; dx <= sight; dx++) if (dx * dx + dy * dy <= sight * sight) want++;
+    }
+    expect(state.players[0]!.visibility.filter((v) => v === VISIBLE)).toHaveLength(want);
   });
 });

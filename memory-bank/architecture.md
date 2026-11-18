@@ -78,7 +78,7 @@ som är valda) är gränssnittstillstånd och ligger i `render/`, inte i
 | `src/sim/resources.ts` | Resurskällor på kartan: slå upp, ta från, startmängder | 4 |
 | `src/sim/systems/gathering.ts` | `gatherResources` (insamlingsloopen) och `startGathering` | 4 |
 | `src/sim/systems/movement.ts` | `moveUnits`: flyttar enheter längs deras väg | 3 |
-| `src/sim/pathfinding/astar.ts` | `findPath` (A*), `pathTowards`, `pathCost`, `nearestReachable`, `reachableTiles`, `canStep`, typen `PathGrid` | 3, 4 |
+| `src/sim/pathfinding/astar.ts` | `findPath` (A*), `pathTowards`, `pathCost`, `nearestReachable`, `reachableTiles` (med rutnätets regioner), `canStep`, typen `PathGrid` | 3, 4, P |
 | `src/sim/pathfinding/passability.ts` | `buildPathGrid` (gångbara rutor just nu, för en sida), `PathGrids` (ett rutnät per sida), `buildBreachGrid` och `nearestFreeTiles` | 3 |
 | `src/sim/testUtils.ts` | Små kartor från teckenrader, för enhetstester | 3 |
 | `src/sim/clock.ts` | Fast tidssteg: gör om bildrutetid till ett helt antal steg. `StepTimes`: hur lång tid stegen tog, mätt av den som kör dem | 2 |
@@ -196,7 +196,7 @@ steget, för interpolation), `hp`, `path` (rutor kvar att gå, nästa först),
 (buren resurs) och `attackCooldown` (steg tills nästa slag).
 
 `UnitTask` är `{ kind: 'idle' }`, en `BuildTask` (`buildingId`), en
-`AttackTask` (`targetId`, `repathTicks`), en `FleeTask` (`caveId`; enheten
+`AttackTask` (`targetId`, `repathTicks`, `aim`), en `FleeTask` (`caveId`; enheten
 har kapitulerat) eller en `GatherTask`: `resource`, `node`
 (källans ruta), `phase` (`toSource`, `gathering`, `toDropoff`),
 `workTicks` (steg arbetade mot nästa enhet) och `dropoffId`.
@@ -387,6 +387,18 @@ I spelet (`GameScene`):
   stängda. Vatten är alltid ett hinder; det finns ingen vägsökning på
   vatten. Enheter blockerar inte (GDD avsnitt 10). Rutnätet byggs om vid
   varje kommando och sparas inte.
+- **`reachableTiles(grid, from)`** svarar på vilka rutor en enhet kan gå
+  till: ett tal per ruta, 1 där den når. Att gå är lika åt båda håll, så
+  från en öppen ruta når enheten precis de rutor som ligger i samma
+  **region**. Rutnätets regioner räknas ut en gång, första gången någon
+  frågar (`PathGrid.regions`, en genomsökning av hela kartan), och svaret
+  delas av alla som frågar från samma region. Det får därför inte ändras
+  av den som får det. Från en ruta som inte är öppen, t.ex. en som ett
+  bygge just har ställts på, kan rutorna runt om ligga i flera regioner;
+  då söks det utåt från rutan som före prestandafasen. Ett rutnät ändras
+  inte efter att någon har frågat; den som ändå gör det måste ta bort
+  `regions`. Regionerna lever lika länge som rutnätet: ett steg i
+  `PathGrids`, eller en order.
 - **`PathGrids`** håller ett rutnät per sida, byggt första gången det
   efterfrågas (`grids.for(owner)`), och töms med `invalidate()` när något
   på marken ändras. Strid, samlande, kollision och omledning använder
@@ -463,9 +475,22 @@ motsvarande längre tid.
   `aggroRadius` välja närmaste fientliga **enhet** inom radien (6 rutor för
   Ramkrigare; byggnader väljs aldrig självmant); och låter en enhet med
   anfallsuppgift slå om målet är inom räckhåll, annars gå mot det.
-- Förföljelse: vägen räknas om var 10:e steg (0,5 s) eller när den tar slut.
+- Förföljelse: en enhet utan väg söker en direkt. En enhet med väg ser
+  efter var 10:e steg (0,5 s, `COMBAT_CONFIG.repathInterval`) om den
+  behöver en ny: står målet kvar på samma ruta som när vägen söktes
+  (`task.aim`, för en byggnad dess hörn) och går vägen fortfarande att gå
+  (`isPathOpen`) behåller den vägen (`isDueToSeek`). Annars söker den.
   `approachPath` väljer en ruta intill målet där ingen annan står eller är
   på väg, så att anfallare sprider sig runt målet.
+- **Högst 40 sökningar per steg** (`seekPaths`,
+  `COMBAT_CONFIG.searchesPerStep`). `resolveCombat` samlar de enheter som
+  vill söka väg till sitt mål och låter dem söka sist i stridssteget: de
+  som har väntat längst först, och bland dem lägst id. Resten behåller
+  den väg de har, eller står, och är bland de första i nästa steg.
+  `repathTicks` under noll säger hur många steg enheten har väntat. 40
+  per steg är 400 på en halv sekund, alltså alla enheter en match kan ha;
+  med fler som jagar samtidigt får var och en sin tur mer sällan (med 500
+  var trettonde steg).
 - **Fullt runt målet:** är varje ruta intill målet tagen får enheten en väg
   till närmaste lediga ruta längre ut och väntar där (`task.waiting`). Den
   tittar efter en plats igen var 10:e steg och går in när en blir ledig.
@@ -497,7 +522,8 @@ motsvarande längre tid.
   är och kastar när nedräkningen är 0: `launchProjectile` med
   `throwDamage` (kastets skada plus Vapen), och `attackCooldown` sätts
   till `throwTicks` (28 steg). Annars går den dit `throwingPath` säger,
-  och räknar om vägen var 10:e steg som i närstrid.
+  och söker ny väg på samma villkor och i samma turordning som i
+  närstrid.
 - **`throwingPath`** väljer den ruta som ligger närmast enheten bland dem
   som (a) i sin helhet är inom räckvidd, alltså har mitten minst en halv
   rutdiagonal innanför den, (b) enheten kan gå till, och (c) ingen annan
@@ -773,6 +799,12 @@ var sin grannruta rör aldrig varandra, och allt som räknar i rutor
   synliga rutor blir utforskade, och sedan blir varje ruta synlig vars
   mittpunkt ligger inom synfältet för någon av sidans enheter eller
   byggnader. Terräng skymmer inte.
+- Uträkningen görs i två drag. Varje sidas sikt märks först in i en
+  lista med ett märke per ruta (`reveal`): för varje rad inom synfältet
+  räknas radens första och sista ruta ut, och sträckan däremellan fylls
+  på en gång. Sedan skrivs märkena in i vad sidan vet, i ett svep över
+  kartan. Resultatet är ruta för ruta detsamma som när varje ruta inom
+  synfältet prövades för sig (2,7 ms per steg med 400 enheter blev 0,3).
 - Synfält: Samlare 6, Ramkrigare 7, Storide 9, Visthus 5, Krigshall 6, bygge
   under uppförande 2. Enheter mäter från sin rutas mitt, byggnader från
   fotavtryckets mitt. En kapitulerad enhet ser inte åt sin sida.
@@ -2340,7 +2372,8 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | 1 | Webbläsartester mäter fart mot spelets egen tid (`elapsedMs`) | Varje bildruta begränsas till 100 ms. På GitHub-maskinerna tar en bildruta 100–250 ms, så mätt mot väggklockan gick kameran långsammare än 900 px/s och testerna fallerade ibland. |
 | 1 | Kameran begränsas via bildens mittpunkt, inte via kartans omslutande rektangel | Kartan är en romb. Med en rektangel som gräns visade hörnen nästan bara tomrum. |
 | 1 | TypeScript 6.0 i stället för 7 | typescript-eslint kräver TypeScript < 6.1. |
-| 1 | `@playwright/test` låst till 1.63.0 | Samma version som den förinstallerade webbläsaren i Claudes molnmiljö. CI installerar matchande Chromium själv. |
+| 1 | `@playwright/test` låst till 1.63.0 | Samma version som den förinstallerade webbläsaren i Claudes molnmiljö. CI installerade först matchande webbläsare själv; sedan 2026-11-18 kör jobbet i Playwrights avbild av samma version. |
+| P | CI kör i Playwrights avbild i stället för att installera webbläsarna | Installationen hämtade omkring 190 systempaket från Ubuntus paketspegel. När spegeln var långsam tog det steget över 26 minuter, och jobbet bröts vid 30 två gånger i rad. Avbilden har webbläsarna och paketen från början. Versionen i `ci.yml` måste följa `package.json` |
 | 1 | Speldata som typade TS-objekt (`as const`), inte JSON | Typkontroll av datat utan extra verktyg. |
 | 1 | Namngivna importer från Phaser (`import { Scene } from 'phaser'`) | Fungerar med Phasers ESM-bygge i Vite. |
 | 2 | Slumpgeneratorns tillstånd ligger i `GameState`, inte i en klass | Tillståndet ska gå att kopiera och jämföra som ren data, och två spel med samma frö ska förbli identiska. |
@@ -2415,3 +2448,9 @@ Vitest i Node. Playwright kör mot produktionsbygget via `vite preview`.
 | M2 | Värden står stilla tills den andra har bekräftat | Då är det spelläge som skickades fortfarande värdens när det kommer fram, och det kan skickas igen oförändrat |
 | M2 | Epoker i stället för att rensa kön av meddelanden | Meddelanden kan komma sent och i fel ordning. Ett nummer på varje omsynkning gör att en gammal kontrollsumma känns igen var den än dyker upp |
 | M2 | Spelläget byts på plats (`adoptState`) | Bilden och inmatningen håller i spelet och dess karta. Ett nytt objekt hade krävt att alla som håller i det gamla fick veta det |
+| P | Nåbarheten räknas ut som regioner, en gång per rutnät | En vägsökning till ett mål tog 0,41 ms, varav 0,32 var att söka igenom hela kartan efter vad enheten når och 0,04 själva vägen. Svaret är detsamma för alla i samma region |
+| P | Ett tak på sökningar per steg, med de som väntat längst först | En armé som får order söker annars alla sina vägar i samma steg (232 ms med 400 enheter, mot 50). Utan turordning hade de sista i listan aldrig fått söka när fler än taket vill |
+| P | Sökningarna görs sist i stridssteget, inte när enheten står på tur | Turordningen kan bestämmas först när alla som vill söka är kända |
+| P | En enhet behåller sin väg mot ett mål som står kvar | Den sökte annars om två gånger i sekunden och fick samma väg. Villkoret att vägen går att gå behövs: annars märker den inte att målet har murats in |
+| P | Sikten räknas om varje steg, men en rad i taget | Planen föreslog att räkna om bara för enheter som bytt ruta, eller vartannat steg. Det hade krävt att sikten mindes vem som såg vad, eller ändrat spelet. Radvis ger samma resultat nio gånger snabbare |
+| P | Rutnätet sparas inte mellan steg (planens P4) | Att räkna ut hindren kostar 0,09 ms. Vinsten väger inte upp risken med en uträkning som inte kastas bort i tid |

@@ -10,20 +10,33 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   `implementation-plan.md`. Användaren har sett skärmdumpar efter varje
   steg. Alla fem är mergade (pull request 18, 19, 21, 22 och 23;
   byggmenyns flikar i pull request 20)
-- **Senaste ändring (2026-11-17):** multiplayer, fas M2: spelarna jämför
-  en kontrollsumma i sekunden, och ett spel som har glidit isär tar över
-  värdens spelläge. Det går ännu inte att spela två. Se "Efter MVP:n".
-  Om den senaste ändringen är mergad står i GitHub; den här raden säger
-  det inte, eftersom den skrivs innan det är avgjort
+- **Senaste ändring (2026-11-18):** multiplayer, prestandafasen: ett
+  simuleringssteg med 400 enheter tar mellan en tredjedel och två
+  tredjedelar av tiden förut, och det längsta steget i värsta fallet 14
+  ms i stället för 232. Inget syns på skärmen. Se "Efter MVP:n". Om den
+  senaste ändringen är mergad står i GitHub; den här raden säger det
+  inte, eftersom den skrivs innan det är avgjort
 - **Multiplayer:** planen sist i `implementation-plan.md` är godkänd av
-  användaren (2026-11-17, "Ja på allt"). Fas M0 och M1 är mergade (pull
-  request 26 och 27) och M2 byggd; M3–M5 och prestandafasen är inte
+  användaren (2026-11-17, "Ja på allt"). Fas M0, M1 och M2 är mergade
+  (pull request 26, 27 och 28) och prestandafasen byggd; M3–M5 är inte
   påbörjade. Förbindelsen (Supabase Realtime eller PeerJS) väljs efter
   att båda har prövats, i fas M3
+- **Beställt av användaren 2026-11-17:** prestandafasen före mätningen
+  ("Merge och 2 enligt rekommendation": merga pull request 28, och av de
+  två vägarna vidare den jag rekommenderade, prestandan nu)
+- **Godkänt av användaren 2026-11-18** ("1 enligt rekommendation, 2 ja,
+  3 ja"): CI kör i Playwrights färdiga avbild; pull request 29 mergas
+  när CI är grönt; och det är i sin ordning att en match av tolv mellan
+  två Medel tar 26 minuter. Om fas M3 svarade användaren "låt mig
+  kontrollera hur vi skall göra": frågorna om körtidsberoenden,
+  Supabase-projekt och prövning på riktiga enheter är obesvarade
 - **Godkänt av användaren 2026-11-17:** balanstestets gräns 10–25
   minuter för en match mellan två datorspelare ("Ja på alla")
 - **Väntar på användaren:** mätning med `?stress=400` på telefon och
-  Raspberry Pi, som avgör hur mycket av prestandafasen som behövs
+  Raspberry Pi, som avgör om prestandafasen räcker eller om P5–P7 behövs.
+  Inför fas M3: godkännande av två nya körtidsberoenden
+  (`@supabase/realtime-js` och `peerjs`), besked om Supabase-projekt, och
+  att pröva båda förbindelserna från två riktiga enheter
 - **Godkänt av användaren 2026-11-16:** datorspelaren har 10 Samlare
   tills vidare ("Ja på allt"); den tredje fliken "Armé" i byggmenyn ("Ja
   på alla."); Ramkastarens pris 45 mat och 25 trä och 1,4 s mellan
@@ -34,9 +47,8 @@ Uppdateras efter varje avslutad fas. Senaste fasen överst.
   4 och värdena i steg 5 (palissad och port)
 - **Mergat:** balansen mot datorspelaren och de tre svårighetsgraderna
   (pull request 24)
-- **Står på tur:** prestandafasen (P1–P4) eller fas M3 (förbindelse och
-  lobby). Planen lägger prestandan före M3, efter användarens mätning,
-  som inte är gjord
+- **Står på tur:** fas M3 (förbindelse och lobby), när användaren har
+  svarat på frågorna ovan
 - **Klart och mergat:** figurerna (björnkrigare, björnarbetare,
   tigerkrigare; björnkastaren kom med steg 4), björnarnas byggnader, att byggnaderna ritas i spelet,
   befolkningssystemet med bostaden Ide (pull request 14), Odlingen (pull
@@ -857,6 +869,217 @@ vänsterknappen inte flyttar kameran, drag med ett finger, och att
   på verklig tid.
 
 ## Efter MVP:n
+
+### Multiplayer, prestandafasen: 400 enheter (2026-11-18)
+
+Fas M2 (pull request 28) mergades först, efter grönt CI. Användaren
+svarade "Merge och 2 enligt rekommendation": prestandafasen görs nu,
+utan att vänta på mätningen med `?stress=400` på telefon och Raspberry
+Pi, som inte är gjord.
+
+**Skärmdumpar:** inga. Fasen ändrar inget som syns, bara hur lång tid
+ett steg tar. Räknaren från `?stress=400` visar det.
+
+**Mätt före och efter** (ett steg utan ritning, 400 enheter, samma
+maskin och samma körning: Intel Xeon 2,3 GHz, en kärna; budgeten är 50
+ms)
+
+| Läge | Före | Efter | Dyrast efteråt |
+|---|---|---|---|
+| Stillastående | 2,2 ms | 0,7 ms | Sikten 46 %, kollisionen 31 % |
+| Samlande | 3,2 ms, längst 9 | 1,6 ms, längst 6 | Samlandet 44 % |
+| Strid, arméerna möts på mitten | 5,1 ms, längst 30 | 3,2 ms, längst 10 | Striden 81 % |
+| Strid, var enhet får eget mål i samma steg: jakten | 21,4 ms, längst 232 | 6,1 ms, längst 14 | Striden 82 % |
+| ... och själva striden | 8,7 ms, längst 141 | 4,1 ms, längst 26 | Striden 83 % |
+| Hundra små samlarorder i ett steg | 253 ms | 93 ms | |
+| En förflyttningsorder för 200 enheter | 23 ms | 21 ms | Oförändrad, se nedan |
+
+Med 100 och 200 enheter efteråt: stillastående 0,2 och 0,4 ms; strid på
+mitten 0,7 och 1,5 ms; det värsta fallet 1,3 och 2,7 ms, längst 10 och
+12.
+
+Siffrorna "före" är mätta om i dag och är högre än i undersökningen
+(232 ms mot 163), eftersom maskinen var långsammare den här gången.
+Före och efter är mätta i samma körning.
+
+**Vad profileringen visade**
+
+Planen antog att vägsökningen var det dyra. Den var det, men inte själva
+vägen:
+
+| Del av en vägsökning till ett mål | Tid |
+|---|---|
+| Vart enheten kan nå: en genomsökning av hela kartan | 0,32 ms |
+| Själva vägen (A*) | 0,04 ms |
+| Vilka rutor andra står på eller är på väg till | 0,01 ms |
+| Hela sökningen | 0,41 ms |
+
+Fyra femtedelar av tiden gick alltså åt till att för varje enhet räkna
+ut samma sak: vilka rutor som hänger ihop med varandra.
+
+**Avstämning mot planen**
+
+| Åtgärd i planen | Status | Kommentar |
+|---|---|---|
+| P1. Sprid ut omsökningen: olika steg efter id, och högst ett bestämt antal per steg | Klar, på annat sätt | Högst 40 per steg, de som väntat längst först. Ingen förskjutning efter id: taket sprider ut dem ändå |
+| P2. Sök inte om när målet står kvar och vägen är fri | Klar | |
+| P3. Räkna om sikten bara för enheter som bytt ruta, eller vartannat steg | Klar, på annat sätt | Sikten räknas om varje steg som förut, men en rad i taget i stället för en ruta i taget. Exakt samma resultat |
+| P4. Räkna ut kartans hinder en gång per steg | Inte gjord | Hindren kostar 0,09 ms. Det som gjorde en order dyr var nåbarheten; se nedan |
+| (Inte i planen) Nåbarheten räknas ut en gång per karta | Klar | Den största vinsten, och den ändrar inget i spelet |
+
+**Vad som gjordes**
+
+- **Regioner** (`reachableTiles` i `astar.ts`): en öppen ruta når precis
+  de rutor som ligger i samma region. En kartas regioner räknas ut första
+  gången någon frågar, och svaret delas av alla som frågar från samma
+  region. Från en ruta som inte är öppen söks det som förut. **Ändrar
+  inget i spelet**: testet jämför med den gamla sökningen från varje ruta
+  på sex kartor.
+- **Sikten** (`updateVisibility`): varje sidas sikt ritas först in i en
+  lista av märken, en rad rutor i taget, och skrivs sedan in i vad sidan
+  vet. 2,7 ms blev 0,3. **Ändrar inget i spelet**: testet jämför med det
+  gamla sättet genom tre hela matcher.
+- **Högst 40 sökningar per steg** (`seekPaths`,
+  `COMBAT_CONFIG.searchesPerStep`): enheter som vill söka väg till sitt
+  mål samlas under steget och får söka i turordning, de som väntat längst
+  först. Resten väntar till nästa steg med den väg de har. **Ändrar
+  spelet**: en enhet kan få sin väg upp till ett par steg senare, och
+  med fler än 400 som jagar samtidigt mer sällan än två gånger i
+  sekunden.
+- **Behåll vägen** (`isDueToSeek`, `AttackTask.aim`): en enhet på väg
+  mot ett mål som står kvar på samma ruta, utan något nytt i vägen,
+  söker inte om. **Ändrar spelet**: enheten väljer inte längre en ny
+  plats vid målet varje halvsekund, utan först när den kommer fram och
+  platsen är tagen.
+
+**Vad mätningen betyder för en långsammare enhet**
+
+Jag har fortfarande inget mått på hur mycket långsammare en telefon
+eller en Raspberry Pi är. Räknat på en enhet som är fyra respektive
+åtta gånger långsammare än testmaskinen, med 400 enheter:
+
+| Läge | 4 gånger långsammare | 8 gånger långsammare |
+|---|---|---|
+| Stillastående | 3 ms (5 % av budgeten) | 5 ms (11 %) |
+| Samlande | 6 ms (12 %) | 12 ms (25 %) |
+| Strid på mitten | 13 ms (25 %), längst 40 | 25 ms (51 %), längst 80 |
+| Värsta fallet, jakten | 25 ms (49 %), längst 57 | 49 ms (98 %), längst 115 |
+
+Det är en uträkning, inte en mätning. Ritningen tillkommer.
+
+**Saknas eller avviker**
+
+- **P4 är inte gjord.** Kartans hinder kostar 0,09 ms att räkna ut. En
+  order kostar fortfarande omkring 0,5 ms extra, eftersom varje order
+  räknar ut sina egna hinder och regioner: en samlarorder för fyra tar
+  1,1 ms (förut 3,3). En människa ger några order i sekunden, så det
+  märks inte; hundra order i samma steg tar 93 ms.
+- **En förflyttningsorder för 200 enheter tar fortfarande 21 ms.** Den
+  söker en väg per enhet i samma steg. Det är åtgärd P7 i planen
+  (gruppförflyttning), som inte ingick. På en fyra gånger långsammare
+  enhet blir det ett hack på 85 ms när ordern utförs.
+- **Matcherna går annorlunda än före fasen**, eftersom två av
+  åtgärderna ändrar när en enhet söker väg. Mätt i matcher
+  utan webbläsare, samma frön före och efter:
+
+  | Matcher | Före | Efter |
+  |---|---|---|
+  | Medel mot Medel, tolv frön: sida 0 vinner | 7 av 12 | 5 av 12 |
+  | ... matchens längd, medel | 18,0 min | 17,7 min |
+  | ... kortast och längst | 13,7 och 24,3 min | 13,2 och 26,2 min |
+  | ... avgjorda inom 20 minuter | 8 av 12 | 10 av 12 |
+  | Medel mot Nybörjare, fyra frön från båda sidor: Medel vinner | 8 av 8 | 8 av 8 |
+  | Proffs mot Medel, fyra frön från båda sidor: Proffs vinner | 7 av 8 | 8 av 8 |
+  | Medel anfaller en sida som aldrig anfaller, frö 1: vågornas storlek | 4 till 20 på 36 min | 4 till 21 på 36 min |
+  | ... frö 2: anfallaren vinner efter | 34,9 min | 22,6 min |
+
+  Vinnaren är en annan i fyra av de tolv matcherna mellan två
+  Medel. **En av dem (frö 4) tar nu 26,2 minuter**, längre än de 10–25
+  som användaren godkände för balanstestet. Testet spelar frö 1–3 och
+  går igenom oförändrat; kommentaren i det sa "alla inom 25" och är
+  rättad. Nivåerna står i samma ordning som förut.
+- **Fler än 400 som jagar samtidigt får vänta.** Med 500 får var enhet
+  sin tur var trettonde steg i stället för var tionde.
+- **Sökningarna görs sist i stridssteget**, inte när enheten står på tur
+  i listan. Det påverkar vilka platser som är lediga när en enhet väljer.
+- **En enhet på väg mot en byggnad eller en stillastående fiende byter
+  inte plats under vägen** om någon annan hinner före till platsen. Den
+  söker om när den kommer fram.
+- **Stridens egna kostnader är kvar.** Av ett stridssteg går ungefär
+  hälften till att varje enhet letar upp sitt mål i listan över alla och
+  ser efter om någon annan står på dess ruta. Det är åtgärderna P5 och
+  P6 i planen, som skulle göras bara om mätningen visar att det behövs.
+- **Nåbarheten räknas ut en gång per karta, och en karta lever ett steg
+  eller en order.** Den sparas inte mellan steg.
+- **Regionerna sparas på kartan över hindren** (`PathGrid.regions`). Den
+  som ändrar en sådan karta efter att ha frågat måste ta bort dem. Ingen
+  kod gör det i dag; kommentaren säger det.
+
+**Inte kontrollerat**
+
+- **Stegtiden på en telefon och på en Raspberry Pi.** Det är fortfarande
+  användarens mätning med `?stress=400` som avgör om det räcker.
+- **Ritningens kostnad** med 400 enheter på en riktig enhet.
+- **Hur ändringarna känns att spela mot.** Soldater som får sin väg ett
+  par steg senare och som inte byter plats under vägen är prövade i
+  tester, inte av en människa.
+
+**Testresultat**
+
+- Vitest: 990 av 990 (47 filer)
+- Playwright: 190 av 190 i Chromium (5,9 min), och 190 av 190 med åtta
+  gånger långsammare processor (20,9 min). Firefox och WebKit körs i CI
+- Lint och typkontroll utan anmärkning. Inga konsolfel.
+- Längre körning för hand efter ändringen, eftersom matcherna går
+  annorlunda: determinismtestet med sex frön och 30 minuter per match
+  (tolv matcher, över 365 000 steg, samma kontrollsumma i varje steg
+  båda gångerna), och lockstep-testerna med åtta frön i stället för två
+  (39 av 39).
+
+**CI bröts två gånger, av en orsak utanför ändringen**
+
+Jobbet avbröts vid sin gräns på 30 minuter, också när det kördes om.
+Steget som installerar webbläsarna hämtade omkring 190 systempaket från
+Ubuntus paketspegel, som då lämnade några kilobyte i sekunden: steget
+tog 24 respektive över 26 minuter mot ungefär en i vanliga fall. Lint,
+enhetstesterna och bygget gick igenom båda gångerna. På användarens
+besked kör jobbet nu i Playwrights egen avbild, där webbläsarna och
+paketen redan finns, så att CI inte beror på spegeln. Avbildens version
+står i `ci.yml` och måste ändras tillsammans med `@playwright/test`.
+
+**Nya tester**
+
+- `astar.test.ts` (3): nåbarheten är densamma som den gamla sökningen
+  från varje ruta, öppen eller inte; regionerna räknas ut en gång; en
+  ruta som inte är öppen.
+- `visibility.test.ts` (2): sikten är densamma, ruta för ruta, som det
+  gamla sättet genom tre matcher; en cirkel i öppen terräng.
+- `combat.test.ts` (6): högst 40 sökningar per steg; färre än 40 söker
+  alla i samma steg; med 500 har alla sökt i det trettonde steget och
+  ingen väntar längre; vägen behålls mot ett stillastående mål; ny väg
+  när målet flyttar sig; ny väg när något ställs i vägen.
+
+**Äldre tester som ändrades, och varför**
+
+- **Inget test ändrades för att gå igenom.** Balanstesterna,
+  determinismtesterna och lockstep-testerna går igenom som de var.
+- **`balance.test.ts`:** bara kommentaren. Den sa att alla tolv frön
+  avgörs inom 25 minuter; nu är det tio inom 20, ett på 25 och ett på
+  26. Testets frön och gränser är desamma.
+
+**Beslut och lärdomar**
+
+- **Profilera innan planen följs.** Planen räknade upp fyra åtgärder
+  efter vad som såg dyrt ut i mätningen per system. Profileringen visade
+  en femte, som gav mest och inte ändrar spelet, och att en av de fyra
+  inte var värd att göra.
+- **Ett test hittade en följd jag inte hade tänkt på.** När en soldat
+  slutade söka om mot ett stillastående mål märkte den inte heller att
+  målet hade murats in. Planen sa "och vägen fortfarande är fri"; jag
+  hade hoppat över den delen.
+- **Ett tak utan turordning svälter ut någon.** Med fler än 400 enheter
+  och ett tak på 40 i listans ordning hade de sista aldrig fått söka.
+  Därför går de som väntat längst först.
 
 ### Multiplayer, fas M2: kontrollsummor som upptäcker att spelen glider isär (2026-11-17)
 
