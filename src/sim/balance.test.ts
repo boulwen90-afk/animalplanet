@@ -35,8 +35,9 @@ describe('balance', () => {
     // which the user has said is as it should be. A match is also sensitive
     // to the last digit of a distance: when the simulation's arithmetic was
     // made the same for all browsers (2026-11-17), seed 3 went from 18.6 to
-    // 20.2 minutes. Of twelve seeds, eight are decided within 20 minutes
-    // and all within 25.
+    // 20.2 minutes. Since units look for paths in turn (2026-11-18), ten of
+    // twelve seeds are decided within 20 minutes, one takes 25 and one
+    // (seed 4) takes 26. The three played here are within 25.
     for (const seed of SEEDS) {
       const state = createGame(seed, undefined, undefined, { ai: [0, 1] });
       advance(state, 25 * MINUTE);

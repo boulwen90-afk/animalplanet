@@ -373,7 +373,7 @@ valet blir slutgiltigt. Planen genomförs en fas i taget.
 | M0 | Samma resultat i alla webbläsare | Klar 2026-11-17, se `progress.md` |
 | M1 | Orderkö och turer, utan nätverk | Klar 2026-11-17, se `progress.md` |
 | M2 | Kontrollsummor som upptäcker att spelen glider isär | Klar 2026-11-17, se `progress.md` |
-| P | Prestanda med 400 enheter (P1–P4), efter användarens mätning | Inte påbörjad |
+| P | Prestanda med 400 enheter (P1–P4) | Klar 2026-11-18, utan användarens mätning; P4 inte gjord. Se nedan och `progress.md` |
 | M3 | Förbindelse och lobby med rumskod | Inte påbörjad |
 | M4 | Väntan, paus, återanslutning och vinst när någon försvinner | Inte påbörjad |
 | M5 | Avslutning | Inte påbörjad |
@@ -414,7 +414,8 @@ multiplayer").
   mat"). Med en kö kommer svaret senare.
 - Vilken sida som är "jag" är hårdkodad till sida 0 i `GameScene`.
 - Prestandan i värsta fall: när 400 enheter söker ny väg i samma steg
-  tar steget 163 ms på testmaskinen, mot en budget på 50 ms.
+  tar steget 163 ms på testmaskinen, mot en budget på 50 ms. (Åtgärdat i
+  prestandafasen: längst 14 ms under jakten.)
 
 ### Förbindelsen: två alternativ
 
@@ -619,6 +620,28 @@ Förslag: P1–P4 görs som en egen fas mellan M1 och M3, efter att
 användaren har mätt med `?stress=400` på telefon och Raspberry Pi.
 Tillsammans ungefär ett arbetspass. P5–P7 bara om mätningen visar att
 det behövs.
+
+**Genomfört 2026-11-18.** Användaren beställde fasen utan att vänta på
+mätningen ("Merge och 2 enligt rekommendation"). Profileringen visade
+något planen inte hade räknat med: av en vägsökning till ett mål gick
+fyra femtedelar åt till att söka igenom hela kartan efter vad enheten
+kan nå, inte till själva vägen.
+
+| | Vad som gjordes | Uppmätt, 400 enheter |
+|---|---|---|
+| Ny | Nåbarheten räknas ut som regioner, en gång per rutnät. Ändrar inget i spelet | En sökning från 0,41 till 0,09 ms |
+| P1 | Högst 40 sökningar per steg, de som väntat längst först. Ingen förskjutning efter id; taket sprider ut dem | Längsta steget under jakt från 232 till 14 ms |
+| P2 | Som planen: vägen behålls när målet står kvar och vägen går att gå | Medelsteget under jakt från 21 till 6 ms |
+| P3 | Gjord på annat sätt: sikten räknas om varje steg, men en rad i taget. Ändrar inget i spelet | Stillastående från 2,2 till 0,7 ms |
+| P4 | **Inte gjord.** Hindren kostar 0,09 ms att räkna ut; det dyra per order var nåbarheten | Hundra order i ett steg från 253 till 93 ms ändå |
+| P5–P7 | Inte gjorda, som planerat | En förflyttningsorder för 200 enheter tar fortfarande 21 ms (P7) |
+
+Siffrorna före är mätta om samma dag och på samma maskin som siffrorna
+efter, och är högre än i tabellen ovan. Om det räcker på en telefon och
+en Raspberry Pi avgör fortfarande användarens mätning. Visar den att
+striden är för dyr är P5 och P6 nästa steg: hälften av ett stridssteg
+går nu åt till att varje enhet letar upp sitt mål bland alla och ser
+efter om någon står på dess ruta.
 
 ### Inte kontrollerat
 
